@@ -1,10 +1,5 @@
 package com.sysnote8.bquclaim.api.database;
 
-import com.sysnote8.bquclaim.api.BQCLog;
-import net.minecraft.nbt.CompressedStreamTools;
-import net.minecraft.nbt.NBTTagCompound;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -13,7 +8,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTTagCompound;
+
+import org.jetbrains.annotations.NotNull;
+
+import com.sysnote8.bquclaim.api.BQCLog;
+
 public class NBTDataStorage {
+
     private static final String fileSuffix = ".dat";
     private final File targetFile;
     private NBTTagCompound compound;
@@ -85,4 +88,3 @@ public class NBTDataStorage {
         }
     }
 }
-

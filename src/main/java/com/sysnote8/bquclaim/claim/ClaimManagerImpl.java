@@ -1,12 +1,13 @@
 package com.sysnote8.bquclaim.claim;
 
-import com.sysnote8.bquclaim.api.chunk.ChunkData;
-import com.sysnote8.bquclaim.api.claim.ClaimManager;
-
 import java.util.Collections;
 import java.util.List;
 
+import com.sysnote8.bquclaim.api.chunk.ChunkData;
+import com.sysnote8.bquclaim.api.claim.ClaimManager;
+
 public class ClaimManagerImpl implements ClaimManager {
+
     // Todo: handle party join/leave
     @Override
     public boolean addClaim(ChunkData chunkData, int partyId) {

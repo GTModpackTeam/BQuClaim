@@ -1,13 +1,5 @@
 package com.sysnote8.bquclaim.api.claim;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-import com.sysnote8.bquclaim.api.chunk.ChunkData;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -22,10 +14,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import com.sysnote8.bquclaim.api.chunk.ChunkData;
+
 public class ClaimMap {
+
     private static final Logger logger = LogManager.getLogger(ClaimMap.class);
     private static final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
-    private static final Type mapType = new TypeToken<Map<Integer, ArrayList<ChunkData>>>(){}.getType();
+    private static final Type mapType = new TypeToken<Map<Integer, ArrayList<ChunkData>>>() {}.getType();
     protected ConcurrentHashMap<Integer, ArrayList<ChunkData>> claimMapByParty = new ConcurrentHashMap<>();
     protected final ConcurrentHashMap<ChunkData, Integer> claimMapByChunkData = new ConcurrentHashMap<>();
 
@@ -37,13 +39,14 @@ public class ClaimMap {
     }
 
     protected void load() {
-        if(!claimJsonFile.exists()) {
+        if (!claimJsonFile.exists()) {
             logger.warn("Claim data wasn't found. Load default one.");
             return;
         }
 
         logger.info("Loading claim data...");
-        try(Reader reader = new BufferedReader(new InputStreamReader(Files.newInputStream(claimJsonFile.toPath()), StandardCharsets.UTF_8))) {
+        try (Reader reader = new BufferedReader(
+                new InputStreamReader(Files.newInputStream(claimJsonFile.toPath()), StandardCharsets.UTF_8))) {
             claimMapByParty = new ConcurrentHashMap<>(gson.fromJson(reader, mapType));
         } catch (IOException e) {
             logger.error("Failed to load json.", e);
@@ -62,7 +65,8 @@ public class ClaimMap {
 
     protected void save() {
         logger.info("Writing claim data...");
-        try(OutputStreamWriter writer = new OutputStreamWriter(Files.newOutputStream(claimJsonFile.toPath()), StandardCharsets.UTF_8)) {
+        try (OutputStreamWriter writer = new OutputStreamWriter(Files.newOutputStream(claimJsonFile.toPath()),
+                StandardCharsets.UTF_8)) {
             gson.toJson(claimMapByParty, writer);
         } catch (Exception e) {
             logger.error("Failed to write json.", e);
@@ -74,10 +78,10 @@ public class ClaimMap {
 
     public boolean setClaim(ChunkData chunkData, int partyId) {
         Integer oldPartyId = claimMapByChunkData.get(chunkData);
-        if(oldPartyId != null) return false; // If already claimed, this action will be canceled.
+        if (oldPartyId != null) return false; // If already claimed, this action will be canceled.
         claimMapByChunkData.put(chunkData, partyId);
         claimMapByParty.compute(partyId, (id, data) -> {
-            if(data == null) {
+            if (data == null) {
                 ArrayList<ChunkData> claims = new ArrayList<>();
                 claims.add(chunkData);
                 return claims;
@@ -91,12 +95,12 @@ public class ClaimMap {
 
     public boolean removeClaim(ChunkData chunkData) {
         Integer oldPartyId = claimMapByChunkData.get(chunkData);
-        if(oldPartyId == null) return false; // If not claimed yet, this action will be canceled.
+        if (oldPartyId == null) return false; // If not claimed yet, this action will be canceled.
         claimMapByChunkData.remove(chunkData);
         claimMapByParty.compute(oldPartyId, (id, data) -> {
-            if(data == null) return null;
+            if (data == null) return null;
             data.remove(chunkData);
-            return data.isEmpty() ? null: data;
+            return data.isEmpty() ? null : data;
         });
         return true;
     }

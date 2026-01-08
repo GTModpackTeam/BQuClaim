@@ -1,14 +1,15 @@
 package com.sysnote8.bquclaim.api.chunk;
 
+import java.util.Optional;
+
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.chunk.Chunk;
-
-import java.util.Optional;
 
 /**
  * Because raw chunk data is too big for serialize to json.
  */
 public class ChunkData {
+
     public static final String TAG_DIM = "dim";
     public static final String TAG_CHUNK_X = "chunk_x";
     public static final String TAG_CHUNK_Z = "chunk_z";
@@ -41,7 +42,8 @@ public class ChunkData {
     public static Optional<ChunkData> fromNBT(NBTTagCompound compound) {
         if (!compound.hasKey(TAG_DIM) || !compound.hasKey(TAG_CHUNK_X) || !compound.hasKey(TAG_CHUNK_Z))
             return Optional.empty();
-        return Optional.of(new ChunkData(compound.getInteger(TAG_DIM), compound.getInteger(TAG_CHUNK_X), compound.getInteger(TAG_CHUNK_Z)));
+        return Optional.of(new ChunkData(compound.getInteger(TAG_DIM), compound.getInteger(TAG_CHUNK_X),
+                compound.getInteger(TAG_CHUNK_Z)));
     }
 
     @Override

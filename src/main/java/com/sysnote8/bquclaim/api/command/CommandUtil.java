@@ -5,6 +5,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
 public class CommandUtil {
+
     public static void sendMessage(ICommandSender sender, String... messages) {
         for (String msg : messages) {
             sender.sendMessage(new TextComponentString(msg));
