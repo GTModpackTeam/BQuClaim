@@ -1,14 +1,15 @@
 package com.sysnote8.bquclaim.gui;
 
-import net.minecraft.world.World;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import net.minecraft.world.World;
+
 public class AsyncMapRenderer {
+
     // スレッドプール（CPUのコア数に合わせて並列処理）
     private static final ExecutorService executor = Executors.newFixedThreadPool(2);
     // すでに計算済みのデータキャッシュ

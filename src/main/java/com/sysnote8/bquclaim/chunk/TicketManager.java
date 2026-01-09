@@ -1,17 +1,19 @@
 package com.sysnote8.bquclaim.chunk;
 
-import com.sysnote8.bquclaim.BQuClaim;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.ForgeChunkManager.LoadingCallback;
 import net.minecraftforge.common.ForgeChunkManager.Ticket;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.sysnote8.bquclaim.BQuClaim;
 
 public class TicketManager implements LoadingCallback {
+
     // ワールドごとのチケット管理 (キー: "dimID,x,z")
     private static final Map<String, Ticket> activeTickets = new HashMap<>();
 

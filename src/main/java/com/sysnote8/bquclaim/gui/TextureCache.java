@@ -1,13 +1,14 @@
 package com.sysnote8.bquclaim.gui;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.ResourceLocation;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class TextureCache {
+
     // チャンク座標文字列 "x,z" とテクスチャのペアを保持
     private static final Map<String, ChunkTexture> cache = new HashMap<>();
 
@@ -35,6 +36,7 @@ public class TextureCache {
 
     // 1つのチャンクのテクスチャ情報をまとめるインナークラス
     public static class ChunkTexture {
+
         public final DynamicTexture texture;
         public final ResourceLocation resourceLocation;
 

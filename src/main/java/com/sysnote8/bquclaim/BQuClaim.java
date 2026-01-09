@@ -1,10 +1,5 @@
 package com.sysnote8.bquclaim;
 
-import com.sysnote8.bquclaim.chunk.TicketManager;
-import com.sysnote8.bquclaim.gui.KeyInputHandler;
-import com.sysnote8.bquclaim.gui.ModKeyBindings;
-import com.sysnote8.bquclaim.hud.MinimapHUD;
-import com.sysnote8.bquclaim.network.ModNetwork;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
@@ -14,8 +9,15 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.sysnote8.bquclaim.chunk.TicketManager;
+import com.sysnote8.bquclaim.gui.KeyInputHandler;
+import com.sysnote8.bquclaim.gui.ModKeyBindings;
+import com.sysnote8.bquclaim.hud.MinimapHUD;
+import com.sysnote8.bquclaim.network.ModNetwork;
 
 @Mod(modid = Tags.MODID,
      version = Tags.VERSION,
@@ -23,6 +25,7 @@ import org.apache.logging.log4j.Logger;
      acceptedMinecraftVersions = "[1.12.2]",
      dependencies = "required-after:betterquesting;after:journeymap;")
 public class BQuClaim {
+
     public static BQuClaim INSTANCE;
     public static final Logger LOGGER = LogManager.getLogger(Tags.MODID);
 

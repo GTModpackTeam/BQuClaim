@@ -3,6 +3,7 @@ package com.sysnote8.bquclaim.chunk;
 import java.util.UUID;
 
 public class ClaimedChunkData {
+
     public final int x, z;
     public final UUID ownerUUID;
     public final String ownerName;

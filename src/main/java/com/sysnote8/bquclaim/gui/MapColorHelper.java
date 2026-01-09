@@ -5,6 +5,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class MapColorHelper {
+
     public static int getBlockColor(World world, int x, int z) {
         // その座標の最高地点を取得（空気以外の最上部）
         BlockPos pos = world.getTopSolidOrLiquidBlock(new BlockPos(x, 0, z));

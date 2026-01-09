@@ -1,14 +1,16 @@
 package com.sysnote8.bquclaim.network;
 
-import com.sysnote8.bquclaim.chunk.ClientCache;
-import io.netty.buffer.ByteBuf;
+import java.util.UUID;
+
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-import java.util.UUID;
+import com.sysnote8.bquclaim.chunk.ClientCache;
+
+import io.netty.buffer.ByteBuf;
 
 public class MessageSyncClaims implements IMessage {
 

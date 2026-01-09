@@ -25,6 +25,7 @@ public class ModConfig {
     // ゲーム内の設定画面から変更した際、即座に反映させるための処理
     @Mod.EventBusSubscriber(modid = Tags.MODID)
     private static class EventHandler {
+
         @SubscribeEvent
         public static void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent event) {
             if (event.getModID().equals(Tags.MODID)) {

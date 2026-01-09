@@ -1,15 +1,17 @@
 package com.sysnote8.bquclaim.network;
 
-import com.sysnote8.bquclaim.chunk.ChunkManagerData;
-import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
-import com.sysnote8.bquclaim.chunk.TicketManager;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+
+import com.sysnote8.bquclaim.chunk.ChunkManagerData;
+import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
+import com.sysnote8.bquclaim.chunk.TicketManager;
+
+import io.netty.buffer.ByteBuf;
 
 public class MessageClaimChunk implements IMessage {
 

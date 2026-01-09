@@ -1,15 +1,15 @@
 package com.sysnote8.bquclaim.chunk;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.MapStorage;
 import net.minecraft.world.storage.WorldSavedData;
 import net.minecraftforge.common.util.Constants;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 public class ChunkManagerData extends WorldSavedData {
 

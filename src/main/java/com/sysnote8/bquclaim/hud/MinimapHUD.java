@@ -1,17 +1,19 @@
 package com.sysnote8.bquclaim.hud;
 
-import com.sysnote8.bquclaim.ModConfig;
-import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
-import com.sysnote8.bquclaim.chunk.ClientCache;
-import com.sysnote8.bquclaim.gui.AsyncMapRenderer;
-import com.sysnote8.bquclaim.gui.TextureCache;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import com.sysnote8.bquclaim.ModConfig;
+import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
+import com.sysnote8.bquclaim.chunk.ClientCache;
+import com.sysnote8.bquclaim.gui.AsyncMapRenderer;
+import com.sysnote8.bquclaim.gui.TextureCache;
+
 public class MinimapHUD {
+
     private final Minecraft mc = Minecraft.getMinecraft();
     private final int mapSize = 128; // ミニマップのサイズ(px)
     private final int zoomSize = 8;  // 1チャンクを何ピクセルで描くか
@@ -101,9 +103,11 @@ public class MinimapHUD {
         int borderColor = 0xFFFFFFFF;
         // 上下左右を確認して1pxの線を引く
         if (!isSameOwner(rx, rz - 1, owner)) Gui.drawRect(dx, dy, dx + zoomSize, dy + 1, borderColor);
-        if (!isSameOwner(rx, rz + 1, owner)) Gui.drawRect(dx, dy + zoomSize - 1, dx + zoomSize, dy + zoomSize, borderColor);
+        if (!isSameOwner(rx, rz + 1, owner))
+            Gui.drawRect(dx, dy + zoomSize - 1, dx + zoomSize, dy + zoomSize, borderColor);
         if (!isSameOwner(rx - 1, rz, owner)) Gui.drawRect(dx, dy, dx + 1, dy + zoomSize, borderColor);
-        if (!isSameOwner(rx + 1, rz, owner)) Gui.drawRect(dx + zoomSize - 1, dy, dx + zoomSize, dy + zoomSize, borderColor);
+        if (!isSameOwner(rx + 1, rz, owner))
+            Gui.drawRect(dx + zoomSize - 1, dy, dx + zoomSize, dy + zoomSize, borderColor);
     }
 
     private boolean isSameOwner(int rx, int rz, java.util.UUID currentOwner) {

@@ -6,6 +6,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 
 public class ChunkMapTexture {
+
     private final DynamicTexture texture;
     private final ResourceLocation resourceLocation;
     private final int[] data;
@@ -13,7 +14,8 @@ public class ChunkMapTexture {
     public ChunkMapTexture() {
         this.texture = new DynamicTexture(16, 16);
         this.data = texture.getTextureData();
-        this.resourceLocation = Minecraft.getMinecraft().getTextureManager().getDynamicTextureLocation("chunk_map", texture);
+        this.resourceLocation = Minecraft.getMinecraft().getTextureManager().getDynamicTextureLocation("chunk_map",
+                texture);
     }
 
     public void generate(World world, int chunkX, int chunkZ) {

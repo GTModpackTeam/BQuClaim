@@ -1,12 +1,13 @@
 package com.sysnote8.bquclaim.network;
 
-import com.sysnote8.bquclaim.ModConfig;
-import com.sysnote8.bquclaim.Tags;
-import com.sysnote8.bquclaim.chunk.ChunkManagerData;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
+
+import com.sysnote8.bquclaim.ModConfig;
+import com.sysnote8.bquclaim.Tags;
+import com.sysnote8.bquclaim.chunk.ChunkManagerData;
 
 @Mod.EventBusSubscriber(modid = Tags.MODID)
 public class PlayerLoginHandler {
@@ -24,8 +25,7 @@ public class PlayerLoginHandler {
             // このパケットの中にConfig用のタグを追加して送れば完璧です。
             ModNetwork.INSTANCE.sendTo(new MessageSyncConfig(
                     ModConfig.maxClaimsPerPlayer,
-                    ModConfig.maxForceLoadsPerPlayer
-            ), player);
+                    ModConfig.maxForceLoadsPerPlayer), player);
         }
     }
 }

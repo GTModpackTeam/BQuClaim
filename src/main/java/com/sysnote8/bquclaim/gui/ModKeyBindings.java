@@ -2,6 +2,7 @@ package com.sysnote8.bquclaim.gui;
 
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
+
 import org.lwjgl.input.Keyboard;
 
 public class ModKeyBindings {

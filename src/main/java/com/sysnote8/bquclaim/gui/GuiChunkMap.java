@@ -1,11 +1,8 @@
 package com.sysnote8.bquclaim.gui;
 
-import com.sysnote8.bquclaim.BQPartyHelper;
-import com.sysnote8.bquclaim.ModConfig;
-import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
-import com.sysnote8.bquclaim.chunk.ClientCache;
-import com.sysnote8.bquclaim.network.MessageClaimChunk;
-import com.sysnote8.bquclaim.network.ModNetwork;
+import java.io.IOException;
+import java.util.UUID;
+
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -13,10 +10,15 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
+
 import org.lwjgl.opengl.GL11;
 
-import java.io.IOException;
-import java.util.UUID;
+import com.sysnote8.bquclaim.BQPartyHelper;
+import com.sysnote8.bquclaim.ModConfig;
+import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
+import com.sysnote8.bquclaim.chunk.ClientCache;
+import com.sysnote8.bquclaim.network.MessageClaimChunk;
+import com.sysnote8.bquclaim.network.ModNetwork;
 
 public class GuiChunkMap extends GuiScreen {
 
@@ -255,10 +257,10 @@ public class GuiChunkMap extends GuiScreen {
         GlStateManager.glLineWidth(1.0F); // 線の太さ
 
         // 色の分解 (ARGB)
-        float a = (float)(color >> 24 & 255) / 255.0F;
-        float r = (float)(color >> 16 & 255) / 255.0F;
-        float g = (float)(color >> 8 & 255) / 255.0F;
-        float b = (float)(color & 255) / 255.0F;
+        float a = (float) (color >> 24 & 255) / 255.0F;
+        float r = (float) (color >> 16 & 255) / 255.0F;
+        float g = (float) (color >> 8 & 255) / 255.0F;
+        float b = (float) (color & 255) / 255.0F;
         GlStateManager.color(r, g, b, a);
 
         Tessellator tessellator = Tessellator.getInstance();

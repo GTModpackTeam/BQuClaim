@@ -1,13 +1,16 @@
 package com.sysnote8.bquclaim.network;
 
-import com.sysnote8.bquclaim.ModConfig;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
+import com.sysnote8.bquclaim.ModConfig;
+
+import io.netty.buffer.ByteBuf;
+
 public class MessageSyncConfig implements IMessage {
+
     private int maxClaims;
     private int maxForce;
 
@@ -31,6 +34,7 @@ public class MessageSyncConfig implements IMessage {
     }
 
     public static class Handler implements IMessageHandler<MessageSyncConfig, IMessage> {
+
         @Override
         public IMessage onMessage(MessageSyncConfig message, MessageContext ctx) {
             // クライアント側のメモリ上の設定値をサーバーの値で上書き
