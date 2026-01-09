@@ -50,6 +50,16 @@ public class ClaimManager {
 
     /**
      * Check player permission in target chunk
+     * @param chunk target chunk
+     * @param playerUuid uuid of player
+     * @return is permitted for player
+     */
+    public boolean hasPermission(Chunk chunk, UUID playerUuid) {
+        return hasPermission(ChunkData.fromChunk(chunk), playerUuid);
+    }
+
+    /**
+     * Check player permission in target chunk
      * @param chunkData target chunk data
      * @param playerUuid uuid of player
      * @return is permitted for player
