@@ -1,5 +1,6 @@
 package com.sysnote8.bquclaim.hud;
 
+import com.sysnote8.bquclaim.ModConfig;
 import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
 import com.sysnote8.bquclaim.chunk.ClientCache;
 import com.sysnote8.bquclaim.gui.AsyncMapRenderer;
@@ -19,6 +20,9 @@ public class MinimapHUD {
     public void onRenderOverlay(RenderGameOverlayEvent.Post event) {
         // 文字などの描画が終わった後のタイミング(ALL)で描画
         if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
+
+        if (!ModConfig.showMinimap) return;
+
         // インベントリや他のGUIが開いているときは非表示
         if (mc.currentScreen != null) return;
 

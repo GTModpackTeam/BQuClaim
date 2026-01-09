@@ -19,6 +19,9 @@ public class ModConfig {
     @Config.RangeInt(min = 0, max = 100)
     public static int maxForceLoadsPerPlayer = 8;
 
+    @Config.Name("Show Minimap")
+    public static boolean showMinimap = true;
+
     // ゲーム内の設定画面から変更した際、即座に反映させるための処理
     @Mod.EventBusSubscriber(modid = Tags.MODID)
     private static class EventHandler {
