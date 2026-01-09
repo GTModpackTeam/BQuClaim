@@ -9,6 +9,8 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
 
+import java.io.IOException;
+
 public class GuiChunkMap extends GuiScreen {
 
     private final int size = 16; // 1チャンクの表示サイズ
@@ -75,23 +77,66 @@ public class GuiChunkMap extends GuiScreen {
         }
     }
 
-    @Override
-    protected void mouseClickMove(int mx, int my, int btn, long time) {
-        // ドラッグ中のチャンク座標計算
-        int rx = (mx - (width / 2)) / size + mc.player.chunkCoordX;
-        int rz = (my - (height / 2)) / size + mc.player.chunkCoordZ;
+    // GUIクラス内の変数
+    private int lastDragX = Integer.MIN_VALUE;
+    private int lastDragZ = Integer.MIN_VALUE;
 
-        if (rx != lastX || rz != lastZ) {
-            // 左ドラッグ(0)でClaim, 右ドラッグ(1)でUnclaim
-            ModNetwork.INSTANCE.sendToServer(new MessageClaimChunk(rx, rz, btn == 0 ? 0 : 1));
-            lastX = rx;
-            lastZ = rz;
+    /**
+     * 普通のシングルクリックを処理
+     */
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+
+        // クリックした瞬間の座標で一度処理を実行
+        handleAction(mouseX, mouseY, mouseButton);
+    }
+
+    /**
+     * ドラッグ（クリックしたまま移動）を処理
+     */
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
+        super.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick);
+
+        // ドラッグ中も同じメソッドを呼ぶ
+        handleAction(mouseX, mouseY, clickedMouseButton);
+    }
+
+    /**
+     * 実際の Claim/Unclaim パケット送信処理を一本化
+     */
+    private void handleAction(int mouseX, int mouseY, int mouseButton) {
+        // 画面中央からの相対座標でチャンクを計算
+        int rx = (mouseX - (this.width / 2)) / size + mc.player.chunkCoordX;
+        int rz = (mouseY - (this.height / 2)) / size + mc.player.chunkCoordZ;
+
+        // 前回の処理と同じチャンクなら通信をスキップ（ドラッグの重複防止）
+        if (rx == lastDragX && rz == lastDragZ) {
+            return;
+        }
+
+        // 左クリック(0)でClaim、右クリック(1)でUnclaim
+        if (mouseButton == 0 || mouseButton == 1) {
+            int mode = (mouseButton == 0) ? 0 : 1;
+            ModNetwork.INSTANCE.sendToServer(new MessageClaimChunk(rx, rz, mode));
+
+            // 最後に処理した座標を保存
+            lastDragX = rx;
+            lastDragZ = rz;
+
+            // クリック音を鳴らすと操作感が良くなる
+            mc.player.playSound(net.minecraft.init.SoundEvents.UI_BUTTON_CLICK, 0.3F, 1.0F);
         }
     }
 
+    /**
+     * マウスを離したときにリセット（次に同じ場所をクリックしても反応するように）
+     */
     @Override
-    protected void mouseReleased(int mx, int my, int state) {
-        lastX = Integer.MIN_VALUE;
-        lastZ = Integer.MIN_VALUE;
+    protected void mouseReleased(int mouseX, int mouseY, int state) {
+        super.mouseReleased(mouseX, mouseY, state);
+        lastDragX = Integer.MIN_VALUE;
+        lastDragZ = Integer.MIN_VALUE;
     }
 }
