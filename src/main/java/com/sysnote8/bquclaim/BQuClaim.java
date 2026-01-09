@@ -3,6 +3,7 @@ package com.sysnote8.bquclaim;
 import com.sysnote8.bquclaim.chunk.TicketManager;
 import com.sysnote8.bquclaim.gui.KeyInputHandler;
 import com.sysnote8.bquclaim.gui.ModKeyBindings;
+import com.sysnote8.bquclaim.hud.MinimapHUD;
 import com.sysnote8.bquclaim.network.ModNetwork;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.MinecraftForge;
@@ -31,6 +32,7 @@ public class BQuClaim {
         INSTANCE = this;
         // register to the event bus so that we can listen to events
         MinecraftForge.EVENT_BUS.register(this);
+        MinecraftForge.EVENT_BUS.register(new MinimapHUD());
         LOGGER.info("I am " + Tags.MODNAME + " + at version " + Tags.VERSION);
         ModNetwork.init();
         ForgeChunkManager.setForcedChunkLoadingCallback(INSTANCE, new TicketManager());
