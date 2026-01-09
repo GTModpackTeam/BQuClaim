@@ -1,5 +1,6 @@
 package com.sysnote8.bquclaim.network;
 
+import com.sysnote8.bquclaim.ModConfig;
 import com.sysnote8.bquclaim.Tags;
 import com.sysnote8.bquclaim.chunk.ChunkManagerData;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -21,6 +22,10 @@ public class PlayerLoginHandler {
 
             // ついでにConfigの最大値なども同期したい場合は、別のパケットや
             // このパケットの中にConfig用のタグを追加して送れば完璧です。
+            ModNetwork.INSTANCE.sendTo(new MessageSyncConfig(
+                    ModConfig.maxClaimsPerPlayer,
+                    ModConfig.maxForceLoadsPerPlayer
+            ), player);
         }
     }
 }
