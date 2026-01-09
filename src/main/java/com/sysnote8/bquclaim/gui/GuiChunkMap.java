@@ -8,6 +8,7 @@ import com.sysnote8.bquclaim.network.ModNetwork;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.ResourceLocation;
 
 import java.io.IOException;
 
@@ -49,6 +50,7 @@ public class GuiChunkMap extends GuiScreen {
                 renderClaimOverlay(rx, rz, dx, dy);
             }
         }
+        drawPlayerIcon();
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
@@ -80,6 +82,36 @@ public class GuiChunkMap extends GuiScreen {
                 drawRect(dx + 5, dy + 5, dx + 11, dy + 11, 0xFFFF0000); // 中央に赤いポッチ
             }
         }
+    }
+
+    private void drawPlayerIcon() {
+        // プレイヤーの向き（yaw）を取得
+        float yaw = mc.player.rotationYaw;
+
+        // map_icons.png をバインド
+        mc.getTextureManager().bindTexture(new ResourceLocation("textures/map/map_icons.png"));
+
+        GlStateManager.pushMatrix();
+
+        // 1. 画面中央に移動
+        GlStateManager.translate((float) this.width / 2, (float) this.height / 2, 0);
+        // 2. プレイヤーの向きに合わせて回転
+        GlStateManager.rotate(yaw, 0, 0, 1);
+        // 3. アイコンのサイズ（例: 8x8）に合わせて少し戻す（中心を軸にするため）
+        GlStateManager.translate(-4, -4, 0);
+
+        // チャンク内の0〜15の相対位置を計算してピクセルに変換
+        float relativeX = (float) (mc.player.posX % 16);
+        float relativeZ = (float) (mc.player.posZ % 16);
+
+        // 負の座標対策
+        if (relativeX < 0) relativeX += 16;
+        if (relativeZ < 0) relativeZ += 16;
+        // テクスチャのUV座標を指定して描画（プレイヤーの矢印は一番左上 0,0）
+        // drawModalRectWithCustomSizedTexture(x, y, u, v, width, height, textureWidth, textureHeight)
+        Gui.drawModalRectWithCustomSizedTexture((int) relativeX, (int) relativeZ, 0, 0, 8, 8, 32, 32);
+
+        GlStateManager.popMatrix();
     }
 
     // GUIクラス内の変数
