@@ -1,12 +1,13 @@
 package com.sysnote8.bquclaim.gui;
 
-import net.minecraft.client.gui.GuiScreen;
-
 import com.sysnote8.bquclaim.BQPartyHelper;
 import com.sysnote8.bquclaim.chunk.ClaimedChunkData;
 import com.sysnote8.bquclaim.chunk.ClientCache;
 import com.sysnote8.bquclaim.network.MessageClaimChunk;
 import com.sysnote8.bquclaim.network.ModNetwork;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.renderer.GlStateManager;
 
 public class GuiChunkMap extends GuiScreen {
 
@@ -22,30 +23,56 @@ public class GuiChunkMap extends GuiScreen {
         // 半径10チャンク分を描画
         for (int x = -10; x <= 10; x++) {
             for (int z = -10; z <= 10; z++) {
-                int rx = pX + x, rz = pZ + z;
-                int dx = cx + (x * size), dy = cy + (z * size);
+                int rx = pX + x;
+                int rz = pZ + z;
+                int dx = cx + (x * size);
+                int dy = cy + (z * size);
 
-                // グリッド線
-                drawRect(dx, dy, dx + size, dy + size, 0x22FFFFFF);
+                int[] colors = AsyncMapRenderer.getColors(rx, rz);
 
-                // 領地データ確認
-                ClaimedChunkData d = ClientCache.get(rx, rz);
-                if (d != null) {
-                    int color = 0x88FF0000; // デフォルト：赤（他人）
-                    if (d.ownerUUID.equals(mc.player.getUniqueID())) color = 0x8800FF00; // 自分：緑
-                    else if (BQPartyHelper.areInSameParty(mc.player.getUniqueID(), d.ownerUUID)) color = 0x8800FFFF; // BQ仲間：水色
-
-                    drawRect(dx + 1, dy + 1, dx + size - 1, dy + size - 1, color);
+                if (colors != null) {
+                    GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                    // データがあればテクスチャをバインドして描画
+                    TextureCache.ChunkTexture tex = TextureCache.getOrCreate(rx, rz, colors);
+                    tex.bind();
+                    Gui.drawModalRectWithCustomSizedTexture(dx, dy, 0, 0, size, size, 16, 16);
+                } else {
+                    // データがなければ非同期計算をリクエスト
+                    AsyncMapRenderer.requestChunk(mc.world, rx, rz);
+                    // ロード中として暗い四角を描画
+                    drawRect(dx, dy, dx + size, dy + size, 0xFF222222);
                 }
 
-                // マウスホバー
-                if (mouseX >= dx && mouseX < dx + size && mouseY >= dy && mouseY < dy + size) {
-                    drawRect(dx, dy, dx + size, dy + size, 0x44FFFFFF);
-                    if (d != null) drawHoveringText(d.ownerName, mouseX, mouseY);
-                }
+                // その上に領地を重ねる
+                renderClaimOverlay(rx, rz, dx, dy);
             }
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private void renderClaimOverlay(int rx, int rz, int dx, int dy) {
+        // クライアント側のキャッシュから領地データを取得
+        ClaimedChunkData d = ClientCache.get(rx, rz);
+
+        if (d != null) {
+            int color;
+            // 自分の領地
+            if (d.ownerUUID.equals(mc.player.getUniqueID())) {
+                color = 0x5500FF00; // 半透明の緑
+            }
+            // BQのパーティー仲間
+            else if (BQPartyHelper.areInSameParty(mc.player.getUniqueID(), d.ownerUUID)) {
+                color = 0x5500FFFF; // 半透明の水色
+            }
+            // 他人の領地
+            else {
+                color = 0x55FF0000; // 半透明の赤
+            }
+
+            // 地形が見えるように、drawRectで半透明の四角を重ねる
+            // dx, dy は画面上の描画開始位置、size はチャンクの表示サイズ(16)
+            drawRect(dx, dy, dx + size, dy + size, color);
+        }
     }
 
     @Override
