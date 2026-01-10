@@ -1,9 +1,10 @@
 package com.sysnote8.bquclaim.network;
 
-import com.sysnote8.bquclaim.Tags;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.relauncher.Side;
+
+import com.sysnote8.bquclaim.Tags;
 
 public class ModNetwork {
 

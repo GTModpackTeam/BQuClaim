@@ -1,23 +1,27 @@
 package com.sysnote8.bquclaim.gui;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.ResourceLocation;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TextureCache {
 
     // チャンク座標文字列 "x,z" とテクスチャのペアを保持
     private static final Map<String, ChunkTexture> cache = new HashMap<>();
+    private static final Map<String, Integer> colorCache = new HashMap<>();
 
     public static ChunkTexture getOrCreate(int cx, int cz, int[] colors) {
         String key = cx + "," + cz;
-
-        if (cache.containsKey(key)) {
+        int oldHash = colorCache.getOrDefault(key, -1);
+        int newHash = Arrays.hashCode(colors);
+        if (oldHash == newHash && cache.containsKey(key)) {
             return cache.get(key);
         }
+        colorCache.put(key, newHash);
 
         // 新しいテクスチャを作成
         ChunkTexture newTex = new ChunkTexture(colors);
@@ -32,6 +36,7 @@ public class TextureCache {
             Minecraft.getMinecraft().getTextureManager().deleteTexture(tex.resourceLocation);
         }
         cache.clear();
+        colorCache.clear();
     }
 
     // 1つのチャンクのテクスチャ情報をまとめるインナークラス
