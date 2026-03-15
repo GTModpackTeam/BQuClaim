@@ -84,8 +84,10 @@ public class MessageClaimChunk implements IMessage {
                             player.sendMessage(new TextComponentString("You have reached the claim limit."));
                         } else {
                             data.setClaim(message.x, message.z, player.getUniqueID(), player.getName(), false);
-                            player.sendMessage(new TextComponentString("Chunk [" + message.x + ", " + message.z + "] claimed!"));
-                            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z, player.getUniqueID(), player.getName(), false));
+                            player.sendMessage(
+                                    new TextComponentString("Chunk [" + message.x + ", " + message.z + "] claimed!"));
+                            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z,
+                                    player.getUniqueID(), player.getName(), false));
                         }
                     }
                 } else if (message.mode == 1) { // Unclaim
@@ -99,7 +101,8 @@ public class MessageClaimChunk implements IMessage {
                             TicketManager.unforceChunk(player.world, message.x, message.z);
                         }
                         data.setClaim(message.x, message.z, null, "", false);
-                        player.sendMessage(new TextComponentString("Chunk [" + message.x + ", " + message.z + "] unclaimed!"));
+                        player.sendMessage(
+                                new TextComponentString("Chunk [" + message.x + ", " + message.z + "] unclaimed!"));
                         ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z, null, "", false));
                     }
                 } else if (message.mode == 2) { // Toggle Force / Claim+Force
@@ -112,8 +115,10 @@ public class MessageClaimChunk implements IMessage {
                         } else {
                             data.setClaim(message.x, message.z, player.getUniqueID(), player.getName(), true);
                             TicketManager.forceChunk(player.world, message.x, message.z, null);
-                            player.sendMessage(new TextComponentString("Chunk [" + message.x + ", " + message.z + "] claimed & force-loaded!"));
-                            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z, player.getUniqueID(), player.getName(), true));
+                            player.sendMessage(new TextComponentString(
+                                    "Chunk [" + message.x + ", " + message.z + "] claimed & force-loaded!"));
+                            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z,
+                                    player.getUniqueID(), player.getName(), true));
                         }
                     } else {
                         if (!existing.ownerUUID.equals(player.getUniqueID()) && !player.canUseCommand(2, "")) {
@@ -123,20 +128,23 @@ public class MessageClaimChunk implements IMessage {
                             boolean newState = !existing.isForceLoaded;
                             if (newState) { // enabling
                                 if (countMyForceLoads.get() >= com.sysnote8.bquclaim.ModConfig.maxForceLoadsPerPlayer) {
-                                    player.sendMessage(new TextComponentString("You have reached the force-load limit."));
+                                    player.sendMessage(
+                                            new TextComponentString("You have reached the force-load limit."));
                                 } else {
                                     existing.isForceLoaded = true;
                                     TicketManager.forceChunk(player.world, message.x, message.z, null);
                                     player.sendMessage(new TextComponentString("Force-load enabled."));
                                     data.markDirty();
-                                    ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z, existing.ownerUUID, existing.ownerName, true));
+                                    ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z,
+                                            existing.ownerUUID, existing.ownerName, true));
                                 }
                             } else { // disabling
                                 existing.isForceLoaded = false;
                                 TicketManager.unforceChunk(player.world, message.x, message.z);
                                 player.sendMessage(new TextComponentString("Force-load disabled."));
                                 data.markDirty();
-                                ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z, existing.ownerUUID, existing.ownerName, false));
+                                ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(message.x, message.z,
+                                        existing.ownerUUID, existing.ownerName, false));
                             }
                         }
                     }

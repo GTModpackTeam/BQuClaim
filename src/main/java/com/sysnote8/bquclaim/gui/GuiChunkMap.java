@@ -90,8 +90,8 @@ public class GuiChunkMap extends GuiScreen {
         for (Object o : this.buttonList) {
             if (o instanceof net.minecraft.client.gui.GuiButton) {
                 net.minecraft.client.gui.GuiButton b = (net.minecraft.client.gui.GuiButton) o;
-                if (b.visible && mouseX >= b.xPosition && mouseY >= b.yPosition
-                        && mouseX < b.xPosition + b.width && mouseY < b.yPosition + b.height) {
+                if (b.visible && mouseX >= b.xPosition && mouseY >= b.yPosition && mouseX < b.xPosition + b.width &&
+                        mouseY < b.yPosition + b.height) {
                     String tip;
                     if (b == btnClaim) {
                         tip = "Claim this chunk (Left-click). Shift+Click = Claim+Force";
@@ -118,7 +118,8 @@ public class GuiChunkMap extends GuiScreen {
         int y = this.height - 30;
         btnClaim = new net.minecraft.client.gui.GuiButton(1, startX, y, btnWidth, 20, "Claim");
         btnUnclaim = new net.minecraft.client.gui.GuiButton(2, startX + (btnWidth + gap), y, btnWidth, 20, "Unclaim");
-        btnToggleForce = new net.minecraft.client.gui.GuiButton(3, startX + (btnWidth + gap) * 2, y, btnWidth, 20, "Toggle Force");
+        btnToggleForce = new net.minecraft.client.gui.GuiButton(3, startX + (btnWidth + gap) * 2, y, btnWidth, 20,
+                "Toggle Force");
         this.buttonList.clear();
         this.buttonList.add(btnClaim);
         this.buttonList.add(btnUnclaim);
@@ -205,7 +206,8 @@ public class GuiChunkMap extends GuiScreen {
         boolean isOwner = (d != null && d.ownerUUID.equals(mc.player.getUniqueID()));
         btnClaim.enabled = (d == null) && (countMyClaims() < ModConfig.maxClaimsPerPlayer);
         btnUnclaim.enabled = isOwner;
-        btnToggleForce.enabled = isOwner || (d == null && countMyClaims() < ModConfig.maxClaimsPerPlayer && countMyForceLoads() < ModConfig.maxForceLoadsPerPlayer);
+        btnToggleForce.enabled = isOwner || (d == null && countMyClaims() < ModConfig.maxClaimsPerPlayer &&
+                countMyForceLoads() < ModConfig.maxForceLoadsPerPlayer);
         // Update button labels to reflect state
         if (d != null && d.isForceLoaded) {
             btnToggleForce.displayString = "Unforce";
@@ -333,7 +335,8 @@ public class GuiChunkMap extends GuiScreen {
         int textY = y + 8;
         this.fontRenderer.drawStringWithShadow(coords, textX, textY, 0xFFFFFF);
         this.fontRenderer.drawStringWithShadow("Owner: " + owner, textX, textY + 12, 0xFFFFFF);
-        this.fontRenderer.drawStringWithShadow(force, textX, textY + 24, (d != null && d.isForceLoaded) ? 0xFFAA0000 : 0xFFAAAAAA);
+        this.fontRenderer.drawStringWithShadow(force, textX, textY + 24,
+                (d != null && d.isForceLoaded) ? 0xFFAA0000 : 0xFFAAAAAA);
     }
 
     // GUIクラス内の変数

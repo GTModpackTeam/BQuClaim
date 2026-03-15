@@ -1,12 +1,12 @@
 package com.sysnote8.bquclaim.gui;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.util.ResourceLocation;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.util.ResourceLocation;
 
 public class TextureCache {
 
