@@ -90,8 +90,8 @@ public class GuiChunkMap extends GuiScreen {
         for (Object o : this.buttonList) {
             if (o instanceof net.minecraft.client.gui.GuiButton) {
                 net.minecraft.client.gui.GuiButton b = (net.minecraft.client.gui.GuiButton) o;
-                if (b.visible && mouseX >= b.xPosition && mouseY >= b.yPosition && mouseX < b.xPosition + b.width &&
-                        mouseY < b.yPosition + b.height) {
+                if (b.visible && mouseX >= b.x && mouseY >= b.y && mouseX < b.x + b.width &&
+                        mouseY < b.y + b.height) {
                     String tip;
                     if (b == btnClaim) {
                         tip = "Claim this chunk (Left-click). Shift+Click = Claim+Force";
@@ -181,7 +181,7 @@ public class GuiChunkMap extends GuiScreen {
         int noX = centerX + (gap / 2);
 
         confirmYes = new net.minecraft.client.gui.GuiButton(100, yesX, btnY, btnW, 20, "Yes");
-        confirmNo = new net.minecraft.client.gui.GuiButton(101, noX, btnW, 20, "No");
+        confirmNo = new net.minecraft.client.gui.GuiButton(101, noX, btnY, btnW, 20, "No");
         this.buttonList.add(confirmYes);
         this.buttonList.add(confirmNo);
         // Disable main buttons while confirming
