@@ -1,4 +1,4 @@
-package com.sysnote8.bquclaim.gui;
+package com.sysnote8.bquclaim.map;
 
 import java.util.Map;
 import java.util.Set;
@@ -41,5 +41,9 @@ public class AsyncMapRenderer {
 
     public static int[] getColors(int cx, int cz) {
         return colorCache.get(cx + "," + cz);
+    }
+
+    public static void clearCache() {
+        colorCache.clear();
     }
 }

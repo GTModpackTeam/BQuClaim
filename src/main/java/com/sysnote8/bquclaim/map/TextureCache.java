@@ -1,4 +1,4 @@
-package com.sysnote8.bquclaim.gui;
+package com.sysnote8.bquclaim.map;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -54,10 +54,6 @@ public class TextureCache {
             // 名前（ResourceLocation）を付けて管理
             this.resourceLocation = Minecraft.getMinecraft().getTextureManager()
                     .getDynamicTextureLocation("chunk_map_" + System.nanoTime(), texture);
-        }
-
-        public void bind() {
-            Minecraft.getMinecraft().getTextureManager().bindTexture(resourceLocation);
         }
     }
 }

@@ -8,6 +8,7 @@ import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import com.cleanroommc.modularui.factory.ClientGUI;
 import com.sysnote8.bquclaim.ModConfig;
 import com.sysnote8.bquclaim.Tags;
 
@@ -17,9 +18,8 @@ public class KeyInputHandler {
     @SubscribeEvent
     public void onKeyInput(InputEvent.KeyInputEvent event) {
         if (ModKeyBindings.keyOpenMap.isPressed()) {
-            // プレイヤーがGUIを開いていない時だけ開く
             if (Minecraft.getMinecraft().currentScreen == null) {
-                Minecraft.getMinecraft().displayGuiScreen(new GuiChunkMap());
+                ClientGUI.open(new ChunkMapScreen());
             }
         }
         if (ModKeyBindings.toggleMinimap.isPressed()) {

@@ -48,8 +48,6 @@ public class MessageSyncAllClaims implements IMessage {
                             tag.getUniqueId("owner"),
                             tag.getString("name"),
                             tag.getBoolean("force"));
-                    // 強制ロード状態も同期する場合はここに追加
-                    // ClientCache.setForceLoad(key, tag.getBoolean("force"));
                 }
             });
             return null;

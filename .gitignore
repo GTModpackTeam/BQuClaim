@@ -1,8 +1,9 @@
 .nopublish
 
-### Windows ###
+### OS ###
 
 thumbs.db
+.DS_Store
 *.db
 
 ### Java ###

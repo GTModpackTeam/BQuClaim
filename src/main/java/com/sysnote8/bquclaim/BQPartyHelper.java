@@ -17,7 +17,9 @@ public class BQPartyHelper {
                     return true;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            BQuClaim.LOGGER.debug("Failed to check party status", e);
+        }
         return false;
     }
 }
