@@ -1,19 +1,14 @@
 package com.github.gtexpert.bquclaim.gui;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GlStateManager;
 
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.GuiDraw;
 import com.cleanroommc.modularui.drawable.Stencil;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
-import com.cleanroommc.modularui.utils.Color;
-import com.cleanroommc.modularui.utils.Platform;
 import com.cleanroommc.modularui.widget.Widget;
 
-import com.github.gtexpert.bquclaim.chunk.ClaimedChunkData;
-import com.github.gtexpert.bquclaim.chunk.ClientCache;
 import com.github.gtexpert.bquclaim.map.AsyncMapRenderer;
 import com.github.gtexpert.bquclaim.map.ChunkMapRenderer;
 import com.github.gtexpert.bquclaim.network.MessageClaimChunk;
@@ -25,7 +20,6 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
     private static final int RADIUS = GRID / 2;
     private static final int GRID_LINE_COLOR = 0x30FFFFFF;
     private static final int BORDER_COLOR = 0xFFFFFFFF;
-    private static final int HATCHING_COLOR = 0xAAFF0000;
 
     private int selectedRX = Integer.MIN_VALUE;
     private int selectedRZ = Integer.MIN_VALUE;
@@ -71,39 +65,14 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
         Stencil.apply(ox, oy, mapPx, mapPx, context);
 
-        for (int x = -RADIUS; x <= RADIUS; x++) {
-            for (int z = -RADIUS; z <= RADIUS; z++) {
-                int rx = pX + x;
-                int rz = pZ + z;
-                int dx = ox + (x + RADIUS) * cs;
-                int dy = oy + (z + RADIUS) * cs;
+        ChunkMapRenderer.drawChunkGrid(ox, oy, cs, RADIUS, pX, pZ,
+                GRID_LINE_COLOR, mc.world, mc.player.getUniqueID(), true);
 
-                ChunkMapRenderer.drawChunkTerrain(rx, rz, dx, dy, cs, mc.world);
-                ChunkMapRenderer.drawClaimOverlay(rx, rz, dx, dy, cs, mc.player.getUniqueID());
+        GuiDraw.drawBorderOutsideXYWH(ox, oy, mapPx, mapPx, 1, BORDER_COLOR);
 
-                ClaimedChunkData d = ClientCache.get(rx, rz);
-                if (d != null && d.isForceLoaded) {
-                    drawHatching(dx, dy, cs, cs, HATCHING_COLOR);
-                }
-            }
-        }
-
-        drawGridLines(ox, oy, mapPx, cs);
-        drawBorder(ox, oy, mapPx);
         drawPlayerIcon(mc, ox, oy, cs);
 
         Stencil.remove();
-    }
-
-    private void drawGridLines(int ox, int oy, int mapPx, int cs) {
-        for (int i = 1; i < GRID; i++) {
-            GuiDraw.drawRect(ox + i * cs, oy, 1, mapPx, GRID_LINE_COLOR);
-            GuiDraw.drawRect(ox, oy + i * cs, mapPx, 1, GRID_LINE_COLOR);
-        }
-    }
-
-    private void drawBorder(int ox, int oy, int mapPx) {
-        GuiDraw.drawBorderOutsideXYWH(ox, oy, mapPx, mapPx, 1, BORDER_COLOR);
     }
 
     private void drawPlayerIcon(Minecraft mc, int ox, int oy, int cs) {
@@ -167,21 +136,5 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
             lastDragZ = rz;
             Interactable.playButtonClickSound();
         }
-    }
-
-    private void drawHatching(int x, int y, int w, int h, int color) {
-        int spacing = 4;
-        GlStateManager.glLineWidth(1.0F);
-        Platform.setupDrawColor();
-        Platform.startDrawing(Platform.DrawMode.LINES, Platform.VertexFormat.POS_COLOR, buffer -> {
-            int r = Color.getRed(color);
-            int g = Color.getGreen(color);
-            int b = Color.getBlue(color);
-            int a = Color.getAlpha(color);
-            for (int i = 0; i <= w + h; i += spacing) {
-                buffer.pos(x + Math.max(0, i - h), y + Math.min(i, h), 0).color(r, g, b, a).endVertex();
-                buffer.pos(x + Math.min(i, w), y + Math.max(0, i - w), 0).color(r, g, b, a).endVertex();
-            }
-        });
     }
 }
