@@ -1,4 +1,4 @@
-package com.github.gtexpert.teamclaim;
+package com.github.gtexpert.teamclaim.common;
 
 import net.minecraftforge.common.config.Config;
 import net.minecraftforge.common.config.ConfigManager;
@@ -6,7 +6,11 @@ import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-@Config(modid = Tags.MODID, name = Tags.MODNAME)
+import com.github.gtexpert.teamclaim.Tags;
+
+@Config(modid = Tags.MODID,
+        name = Tags.MODID + "/" + Tags.MODNAME,
+        category = "TeamClaim Core")
 public class ModConfig {
 
     @Config.Name("Max Claims Per Player")

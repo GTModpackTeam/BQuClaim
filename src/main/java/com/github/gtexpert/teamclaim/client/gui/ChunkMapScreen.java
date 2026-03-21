@@ -2,6 +2,7 @@ package com.github.gtexpert.teamclaim.client.gui;
 
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 
 import net.minecraft.client.Minecraft;
 
@@ -16,10 +17,10 @@ import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.Dialog;
 import com.cleanroommc.modularui.widgets.TextWidget;
 
-import com.github.gtexpert.teamclaim.ModConfig;
 import com.github.gtexpert.teamclaim.Tags;
 import com.github.gtexpert.teamclaim.client.map.AsyncMapRenderer;
 import com.github.gtexpert.teamclaim.client.map.TextureCache;
+import com.github.gtexpert.teamclaim.common.ModConfig;
 import com.github.gtexpert.teamclaim.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.teamclaim.common.chunk.ClientCache;
 import com.github.gtexpert.teamclaim.common.network.MessageClaimChunk;
@@ -30,11 +31,11 @@ public class ChunkMapScreen extends CustomModularScreen {
     private static final int BTN_SIZE = 16;
     private static final int BTN_GAP = 2;
     private static final int MAP_PX = 195;
-    private static final int DIALOG_BG = 0xDD000000;
     private static final int DIALOG_BORDER = 0xFFFFFFFF;
 
     private ChunkMapWidget mapWidget;
     private IPanelHandler confirmHandler;
+    private IPanelHandler teamHandler;
     private int pendingConfirmAction;
 
     public ChunkMapScreen() {
@@ -48,7 +49,7 @@ public class ChunkMapScreen extends CustomModularScreen {
         int blockW = MAP_PX + BTN_SIZE;
         int leftOff = -blockW / 2;
 
-        return new ModularPanel("chunk_map")
+        return new ModularPanel("teamclaim.map")
                 .fullScreenInvisible()
                 .child(mapWidget.size(MAP_PX, MAP_PX)
                         .leftRel(0.5f, leftOff, 0f)
@@ -58,14 +59,14 @@ public class ChunkMapScreen extends CustomModularScreen {
                 .child(createToolButtons()
                         .leftRel(0.5f, leftOff + MAP_PX, 0f)
                         .verticalCenter())
-                .child(createCounterText("teamclaim.gui.claimed_chunks",
+                .child(createCounterText("teamclaim.map.claimed_chunks",
                         this::countMyClaims, ModConfig.maxClaimsPerPlayer, 16))
-                .child(createCounterText("teamclaim.gui.loaded_chunks",
+                .child(createCounterText("teamclaim.map.loaded_chunks",
                         this::countMyForceLoads, ModConfig.maxForceLoadsPerPlayer, 4));
     }
 
     private TextWidget<?> createCounterText(String langKey,
-                                            java.util.function.IntSupplier counter, int max, int bottom) {
+                                            IntSupplier counter, int max, int bottom) {
         return new TextWidget<>(IKey.lang(langKey, () -> new Object[] { counter.getAsInt(), max }))
                 .color(() -> counter.getAsInt() >= max ? 0xFFFF5555 : 0xFFFFFFFF)
                 .shadow(true).right(4).bottom(bottom);
@@ -73,27 +74,29 @@ public class ChunkMapScreen extends CustomModularScreen {
 
     private ParentWidget<?> createToolButtons() {
         int y = 0;
-        ButtonWidget<?> btnClose = createToolButton("X", "teamclaim.gui.close", y, mb -> close());
+        ButtonWidget<?> btnClose = createToolButton("X", "teamclaim.map.close", y, mb -> close());
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnRedraw = createToolButton("R", "teamclaim.gui.redraw", y, mb -> {
+        ButtonWidget<?> btnTeam = createToolButton("P", "teamclaim.map.party", y, mb -> openTeamScreen());
+        y += BTN_SIZE + BTN_GAP;
+        ButtonWidget<?> btnRedraw = createToolButton("R", "teamclaim.map.redraw", y, mb -> {
             AsyncMapRenderer.clearCache();
             TextureCache.clear();
         });
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnUnclaimAll = createToolButton("C", "teamclaim.gui.unclaim_all", y,
+        ButtonWidget<?> btnUnclaimAll = createToolButton("C", "teamclaim.map.unclaim_all", y,
                 mb -> openConfirmDialog(1));
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnUnloadAll = createToolButton("L", "teamclaim.gui.unload_all", y,
+        ButtonWidget<?> btnUnloadAll = createToolButton("L", "teamclaim.map.unload_all", y,
                 mb -> openConfirmDialog(2));
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnHelp = createToolButton("?", "teamclaim.gui.help", y, mb -> openHelpDialog());
+        ButtonWidget<?> btnHelp = createToolButton("?", "teamclaim.map.help", y, mb -> openHelpDialog());
 
-        int totalH = BTN_SIZE * 5 + BTN_GAP * 4;
+        int totalH = BTN_SIZE * 6 + BTN_GAP * 5;
         return new ParentWidget<>()
                 .size(BTN_SIZE, totalH)
                 .child(btnClose).child(btnRedraw)
                 .child(btnUnclaimAll).child(btnUnloadAll)
-                .child(btnHelp);
+                .child(btnHelp).child(btnTeam);
     }
 
     private ButtonWidget<?> createToolButton(String label, String tooltipKey, int y, Consumer<Integer> action) {
@@ -124,12 +127,12 @@ public class ChunkMapScreen extends CustomModularScreen {
 
     private Dialog<Boolean> buildConfirmDialog() {
         boolean isUnclaim = pendingConfirmAction == 1;
-        IKey title = IKey.lang(isUnclaim ? "teamclaim.gui.confirm_unclaim_title" :
-                "teamclaim.gui.confirm_unload_title");
-        IKey message = IKey.lang(isUnclaim ? "teamclaim.gui.confirm_unclaim_msg" :
-                "teamclaim.gui.confirm_unload_msg");
+        IKey title = IKey.lang(isUnclaim ? "teamclaim.map.confirm_unclaim_title" :
+                "teamclaim.map.confirm_unload_title");
+        IKey message = IKey.lang(isUnclaim ? "teamclaim.map.confirm_unclaim_msg" :
+                "teamclaim.map.confirm_unload_msg");
 
-        Dialog<Boolean> dialog = new Dialog<>("confirm_dialog", result -> {
+        Dialog<Boolean> dialog = new Dialog<>("teamclaim.map.dialog.confirm", result -> {
             if (Boolean.TRUE.equals(result)) {
                 executeBulkAction(pendingConfirmAction);
             }
@@ -137,20 +140,18 @@ public class ChunkMapScreen extends CustomModularScreen {
         dialog.setDisablePanelsBelow(true);
         dialog.setCloseOnOutOfBoundsClick(true);
         dialog.size(220, 70)
-                .background(new Rectangle().color(DIALOG_BG))
-                .overlay(new Rectangle().color(DIALOG_BORDER).hollow(1))
                 .child(title.color(0xFFFFFFFF).shadow(true).asWidget().top(6).left(8))
                 .child(message.color(0xFFAAAAAA).shadow(true).asWidget().top(18).left(8))
                 .child(new ParentWidget<>()
                         .bottom(6).horizontalCenter().size(170, 20)
                         .child(new ButtonWidget<>().size(80, 20).pos(0, 0)
-                                .overlay(IKey.lang("teamclaim.gui.yes"))
+                                .overlay(IKey.lang("teamclaim.map.yes"))
                                 .onMousePressed(btn -> {
                                     dialog.closeWith(true);
                                     return true;
                                 }))
                         .child(new ButtonWidget<>().size(80, 20).pos(90, 0)
-                                .overlay(IKey.lang("teamclaim.gui.no"))
+                                .overlay(IKey.lang("teamclaim.map.no"))
                                 .onMousePressed(btn -> {
                                     dialog.closeWith(false);
                                     return true;
@@ -172,24 +173,35 @@ public class ChunkMapScreen extends CustomModularScreen {
 
     private void openHelpDialog() {
         IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
-            Dialog<Void> dialog = new Dialog<>("help_dialog");
+            Dialog<Void> dialog = new Dialog<>("teamclaim.map.dialog.help");
             dialog.setCloseOnOutOfBoundsClick(true);
             dialog.size(200, 100)
-                    .background(new Rectangle().color(DIALOG_BG))
-                    .overlay(new Rectangle().color(DIALOG_BORDER).hollow(1))
-                    .child(IKey.lang("teamclaim.gui.controls").color(0xFFFFFFFF).shadow(true).asWidget()
+                    .child(IKey.lang("teamclaim.map.controls").color(0xFFFFFFFF).shadow(true).asWidget()
                             .top(6).left(8))
-                    .child(IKey.lang("teamclaim.gui.help_claim").color(0xFFAAAAAA).shadow(true).asWidget()
+                    .child(IKey.lang("teamclaim.map.help_claim").color(0xFFAAAAAA).shadow(true).asWidget()
                             .top(20).left(8))
-                    .child(IKey.lang("teamclaim.gui.help_unclaim").color(0xFFAAAAAA).shadow(true).asWidget()
+                    .child(IKey.lang("teamclaim.map.help_unclaim").color(0xFFAAAAAA).shadow(true).asWidget()
                             .top(32).left(8))
-                    .child(IKey.lang("teamclaim.gui.help_force").color(0xFFAAAAAA).shadow(true).asWidget()
+                    .child(IKey.lang("teamclaim.map.help_force").color(0xFFAAAAAA).shadow(true).asWidget()
                             .top(44).left(8))
-                    .child(IKey.lang("teamclaim.gui.help_drag").color(0xFFAAAAAA).shadow(true).asWidget()
+                    .child(IKey.lang("teamclaim.map.help_drag").color(0xFFAAAAAA).shadow(true).asWidget()
                             .top(56).left(8))
                     .child(ButtonWidget.panelCloseButton());
             return dialog;
         }, true).openPanel();
+    }
+
+    private void openTeamScreen() {
+        if (teamHandler != null) {
+            teamHandler.deleteCachedPanel();
+        } else {
+            teamHandler = IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
+                return TeamScreen.buildAsPanel(
+                        Minecraft.getMinecraft().player.getUniqueID(),
+                        this::openTeamScreen);
+            }, true);
+        }
+        teamHandler.openPanel();
     }
 
     private int countMyClaims() {

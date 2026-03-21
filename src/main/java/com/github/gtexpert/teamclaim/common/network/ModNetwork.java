@@ -15,9 +15,12 @@ public class ModNetwork {
         // Client -> Server
         INSTANCE.registerMessage(MessageClaimChunk.Handler.class, MessageClaimChunk.class, id++, Side.SERVER);
 
+        INSTANCE.registerMessage(MessageTeamAction.Handler.class, MessageTeamAction.class, id++, Side.SERVER);
+
         // Server -> Client
         INSTANCE.registerMessage(MessageSyncClaims.Handler.class, MessageSyncClaims.class, id++, Side.CLIENT);
         INSTANCE.registerMessage(MessageSyncAllClaims.Handler.class, MessageSyncAllClaims.class, id++, Side.CLIENT);
         INSTANCE.registerMessage(MessageSyncConfig.Handler.class, MessageSyncConfig.class, id++, Side.CLIENT);
+        INSTANCE.registerMessage(MessageTeamSync.Handler.class, MessageTeamSync.class, id++, Side.CLIENT);
     }
 }

@@ -1,34 +1,35 @@
 package com.github.gtexpert.teamclaim.common.chunk;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.world.World;
-import net.minecraft.world.storage.MapStorage;
-import net.minecraft.world.storage.WorldSavedData;
 import net.minecraftforge.common.util.Constants;
 
-public class ChunkManagerData extends WorldSavedData {
+public class ChunkManagerData {
 
-    private static final String DATA_NAME = "MyChunkClaims";
+    private static ChunkManagerData instance;
+
     private final Map<String, ClaimedChunkData> claims = new HashMap<>();
 
-    public ChunkManagerData(String name) {
-        super(name);
+    public static ChunkManagerData get(World world) {
+        if (instance == null) {
+            instance = new ChunkManagerData();
+        }
+        return instance;
     }
 
-    public static ChunkManagerData get(World world) {
-        MapStorage storage = world.getMapStorage();
-        assert storage != null;
-        ChunkManagerData data = (ChunkManagerData) storage.getOrLoadData(ChunkManagerData.class, DATA_NAME);
-        if (data == null) {
-            data = new ChunkManagerData(DATA_NAME);
-            storage.setData(DATA_NAME, data);
+    public static ChunkManagerData getInstance() {
+        if (instance == null) {
+            instance = new ChunkManagerData();
         }
-        return data;
+        return instance;
+    }
+
+    public static void reset() {
+        instance = new ChunkManagerData();
     }
 
     public static String chunkKey(int x, int z) {
@@ -46,7 +47,16 @@ public class ChunkManagerData extends WorldSavedData {
         } else {
             claims.put(key, new ClaimedChunkData(x, z, owner, name, partyName, isForceLoaded));
         }
-        markDirty();
+    }
+
+    public Collection<ClaimedChunkData> getAllClaims() {
+        return Collections.unmodifiableCollection(claims.values());
+    }
+
+    public List<ClaimedChunkData> getClaimsByOwner(UUID owner) {
+        return claims.values().stream()
+                .filter(d -> d.ownerUUID.equals(owner))
+                .collect(Collectors.toList());
     }
 
     public int countClaims(UUID owner) {
@@ -73,23 +83,20 @@ public class ChunkManagerData extends WorldSavedData {
         return all;
     }
 
-    @Override
     public void readFromNBT(NBTTagCompound nbt) {
-        NBTTagList list = nbt.getTagList("list", Constants.NBT.TAG_COMPOUND);
-        claims.clear();
+        NBTTagList list = nbt.getTagList("claims", Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < list.tagCount(); i++) {
             ClaimedChunkData d = ClaimedChunkData.fromNBT(list.getCompoundTagAt(i));
             claims.put(chunkKey(d.x, d.z), d);
         }
     }
 
-    @Override
     public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
         NBTTagList list = new NBTTagList();
         for (ClaimedChunkData d : claims.values()) {
             list.appendTag(d.toNBT());
         }
-        nbt.setTag("list", list);
+        nbt.setTag("claims", list);
         return nbt;
     }
 }

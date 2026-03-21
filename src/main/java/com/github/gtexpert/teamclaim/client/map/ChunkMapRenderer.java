@@ -45,7 +45,8 @@ public class ChunkMapRenderer {
      */
     public static void drawChunkGrid(int ox, int oy, int chunkSize, int radius,
                                      int centerCX, int centerCZ, int gridColor,
-                                     World world, UUID playerUUID, boolean showForceLoad) {
+                                     World world, UUID playerUUID, boolean showForceLoad,
+                                     boolean showClaimBorder) {
         int gridLen = radius * 2 + 1;
         int mapPx = gridLen * chunkSize;
 
@@ -57,7 +58,7 @@ public class ChunkMapRenderer {
                 int dy = oy + (z + radius) * chunkSize;
 
                 drawChunkTerrain(rx, rz, dx, dy, chunkSize, world);
-                drawClaimOverlay(rx, rz, dx, dy, chunkSize, playerUUID);
+                drawClaimOverlay(rx, rz, dx, dy, chunkSize, playerUUID, showClaimBorder);
 
                 if (showForceLoad) {
                     ClaimedChunkData d = ClientCache.get(rx, rz);
@@ -89,7 +90,8 @@ public class ChunkMapRenderer {
         }
     }
 
-    public static void drawClaimOverlay(int chunkX, int chunkZ, float dx, float dy, int size, UUID playerUUID) {
+    public static void drawClaimOverlay(int chunkX, int chunkZ, float dx, float dy, int size,
+                                        UUID playerUUID, boolean showBorder) {
         ClaimedChunkData d = ClientCache.get(chunkX, chunkZ);
         if (d == null) return;
 
@@ -103,7 +105,9 @@ public class ChunkMapRenderer {
         }
 
         GuiDraw.drawRect(dx, dy, size, size, color);
-        drawClaimBorder(chunkX, chunkZ, dx, dy, size, d.ownerUUID);
+        if (showBorder) {
+            drawClaimBorder(chunkX, chunkZ, dx, dy, size, d.ownerUUID);
+        }
     }
 
     public static void drawPlayerIcon(float cx, float cy, float yaw, int iconSize) {

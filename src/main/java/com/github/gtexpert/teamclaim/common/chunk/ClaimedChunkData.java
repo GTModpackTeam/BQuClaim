@@ -27,7 +27,7 @@ public class ClaimedChunkData {
         tag.setInteger("z", z);
         tag.setUniqueId("owner", ownerUUID);
         tag.setString("name", ownerName);
-        tag.setString("party", partyName);
+        tag.setString("team", partyName);
         tag.setBoolean("force", isForceLoaded);
         return tag;
     }
@@ -35,8 +35,8 @@ public class ClaimedChunkData {
     public static ClaimedChunkData fromNBT(NBTTagCompound tag) {
         int x = tag.getInteger("x");
         int z = tag.getInteger("z");
-        String party = tag.hasKey("party") ? tag.getString("party") : "";
-        boolean force = tag.hasKey("force") ? tag.getBoolean("force") : tag.getBoolean("is_force_loaded");
-        return new ClaimedChunkData(x, z, tag.getUniqueId("owner"), tag.getString("name"), party, force);
+        String team = tag.hasKey("team") ? tag.getString("team") : "";
+        boolean force = tag.getBoolean("force");
+        return new ClaimedChunkData(x, z, tag.getUniqueId("owner"), tag.getString("name"), team, force);
     }
 }

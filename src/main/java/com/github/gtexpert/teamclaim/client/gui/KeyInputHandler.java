@@ -10,8 +10,8 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.cleanroommc.modularui.factory.ClientGUI;
 
-import com.github.gtexpert.teamclaim.ModConfig;
 import com.github.gtexpert.teamclaim.Tags;
+import com.github.gtexpert.teamclaim.common.ModConfig;
 
 public class KeyInputHandler {
 

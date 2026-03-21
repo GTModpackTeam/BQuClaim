@@ -5,7 +5,7 @@ import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-import com.github.gtexpert.teamclaim.ModConfig;
+import com.github.gtexpert.teamclaim.common.ModConfig;
 
 import io.netty.buffer.ByteBuf;
 

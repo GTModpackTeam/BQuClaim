@@ -8,8 +8,8 @@ import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-import com.github.gtexpert.teamclaim.ModConfig;
 import com.github.gtexpert.teamclaim.api.party.PartyProviderRegistry;
+import com.github.gtexpert.teamclaim.common.ModConfig;
 import com.github.gtexpert.teamclaim.common.chunk.ChunkManagerData;
 import com.github.gtexpert.teamclaim.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.teamclaim.common.chunk.TicketManager;
@@ -78,7 +78,7 @@ public class MessageClaimChunk implements IMessage {
             if (existing != null) return;
             if (data.countClaims(playerId) >= ModConfig.maxClaimsPerPlayer) return;
 
-            String partyName = resolvePartyName(playerId);
+            String partyName = resolveTeamName(playerId);
             data.setClaim(msg.x, msg.z, playerId, player.getName(), partyName, false);
             syncToAll(msg.x, msg.z, playerId, player.getName(), partyName, false);
         }
@@ -102,7 +102,7 @@ public class MessageClaimChunk implements IMessage {
                 if (data.countClaims(playerId) >= ModConfig.maxClaimsPerPlayer) return;
                 if (data.countForceLoads(playerId) >= ModConfig.maxForceLoadsPerPlayer) return;
 
-                String partyName = resolvePartyName(playerId);
+                String partyName = resolveTeamName(playerId);
                 data.setClaim(msg.x, msg.z, playerId, player.getName(), partyName, true);
                 TicketManager.forceChunk(player.world, msg.x, msg.z, null);
                 syncToAll(msg.x, msg.z, playerId, player.getName(), partyName, true);
@@ -121,7 +121,6 @@ public class MessageClaimChunk implements IMessage {
                 existing.isForceLoaded = true;
                 TicketManager.forceChunk(player.world, msg.x, msg.z, null);
             }
-            data.markDirty();
             syncToAll(msg.x, msg.z, existing.ownerUUID, existing.ownerName, existing.partyName,
                     existing.isForceLoaded);
         }
@@ -130,7 +129,7 @@ public class MessageClaimChunk implements IMessage {
             return claim.ownerUUID.equals(playerId) || player.canUseCommand(2, "");
         }
 
-        private String resolvePartyName(UUID playerId) {
+        private String resolveTeamName(UUID playerId) {
             String name = PartyProviderRegistry.get().getPartyName(playerId);
             return name != null ? name : "";
         }

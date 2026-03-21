@@ -1,6 +1,7 @@
 package com.github.gtexpert.teamclaim.client.gui;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
 
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.GuiDraw;
@@ -11,8 +12,12 @@ import com.cleanroommc.modularui.widget.Widget;
 
 import com.github.gtexpert.teamclaim.client.map.AsyncMapRenderer;
 import com.github.gtexpert.teamclaim.client.map.ChunkMapRenderer;
+import com.github.gtexpert.teamclaim.common.chunk.ClaimedChunkData;
+import com.github.gtexpert.teamclaim.common.chunk.ClientCache;
 import com.github.gtexpert.teamclaim.common.network.MessageClaimChunk;
 import com.github.gtexpert.teamclaim.common.network.ModNetwork;
+import com.github.gtexpert.teamclaim.common.party.ClientPartyCache;
+import com.github.gtexpert.teamclaim.common.party.Party;
 
 public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactable {
 
@@ -66,13 +71,32 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
         Stencil.apply(ox, oy, mapPx, mapPx, context);
 
         ChunkMapRenderer.drawChunkGrid(ox, oy, cs, RADIUS, pX, pZ,
-                GRID_LINE_COLOR, mc.world, mc.player.getUniqueID(), true);
+                GRID_LINE_COLOR, mc.world, mc.player.getUniqueID(), true, true);
 
         GuiDraw.drawBorderOutsideXYWH(ox, oy, mapPx, mapPx, 1, BORDER_COLOR);
 
         drawPlayerIcon(mc, ox, oy, cs);
 
         Stencil.remove();
+
+        drawHoverTooltip(mc, context.getMouseX(), context.getMouseY());
+    }
+
+    private void drawHoverTooltip(Minecraft mc, int mouseX, int mouseY) {
+        ClaimedChunkData d = ClientCache.get(selectedRX, selectedRZ);
+        if (d == null) return;
+
+        Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
+        if (ownerParty == null) return;
+        String text = ownerParty.getName();
+
+        FontRenderer fr = mc.fontRenderer;
+        int tw = fr.getStringWidth(text);
+        int tx = mouseX + 8;
+        int ty = mouseY - fr.FONT_HEIGHT - 2;
+
+        GuiDraw.drawRect(tx - 2, ty - 1, tw + 4, fr.FONT_HEIGHT + 2, 0xCC000000);
+        GuiDraw.drawText(text, tx, ty, 1f, 0xFFFFFFFF, true);
     }
 
     private void drawPlayerIcon(Minecraft mc, int ox, int oy, int cs) {

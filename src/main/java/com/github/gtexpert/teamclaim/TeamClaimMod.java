@@ -1,12 +1,17 @@
 package com.github.gtexpert.teamclaim;
 
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.event.FMLConstructionEvent;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,7 +42,7 @@ public class TeamClaimMod {
         moduleManager = ModuleManager.getInstance();
         moduleManager.registerContainer(new Modules());
         moduleManager.setup(event.getASMHarvestedData(),
-                net.minecraftforge.fml.common.Loader.instance().getConfigDir());
+                Loader.instance().getConfigDir());
         moduleManager.onConstruction(event);
     }
 
@@ -59,5 +64,25 @@ public class TeamClaimMod {
     @EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         moduleManager.onPostInit(event);
+    }
+
+    @EventHandler
+    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
+        moduleManager.onServerAboutToStart(event);
+    }
+
+    @EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        moduleManager.onServerStarting(event);
+    }
+
+    @EventHandler
+    public void serverStarted(FMLServerStartedEvent event) {
+        moduleManager.onServerStarted(event);
+    }
+
+    @EventHandler
+    public void serverStopping(FMLServerStoppingEvent event) {
+        moduleManager.onServerStopping(event);
     }
 }

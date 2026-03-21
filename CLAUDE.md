@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TeamClaim is a Minecraft 1.12.2 Forge mod that adds chunk claiming with optional BetterQuesting party integration. Players can claim chunks, share access with party members, and force-load claimed chunks. It uses ModularUI for GUI. BetterQuesting is an optional dependency — the mod functions without it via a module system.
+TeamClaim is a Minecraft 1.12.2 Forge mod that adds chunk claiming with party-based sharing. It has its own party system and optionally integrates with BetterQuesting — when BQu is present, TeamClaim uses BQu's party system directly (no data duplication). It uses ModularUI for GUI.
 
 ## Build System
 
@@ -29,55 +29,60 @@ Base package: `com.github.gtexpert.teamclaim`
 
 ### Module System
 
-The mod uses an annotation-driven module framework (same pattern as GTMoreTools/GTWoodProcessing/GTBeesMatrix):
+Annotation-driven module framework (same pattern as GTMoreTools/GTWoodProcessing/GTBeesMatrix):
 
-- **`api/modules/`** — Framework interfaces: `IModule`, `TModule` (annotation), `IModuleContainer`, `ModuleContainer`, `ModuleStage`, `IModuleManager`.
+- **`api/modules/`** — `IModule`, `TModule` (annotation), `IModuleContainer`, `ModuleContainer`, `ModuleStage`, `IModuleManager`.
 - **`module/`** — `ModuleManager` (ASM scanning, dependency resolution, config-driven enable/disable), `Modules` (container + module ID constants), `BaseModule`.
-- **`core/CoreModule`** — `@TModule(coreModule=true)`. Registers network packets and ForgeChunkManager callback.
-- **`integration/IntegrationModule`** — Parent gate for all integration submodules. Disabling it disables all integrations.
-- **`integration/IntegrationSubmodule`** — Abstract base for mod-specific integrations (depends on `MODULE_INTEGRATION`).
+- **`core/CoreModule`** — `@TModule(coreModule=true)`. Registers network packets, ForgeChunkManager callback, and default `PartyProviderRegistry`.
+- **`integration/IntegrationModule`** — Parent gate for all integration submodules.
+- **`integration/IntegrationSubmodule`** — Abstract base for mod-specific integrations.
 
-Modules are discovered at FML Construction via `@TModule` annotation scanning. The `modDependencies` field gates loading on `Loader.isModLoaded()` — the class is never loaded if the dependency is absent. Module enable/disable config is written to `config/teamclaim/modules.cfg`.
+Modules are discovered at FML Construction via `@TModule` annotation scanning. The `modDependencies` field gates loading on `Loader.isModLoaded()`. Module enable/disable config: `config/teamclaim/modules.cfg`.
 
 ### Party Provider SPI
 
-BetterQuesting integration is decoupled via an SPI:
+Party management is abstracted via `IPartyProvider`, allowing transparent switching between self-managed parties and BQu's party system:
 
-- **`api/party/IPartyProvider`** — Interface for party membership checks and name lookup.
-- **`api/party/PartyProviderRegistry`** — Holds the active provider (defaults to a no-op).
-- **`integration/bqu/BQuModule`** — `@TModule(modDependencies="betterquesting")`. Registers `BQPartyProvider` on preInit.
-- **`integration/bqu/BQPartyProvider`** — Implements `IPartyProvider` using BQ's `PARTY_DB` API.
+- **`api/party/IPartyProvider`** — Full interface with query methods (`areInSameParty`, `getPartyName`, `getPartyId`, `getPartyMembers`, `getRole`) and mutation methods (`createParty`, `disbandParty`, `renameParty`, `invitePlayer`, `acceptInvite`, `kickOrLeave`, `changeRole`, `syncToAll`).
+- **`api/party/PartyProviderRegistry`** — Holds the active provider.
+- **`common/party/DefaultPartyProvider`** — Self-managed implementation using `PartyManagerData` (WorldSavedData). Registered by `CoreModule`.
+- **`integration/bqu/BQPartyProvider`** — BQu implementation that directly operates on BQu's `PartyManager`, `PartyInvitations`, and `NetPartySync`. When BQu is present, this **replaces** the default provider — no data duplication or migration.
 
-Core code (`ChunkMapRenderer`, `MessageClaimChunk`) calls `PartyProviderRegistry.get()` — never imports BQ classes directly.
+**Design principle (Approach A):** When BQu is present, TeamClaim integrates INTO BQu's party system. TeamClaim's UI sends operations that `BQPartyProvider` translates into BQu API calls. BQu's quest sharing works unchanged.
 
-### Mod ID Constants
+### Naming Conventions
 
-All mod IDs are centralized in `api/util/Mods.Names`. Use these constants in `@Mod(dependencies=...)`, `@TModule(modDependencies=...)`, and runtime checks via `Mods.BetterQuesting.isModLoaded()`.
+- **Panel IDs:** `teamclaim.map`, `teamclaim.party`, `teamclaim.map.dialog.confirm`, `teamclaim.party.dialog.invite`
+- **Lang keys:** `teamclaim.map.*` for map screen, `teamclaim.party.*` for party screen
+- **Mod ID constants:** `api/util/Mods.Names`
 
 ### Package Layout
 
-- **`common/chunk/`** — Claim data layer (both sides): `ChunkManagerData` (WorldSavedData/NBT), `ClaimedChunkData` (value object with owner UUID/name, party name, force-loaded flag), `ClientCache` (client-side mirror), `TicketManager` (ForgeChunkManager callback).
-- **`common/network/`** — `SimpleNetworkWrapper` messages: `MessageClaimChunk` (C→S), `MessageSyncClaims`/`MessageSyncAllClaims`/`MessageSyncConfig` (S→C), `PlayerLoginHandler` (syncs on join).
-- **`client/gui/`** — ModularUI screens: `ChunkMapScreen`/`ChunkMapWidget` (full-screen claim map), `MinimapHUD` (overlay), `ModKeyBindings`/`KeyInputHandler`.
-- **`client/map/`** — Async chunk color computation, texture caching, claim overlay rendering.
+- **`common/party/`** — Party data: `Party`, `PartyRole`, `PartyManagerData` (WorldSavedData), `DefaultPartyProvider`, `ClientPartyCache`.
+- **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
+- **`common/network/`** — Messages: `MessageClaimChunk` (C→S), `MessageTeamAction` (C→S party ops), `MessageSyncClaims`/`MessageSyncAllClaims`/`MessageSyncConfig`/`MessageTeamSync` (S→C), `PlayerLoginHandler`.
+- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, `TeamScreen` (party management panel), `MinimapHUD`, `ModKeyBindings`/`KeyInputHandler`.
+- **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
 ### Key Dependencies
 
 | Dependency | Role | Required? |
 |---|---|---|
-| ModularUI | GUI framework (widgets, screens) | Yes |
-| BetterQuesting Unofficial | Party API for shared claims | Optional (module) |
-| JourneyMap API | Optional overlay integration | Optional |
+| ModularUI | GUI framework | Yes |
+| BetterQuesting Unofficial | Party system backend (when present) | Optional (module) |
+| JourneyMap API | Overlay integration | Optional |
 
-Dependencies are declared in `dependencies.gradle`. Use `rfg.deobf()` for obfuscated mod jars. Debug flags (`debug_bqu`, `debug_jmap`) in `buildscript.properties` control runtime inclusion.
+Dependencies in `dependencies.gradle`. Debug flags (`debug_bqu`, `debug_jmap`) in `buildscript.properties`.
 
 ### Network Protocol
 
-Messages use incrementing discriminator IDs registered in `ModNetwork.init()`. New messages must be appended to the end to preserve ID ordering.
+Messages use incrementing discriminator IDs in `ModNetwork.init()`. New messages must be appended to preserve ID ordering.
 
 ### Data Persistence
 
-Claims are stored as `WorldSavedData` (NBT) via `ChunkManagerData`. The `ClaimedChunkData` includes a `partyName` field resolved server-side via `PartyProviderRegistry` and synced to clients. The NBT key `"force"` replaced the older `"is_force_loaded"` — both are read for backwards compatibility. The `"party"` key is optional for backwards compatibility with older saves.
+Claims: `WorldSavedData` via `ChunkManagerData`. `ClaimedChunkData` includes `partyName` resolved server-side via `PartyProviderRegistry`. NBT key `"team"` for party name.
+
+Parties (self-managed mode only): `WorldSavedData` via `PartyManagerData`. Not used when BQu is present.
 
 ### Adding a New Integration Module
 
