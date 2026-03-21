@@ -1,0 +1,26 @@
+# Key bindings
+key.teamclaim.open_map=Open Chunk Map
+key.teamclaim.toggle=Toggle Minimap
+key.categories.teamclaim=TeamClaim
+
+# GUI
+teamclaim.gui.close=Close
+teamclaim.gui.redraw=Redraw map
+teamclaim.gui.unclaim_all=Unclaim all chunks
+teamclaim.gui.unload_all=Unload all chunks
+teamclaim.gui.help=Help
+teamclaim.gui.yes=Yes
+teamclaim.gui.no=No
+teamclaim.gui.unclaimed=Unclaimed
+teamclaim.gui.force_loaded_suffix= [F]
+teamclaim.gui.claimed_chunks=Claimed Chunks: %d / %d
+teamclaim.gui.loaded_chunks=Loaded Chunks: %d / %d
+teamclaim.gui.confirm_unclaim_title=Unclaim all chunks?
+teamclaim.gui.confirm_unload_title=Unload all chunks?
+teamclaim.gui.confirm_unclaim_msg=All your claimed chunks will be released.
+teamclaim.gui.confirm_unload_msg=All your force-loaded chunks will be unloaded.
+teamclaim.gui.controls=Controls
+teamclaim.gui.help_claim=Left click: Claim
+teamclaim.gui.help_unclaim=Right click: Unclaim
+teamclaim.gui.help_force=Shift+Left: Claim+Force
+teamclaim.gui.help_drag=Drag: Bulk operation

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BQuClaim is a Minecraft 1.12.2 Forge mod that adds chunk claiming with optional BetterQuesting party integration. Players can claim chunks, share access with party members, and force-load claimed chunks. It uses ModularUI for GUI. BetterQuesting is an optional dependency — the mod functions without it via a module system.
+TeamClaim is a Minecraft 1.12.2 Forge mod that adds chunk claiming with optional BetterQuesting party integration. Players can claim chunks, share access with party members, and force-load claimed chunks. It uses ModularUI for GUI. BetterQuesting is an optional dependency — the mod functions without it via a module system.
 
 ## Build System
 
@@ -25,7 +25,7 @@ Spotless is enforced. Formatting rules: `spotless.importorder` (local) and `spot
 
 ## Architecture
 
-Base package: `com.github.gtexpert.bquclaim`
+Base package: `com.github.gtexpert.teamclaim`
 
 ### Module System
 
@@ -37,7 +37,7 @@ The mod uses an annotation-driven module framework (same pattern as GTMoreTools/
 - **`integration/IntegrationModule`** — Parent gate for all integration submodules. Disabling it disables all integrations.
 - **`integration/IntegrationSubmodule`** — Abstract base for mod-specific integrations (depends on `MODULE_INTEGRATION`).
 
-Modules are discovered at FML Construction via `@TModule` annotation scanning. The `modDependencies` field gates loading on `Loader.isModLoaded()` — the class is never loaded if the dependency is absent. Module enable/disable config is written to `config/bquclaim/modules.cfg`.
+Modules are discovered at FML Construction via `@TModule` annotation scanning. The `modDependencies` field gates loading on `Loader.isModLoaded()` — the class is never loaded if the dependency is absent. Module enable/disable config is written to `config/teamclaim/modules.cfg`.
 
 ### Party Provider SPI
 
