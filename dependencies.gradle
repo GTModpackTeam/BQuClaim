@@ -37,20 +37,23 @@
  *
  * For more details, see https://docs.gradle.org/8.4/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
+def runtimeEnabled(String rawBoolean) {
+    return project.debug_all.toBoolean() || rawBoolean.toBoolean()
+}
+
 dependencies {
     // Hard Dependencies
-    implementation("com.cleanroommc:modularui:3.1.5") { transitive false }
+    implementation(libs.modularui) { transitive false }
 
-    // Debug BQu: 4.2.8
-    compileOnly rfg.deobf("curse.maven:better-questing-unofficial-629629:7779333")
-    if (project.debug_all.toBoolean() || project.debug_bqu.toBoolean()) {
-        runtimeOnly rfg.deobf("curse.maven:better-questing-unofficial-629629:7779333")
+    // Debug BQu
+    compileOnly rfg.deobf(libs.betterquesting.get().toString())
+    if (runtimeEnabled(project.debug_bqu)) {
+        runtimeOnly rfg.deobf(libs.betterquesting.get().toString())
     }
 
-    // Debug Journey Map: 5.7.1p3
-    api("info.journeymap:journeymap-api:1.12-1.4") // JourneyMap API 1.12-1.4
-    compileOnly rfg.deobf("curse.maven:better-questing-unofficial-629629:7779333")
-    if (project.debug_all.toBoolean() || project.debug_bqu.toBoolean()) {
-        runtimeOnly rfg.deobf("curse.maven:better-questing-unofficial-629629:7779333")
+    // Debug Journey Map
+    api(libs.journeymap.api)
+    if (runtimeEnabled(project.debug_jmap)) {
+        runtimeOnly rfg.deobf(libs.journeymap.mod.get().toString())
     }
 }
