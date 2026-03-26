@@ -26,6 +26,22 @@ public class ModConfig {
     @Config.Name("Show Minimap")
     public static boolean showMinimap = true;
 
+    @Config.Name("Enable Chunk Protection")
+    @Config.Comment("Master toggle for all chunk protection features.")
+    public static boolean enableProtection = true;
+
+    @Config.Name("Protect Against Mob Griefing")
+    @Config.Comment("Deny mob griefing (endermen, zombies) in claimed chunks.")
+    public static boolean protectMobGriefing = true;
+
+    @Config.Name("Protect Against Fire Spread")
+    @Config.Comment("Block fire spread into claimed chunks from unclaimed chunks.")
+    public static boolean protectFireSpread = true;
+
+    @Config.Name("Protect Against Fluid Flow")
+    @Config.Comment("Block fluid interaction effects (cobble/obsidian gen) into claimed chunks from unclaimed sources.")
+    public static boolean protectFluidFlow = true;
+
     // ゲーム内の設定画面から変更した際、即座に反映させるための処理
     @Mod.EventBusSubscriber(modid = Tags.MODID)
     private static class EventHandler {

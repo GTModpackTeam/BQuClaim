@@ -10,8 +10,10 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 import com.github.gtexpert.blpc.BLPCMod;
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.party.PartyRole;
 
 import io.netty.buffer.ByteBuf;
 
@@ -25,6 +27,9 @@ public class MessagePartyAction implements IMessage {
     public static final int ACTION_KICK_OR_LEAVE = 5;
     public static final int ACTION_CHANGE_ROLE = 6;
     public static final int ACTION_TOGGLE_BQU_LINK = 7;
+    public static final int ACTION_TOGGLE_FAKE_PLAYERS = 8;
+    public static final int ACTION_TOGGLE_EXPLOSION_PROTECTION = 9;
+    public static final int ACTION_DISBAND_SELF = 10;
 
     private int action;
     private String stringArg;
@@ -68,6 +73,18 @@ public class MessagePartyAction implements IMessage {
         return new MessagePartyAction(ACTION_TOGGLE_BQU_LINK, linked ? "true" : "false");
     }
 
+    public static MessagePartyAction toggleFakePlayers() {
+        return new MessagePartyAction(ACTION_TOGGLE_FAKE_PLAYERS, "");
+    }
+
+    public static MessagePartyAction toggleExplosionProtection() {
+        return new MessagePartyAction(ACTION_TOGGLE_EXPLOSION_PROTECTION, "");
+    }
+
+    public static MessagePartyAction disbandSelf() {
+        return new MessagePartyAction(ACTION_DISBAND_SELF, "");
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         action = buf.readInt();
@@ -80,6 +97,18 @@ public class MessagePartyAction implements IMessage {
         ByteBufUtils.writeUTF8String(buf, stringArg);
     }
 
+    private static Party getOrCreateSelfParty(EntityPlayerMP player, IPartyProvider provider) {
+        PartyManagerData pmData = PartyManagerData.getInstance();
+        Party party = pmData.getPartyByPlayer(player.getUniqueID());
+        if (party == null) {
+            String partyName = provider.getPartyName(player.getUniqueID());
+            if (partyName != null) {
+                party = pmData.createParty(partyName, player.getUniqueID());
+            }
+        }
+        return party;
+    }
+
     public static class Handler implements IMessageHandler<MessagePartyAction, IMessage> {
 
         @Override
@@ -87,71 +116,179 @@ public class MessagePartyAction implements IMessage {
             FMLCommonHandler.instance().getWorldThread(ctx.netHandler).addScheduledTask(() -> {
                 EntityPlayerMP player = ctx.getServerHandler().player;
                 IPartyProvider provider = PartyProviderRegistry.get();
+                // When not BQu-linked, use self-managed provider to avoid
+                // accidentally creating/modifying BQu parties
+                boolean playerBQuLinked = PartyManagerData.getInstance()
+                        .isBQuLinked(player.getUniqueID());
+                DefaultPartyProvider selfProvider = new DefaultPartyProvider();
+                IPartyProvider activeProvider = playerBQuLinked ? provider : selfProvider;
+
+                String actionName = actionName(msg.action);
+                BLPCMod.LOGGER.debug("[PartyAction] player={} action={} arg={} bquLinked={}",
+                        player.getName(), actionName, msg.stringArg, playerBQuLinked);
 
                 boolean success = false;
                 switch (msg.action) {
-                    case ACTION_CREATE:
+                    case ACTION_CREATE: {
                         String name = msg.stringArg.trim();
                         if (name.isEmpty()) name = "New Party";
-                        success = provider.createParty(player, name);
+                        success = selfProvider.createParty(player, name);
+                        BLPCMod.LOGGER.debug("[PartyAction] CREATE result={}", success);
                         break;
-                    case ACTION_DISBAND:
-                        success = provider.disbandParty(player);
+                    }
+                    case ACTION_DISBAND: {
+                        // Ensure self-managed party exists (may need to create from BQu data)
+                        Party ensured = getOrCreateSelfParty(player, provider);
+                        BLPCMod.LOGGER.debug("[PartyAction] DISBAND ensured={}",
+                                ensured != null ? ensured.getName() + "(id=" + ensured.getPartyId() + ")" : "null");
+                        PartyManagerData pmDisband = PartyManagerData.getInstance();
+                        Party disbandParty = pmDisband.getPartyByPlayer(player.getUniqueID());
+                        if (disbandParty != null) {
+                            PartyRole disbandRole = disbandParty.getRole(player.getUniqueID());
+                            BLPCMod.LOGGER.debug("[PartyAction] DISBAND party={} role={} isOP={}",
+                                    disbandParty.getName(), disbandRole, player.canUseCommand(2, ""));
+                            if (disbandRole != PartyRole.OWNER && !player.canUseCommand(2, "")) {
+                                BLPCMod.LOGGER.debug("[PartyAction] DISBAND DENIED: not owner");
+                                break;
+                            }
+                        } else {
+                            BLPCMod.LOGGER.debug("[PartyAction] DISBAND no self-managed party found");
+                        }
+                        boolean disbanded = selfProvider.disbandParty(player);
+                        BLPCMod.LOGGER.debug("[PartyAction] DISBAND disbanded={}", disbanded);
+                        pmDisband.setBQuLinked(player.getUniqueID(), false);
+                        success = true;
                         break;
-                    case ACTION_RENAME:
+                    }
+                    case ACTION_RENAME: {
                         String newName = msg.stringArg.trim();
                         if (!newName.isEmpty()) {
-                            success = provider.renameParty(player, newName);
+                            success = activeProvider.renameParty(player, newName);
                         }
+                        BLPCMod.LOGGER.debug("[PartyAction] RENAME result={}", success);
                         break;
+                    }
                     case ACTION_INVITE:
-                        success = provider.invitePlayer(player, msg.stringArg);
+                        success = activeProvider.invitePlayer(player, msg.stringArg);
+                        BLPCMod.LOGGER.debug("[PartyAction] INVITE target={} result={}", msg.stringArg, success);
                         break;
                     case ACTION_ACCEPT_INVITE:
                         try {
                             int partyId = Integer.parseInt(msg.stringArg);
-                            success = provider.acceptInvite(player, partyId);
+                            success = activeProvider.acceptInvite(player, partyId);
+                            BLPCMod.LOGGER.debug("[PartyAction] ACCEPT partyId={} result={}", partyId, success);
                         } catch (NumberFormatException ignored) {}
                         break;
                     case ACTION_KICK_OR_LEAVE:
-                        success = provider.kickOrLeave(player, msg.stringArg);
+                        success = activeProvider.kickOrLeave(player, msg.stringArg);
+                        BLPCMod.LOGGER.debug("[PartyAction] KICK_OR_LEAVE target={} result={}",
+                                msg.stringArg, success);
                         break;
-                    case ACTION_CHANGE_ROLE:
+                    case ACTION_CHANGE_ROLE: {
                         String[] parts = msg.stringArg.split(":", 2);
                         if (parts.length == 2) {
-                            success = provider.changeRole(player, parts[0], parts[1]);
+                            success = activeProvider.changeRole(player, parts[0], parts[1]);
                         }
+                        BLPCMod.LOGGER.debug("[PartyAction] CHANGE_ROLE result={}", success);
                         break;
-                    case ACTION_TOGGLE_BQU_LINK:
+                    }
+                    case ACTION_TOGGLE_BQU_LINK: {
                         boolean linked = "true".equals(msg.stringArg);
-                        PartyManagerData pmData = PartyManagerData.getInstance();
-                        if (linked) {
-                            // Check if BQu party exists and if we are the owner
-                            String bquRole = provider.getRole(player.getUniqueID());
-                            if (bquRole != null && !"OWNER".equals(bquRole)) {
-                                // Player is in a BQu party but not owner — cannot link
-                                BLPCMod.LOGGER.info("Player {} cannot link BQu: not party owner (role={})",
-                                        player.getName(), bquRole);
+                        PartyManagerData pmLink = PartyManagerData.getInstance();
+                        Party linkParty = pmLink.getPartyByPlayer(player.getUniqueID());
+                        if (linkParty != null) {
+                            PartyRole linkRole = linkParty.getRole(player.getUniqueID());
+                            BLPCMod.LOGGER.debug("[PartyAction] LINK selfParty={} role={}",
+                                    linkParty.getName(), linkRole);
+                            if (linkRole != null && !linkRole.canInvite() && !player.canUseCommand(2, "")) {
+                                BLPCMod.LOGGER.debug("[PartyAction] LINK DENIED: not admin+");
                                 break;
                             }
-                            pmData.setBQuLinked(player.getUniqueID(), true);
-                            // If no BQu party exists, create one from self-mod data
-                            Party selfParty = pmData.getPartyByPlayer(player.getUniqueID());
-                            if (selfParty != null && provider.getPartyName(player.getUniqueID()) == null) {
-                                provider.createParty(player, selfParty.getName());
-                            }
                         } else {
-                            pmData.setBQuLinked(player.getUniqueID(), false);
+                            BLPCMod.LOGGER.debug("[PartyAction] LINK no self-managed party");
+                        }
+                        if (linked) {
+                            boolean hasBQuParty = provider.hasNativeParty(player.getUniqueID());
+                            BLPCMod.LOGGER.debug("[PartyAction] LINK hasNativeParty={}", hasBQuParty);
+                            if (!hasBQuParty) {
+                                BLPCMod.LOGGER.debug("[PartyAction] LINK DENIED: no BQu party");
+                                break;
+                            }
+                            pmLink.setBQuLinked(player.getUniqueID(), true);
+                        } else {
+                            pmLink.setBQuLinked(player.getUniqueID(), false);
+                            Party created = getOrCreateSelfParty(player, provider);
+                            BLPCMod.LOGGER.debug("[PartyAction] UNLINK ensuredSelfParty={}",
+                                    created != null ? created.getName() : "null");
                         }
                         success = true;
+                        BLPCMod.LOGGER.debug("[PartyAction] LINK/UNLINK result={}", success);
+                        break;
+                    }
+                    case ACTION_TOGGLE_FAKE_PLAYERS: {
+                        Party toggleParty = getOrCreateSelfParty(player, provider);
+                        if (toggleParty != null) {
+                            PartyRole toggleRole = toggleParty.getRole(player.getUniqueID());
+                            if (toggleRole != null && toggleRole.canInvite()) {
+                                toggleParty.setAllowFakePlayers(!toggleParty.allowsFakePlayers());
+                                success = true;
+                            }
+                        }
+                        BLPCMod.LOGGER.debug("[PartyAction] TOGGLE_FAKEPLAYERS result={}", success);
+                        break;
+                    }
+                    case ACTION_TOGGLE_EXPLOSION_PROTECTION: {
+                        Party toggleParty = getOrCreateSelfParty(player, provider);
+                        if (toggleParty != null) {
+                            PartyRole toggleRole = toggleParty.getRole(player.getUniqueID());
+                            if (toggleRole != null && toggleRole.canInvite()) {
+                                toggleParty.setProtectExplosions(!toggleParty.protectsExplosions());
+                                success = true;
+                            }
+                        }
+                        BLPCMod.LOGGER.debug("[PartyAction] TOGGLE_EXPLOSION result={}", success);
+                        break;
+                    }
+                    case ACTION_DISBAND_SELF:
+                        // Deprecated — same as ACTION_DISBAND
                         break;
                 }
 
+                BLPCMod.LOGGER.debug("[PartyAction] FINAL success={} -> syncToAll={}", success, success);
                 if (success) {
                     provider.syncToAll();
                 }
             });
             return null;
+        }
+
+        private static String actionName(int action) {
+            switch (action) {
+                case ACTION_CREATE:
+                    return "CREATE";
+                case ACTION_DISBAND:
+                    return "DISBAND";
+                case ACTION_RENAME:
+                    return "RENAME";
+                case ACTION_INVITE:
+                    return "INVITE";
+                case ACTION_ACCEPT_INVITE:
+                    return "ACCEPT_INVITE";
+                case ACTION_KICK_OR_LEAVE:
+                    return "KICK_OR_LEAVE";
+                case ACTION_CHANGE_ROLE:
+                    return "CHANGE_ROLE";
+                case ACTION_TOGGLE_BQU_LINK:
+                    return "TOGGLE_BQU_LINK";
+                case ACTION_TOGGLE_FAKE_PLAYERS:
+                    return "TOGGLE_FAKE_PLAYERS";
+                case ACTION_TOGGLE_EXPLOSION_PROTECTION:
+                    return "TOGGLE_EXPLOSION";
+                case ACTION_DISBAND_SELF:
+                    return "DISBAND_SELF(deprecated)";
+                default:
+                    return "UNKNOWN(" + action + ")";
+            }
         }
     }
 }

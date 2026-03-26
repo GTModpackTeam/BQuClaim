@@ -24,6 +24,9 @@ public class Party {
     private final Map<UUID, PartyRole> members = new LinkedHashMap<>();
     private final long createdAt;
 
+    private boolean allowFakePlayers = true;
+    private boolean protectExplosions = true;
+
     private final Map<UUID, Long> invites = new HashMap<>();
 
     public Party(int partyId, String name, long createdAt) {
@@ -98,6 +101,24 @@ public class Party {
         return null;
     }
 
+    // --- Protection settings ---
+
+    public boolean allowsFakePlayers() {
+        return allowFakePlayers;
+    }
+
+    public void setAllowFakePlayers(boolean allow) {
+        this.allowFakePlayers = allow;
+    }
+
+    public boolean protectsExplosions() {
+        return protectExplosions;
+    }
+
+    public void setProtectExplosions(boolean protect) {
+        this.protectExplosions = protect;
+    }
+
     // --- Invites (memory only, not persisted) ---
 
     public void addInvite(UUID target, long expiryTimestamp) {
@@ -139,6 +160,8 @@ public class Party {
             memberList.appendTag(memberTag);
         }
         tag.setTag("members", memberList);
+        tag.setBoolean("allowFakePlayers", allowFakePlayers);
+        tag.setBoolean("protectExplosions", protectExplosions);
         return tag;
     }
 
@@ -159,6 +182,12 @@ public class Party {
                 role = PartyRole.MEMBER;
             }
             party.addMember(uuid, role);
+        }
+        if (tag.hasKey("allowFakePlayers")) {
+            party.setAllowFakePlayers(tag.getBoolean("allowFakePlayers"));
+        }
+        if (tag.hasKey("protectExplosions")) {
+            party.setProtectExplosions(tag.getBoolean("protectExplosions"));
         }
         return party;
     }

@@ -196,9 +196,8 @@ public class ChunkMapScreen extends CustomModularScreen {
             partyHandler.deleteCachedPanel();
         } else {
             partyHandler = IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
-                return PartyScreen.buildAsPanel(
-                        Minecraft.getMinecraft().player.getUniqueID(),
-                        this::openPartyScreen);
+                return com.github.gtexpert.blpc.client.gui.party.MainPanel.build(
+                        Minecraft.getMinecraft().player.getUniqueID());
             }, true);
         }
         partyHandler.openPanel();

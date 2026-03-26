@@ -1,6 +1,6 @@
 package com.github.gtexpert.blpc.core;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
 import net.minecraftforge.common.ForgeChunkManager;
@@ -64,6 +64,6 @@ public class CoreModule implements IModule {
     @NotNull
     @Override
     public List<Class<?>> getEventBusSubscribers() {
-        return Collections.singletonList(CoreEventHandler.class);
+        return Arrays.asList(CoreEventHandler.class, ChunkProtectionHandler.class);
     }
 }

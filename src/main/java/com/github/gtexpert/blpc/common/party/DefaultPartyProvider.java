@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
@@ -114,6 +115,9 @@ public class DefaultPartyProvider implements IPartyProvider {
         if (party.isMember(targetId)) return false;
         if (data.getPartyByPlayer(targetId) != null) return false;
         party.addInvite(targetId, System.currentTimeMillis() + 300000L);
+        inviter.sendMessage(new TextComponentTranslation("blpc.party.invite_sent", targetUsername));
+        target.sendMessage(
+                new TextComponentTranslation("blpc.party.invite_received", inviter.getName(), party.getName()));
         return true;
     }
 

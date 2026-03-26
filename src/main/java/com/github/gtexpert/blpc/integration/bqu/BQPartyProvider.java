@@ -91,6 +91,11 @@ public class BQPartyProvider implements IPartyProvider {
         return fallback.getRole(playerUUID);
     }
 
+    @Override
+    public boolean hasNativeParty(UUID playerUUID) {
+        return PartyManager.INSTANCE.getParty(playerUUID) != null;
+    }
+
     // --- Mutation: BQu first (by player UUID), fallback to self-managed ---
 
     @Override
@@ -260,7 +265,16 @@ public class BQPartyProvider implements IPartyProvider {
     public void syncToAll() {
         NetPartySync.sendSync(null, null);
         autoUnlinkOrphanedPlayers();
-        ModNetwork.INSTANCE.sendToAll(new MessagePartySync(serializeForClient()));
+        NBTTagCompound syncData = serializeForClient();
+        NBTTagList syncParties = syncData.getTagList("parties", Constants.NBT.TAG_COMPOUND);
+        NBTTagList syncLinked = syncData.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);
+        BLPCMod.LOGGER.debug("[SyncToAll] parties={} bquLinked={}", syncParties.tagCount(), syncLinked.tagCount());
+        for (int i = 0; i < syncParties.tagCount(); i++) {
+            Party p = Party.fromNBT(syncParties.getCompoundTagAt(i));
+            BLPCMod.LOGGER.debug("[SyncToAll]   party: {} (id={}) members={}", p.getName(), p.getPartyId(),
+                    p.getMemberUUIDs());
+        }
+        ModNetwork.INSTANCE.sendToAll(new MessagePartySync(syncData));
     }
 
     @Override
@@ -268,16 +282,31 @@ public class BQPartyProvider implements IPartyProvider {
         NBTTagList list = new NBTTagList();
         Set<UUID> bquMembers = new HashSet<>();
 
+        PartyManagerData pmData = PartyManagerData.getInstance();
         for (DBEntry<IParty> entry : PartyManager.INSTANCE.getEntries()) {
             IParty bqParty = entry.getValue();
             if (bqParty.getMembers().isEmpty()) continue;
             Party party = new Party(entry.getID(),
                     bqParty.getProperties().getProperty(NativeProps.NAME),
                     0L);
+            boolean hasLinkedMember = false;
             for (UUID memberId : bqParty.getMembers()) {
+                // Only include bquLinked members in BLPC's party view
+                if (!pmData.isBQuLinked(memberId)) continue;
                 EnumPartyStatus status = bqParty.getStatus(memberId);
                 party.addMember(memberId, mapRole(status));
                 bquMembers.add(memberId);
+                hasLinkedMember = true;
+            }
+            if (!hasLinkedMember) continue;
+            // Copy protection settings from the corresponding self-managed party
+            for (UUID memberId : party.getMemberUUIDs()) {
+                Party selfParty = pmData.getPartyByPlayer(memberId);
+                if (selfParty != null) {
+                    party.setAllowFakePlayers(selfParty.allowsFakePlayers());
+                    party.setProtectExplosions(selfParty.protectsExplosions());
+                    break;
+                }
             }
             list.appendTag(party.toNBT());
         }
@@ -301,11 +330,8 @@ public class BQPartyProvider implements IPartyProvider {
         NBTTagCompound root = new NBTTagCompound();
         root.setTag("parties", list);
 
-        // Include bquLinked flags from self-managed data
-        NBTTagList linkedList = selfData.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);
-        if (linkedList.tagCount() > 0) {
-            root.setTag("bquLinked", linkedList);
-        }
+        // Always include bquLinked flags (even if empty) so client clears stale state
+        root.setTag("bquLinked", selfData.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND));
 
         return root;
     }

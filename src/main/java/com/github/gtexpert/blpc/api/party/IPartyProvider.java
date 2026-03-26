@@ -62,6 +62,11 @@ public interface IPartyProvider {
     /** Changes a member's role. Requires OWNER role. */
     boolean changeRole(EntityPlayerMP actor, String targetUsername, String newRole);
 
+    /** Returns true if the player is in a native (non-fallback) party managed by this provider. */
+    default boolean hasNativeParty(UUID playerUUID) {
+        return getPartyName(playerUUID) != null;
+    }
+
     /** Syncs party data to all connected clients after mutations. */
     void syncToAll();
 
