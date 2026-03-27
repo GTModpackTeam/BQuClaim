@@ -33,12 +33,12 @@ blpc.party.create_title=Create Party
 blpc.party.create=Create
 blpc.party.invite=Invite
 blpc.party.invite_title=Invite Player
-blpc.party.send=Send
+blpc.party.send=Invite
 blpc.party.leave=Leave
 blpc.party.disband=Disband
-blpc.party.open_native=Manage Party
+blpc.party.open_native=BQu Party Manager
 blpc.party.disband_confirm_title=Disband party?
-blpc.party.disband_confirm_msg=All members' claimed chunks will be released.
+blpc.party.disband_confirm_msg=All members' chunk protection will be removed. BQu party is not affected.
 blpc.party.disband_yes=Yes, disband
 blpc.party.disband_no=Cancel
 blpc.party.settings=Settings
@@ -47,13 +47,81 @@ blpc.party.members=Members
 blpc.party.members_title=Members
 blpc.party.link_bqu=Link BQu
 blpc.party.link_bqu_title=Link BetterQuesting?
-blpc.party.link_bqu_msg=Party management will be handled by BQu.
+blpc.party.link_bqu_msg=Party management will be delegated to BetterQuesting.
 blpc.party.unlink_bqu=Unlink BQu
 blpc.party.unlink_bqu_title=Unlink BetterQuesting?
-blpc.party.unlink_bqu_msg=Party management will return to self-managed mode.
+blpc.party.unlink_bqu_msg=Party management will return to BLPC standalone mode.
 blpc.party.invite_sent=Invitation sent to %s.
 blpc.party.invite_received=%s invited you to party "%s".
-blpc.party.fakeplayer_on=FakePlayer: Allowed
-blpc.party.fakeplayer_off=FakePlayer: Denied
-blpc.party.explosion_on=Explosion Protection: ON
-blpc.party.explosion_off=Explosion Protection: OFF
+blpc.party.fakeplayer_on=FakePlayer: Allow
+blpc.party.fakeplayer_off=FakePlayer: Deny
+blpc.party.explosion_on=Enable Explosions in Claimed Chunks: false
+blpc.party.explosion_off=Enable Explosions in Claimed Chunks: true
+
+# Roles
+blpc.party.role.member=Member
+blpc.party.role.admin=Moderator
+blpc.party.role.owner=Owner
+
+# Trust actions
+blpc.party.trust.blockEdit=Required Level for Block Editing
+blpc.party.trust.blockInteract=Required Level for Block Interactions
+blpc.party.trust.attackEntity=Required Level for Attacking Entities
+blpc.party.trust.useItem=Required Level for Using Items
+
+# Trust levels
+blpc.party.trust_level.none=None
+blpc.party.trust_level.ally=Ally
+blpc.party.trust_level.member=Member
+blpc.party.trust_level.moderator=Moderator
+blpc.party.trust_level.owner=Owner
+
+# Protection settings
+blpc.party.settings_protection=-- Protection --
+blpc.party.settings_party=-- Party Info --
+blpc.party.fakeplayer_trust=Fake Player Status
+blpc.party.free_to_join_on=Free to Join: ON
+blpc.party.free_to_join_off=Free to Join: OFF
+blpc.party.color=Color
+blpc.party.title_field=Title
+blpc.party.description_field=Description
+blpc.party.join=Join
+blpc.party.free_parties=Open Parties
+blpc.party.invited_label=Invited
+blpc.party.tooltip.accept_invite=Click to accept invitation
+blpc.party.tooltip.join_free=Click to join this party
+
+# Allies / Enemies
+blpc.party.allies=Allies
+blpc.party.allies_title=Allies
+blpc.party.enemies=Enemies
+blpc.party.enemies_title=Enemies
+blpc.party.add=Add
+blpc.party.remove=Remove
+blpc.party.promote=Promote
+blpc.party.demote=Demote
+blpc.party.moderators=Moderators
+blpc.party.moderators_title=Moderators
+
+# Transfer Ownership
+blpc.party.transfer=Transfer Ownership
+blpc.party.transfer_title=Transfer Ownership
+blpc.party.transfer_confirm=Transfer
+blpc.party.transfer_msg=Selected player becomes Owner. You become Moderator. BQu party is not affected.
+
+# Tooltips
+blpc.party.tooltip.free_to_join=Anyone can join without invitation
+blpc.party.tooltip.color=Team display color on the chunk map
+blpc.party.tooltip.title=Displays when you enter a claimed chunk
+blpc.party.tooltip.description=Displays under Title
+blpc.party.tooltip.explosion=Enable or disable explosions in claimed chunks
+blpc.party.tooltip.fakeplayer=Trust level for automation mods (BuildCraft, EnderIO, etc.)
+blpc.party.tooltip.trust_level=Minimum trust level required to perform this action
+blpc.party.tooltip.member=Click to kick / Click to invite
+blpc.party.tooltip.member_self=Click to leave party
+blpc.party.tooltip.ally=Click to toggle ally status
+blpc.party.tooltip.enemy=Click to toggle enemy status
+blpc.party.tooltip.moderator=Click to promote / demote
+
+# Search
+blpc.party.search=Search...

@@ -1,32 +1,63 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import net.minecraft.client.Minecraft;
+
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.screen.ModularPanel;
+import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
+import com.cleanroommc.modularui.widgets.ListWidget;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
 
+/**
+ * Party creation panel (panel ID: {@value #PANEL_ID}).
+ * <p>
+ * Shown when the player has no party. Top area has a name input + Create button.
+ * Below is a scrollable list of:
+ * <ul>
+ * <li>Parties that have invited the player (click to accept)</li>
+ * <li>Free-to-join parties (click to join)</li>
+ * </ul>
+ * Hovering shows the party description if set.
+ */
 public class CreatePanel {
 
     public static final String PANEL_ID = "blpc.party.create";
     private static final int W = 220;
-    private static final int H = 80;
+    private static final int H = 180;
 
     public static ModularPanel build() {
+        UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
+
         ModularPanel panel = new ModularPanel(PANEL_ID);
         panel.size(W, H);
 
+        // Title
+        panel.child(IKey.lang("blpc.party.create_title").color(0xFFFFFFFF).shadow(true)
+                .asWidget().pos(8, 8));
+        panel.child(ButtonWidget.panelCloseButton());
+
+        // Name input + Create button
         TextFieldWidget nameField = new TextFieldWidget();
-        nameField.size(140, 14).pos(8, 28);
+        nameField.size(W - 80, 14);
         nameField.setText(IKey.lang(Party.DEFAULT_NAME_KEY).get());
 
-        panel.child(IKey.lang("blpc.party.create_title").color(0xFFFFFFFF).shadow(true)
-                .asWidget().pos(8, 8))
+        panel.child(Flow.row()
+                .childPadding(4)
+                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                .left(8).right(8).top(24).height(14)
                 .child(nameField)
-                .child(new ButtonWidget<>().size(50, 14).pos(154, 28)
+                .child(new ButtonWidget<>().size(50, 14)
                         .overlay(IKey.lang("blpc.party.create"))
                         .onMousePressed(btn -> {
                             String name = nameField.getText().trim();
@@ -35,9 +66,99 @@ public class CreatePanel {
                             }
                             panel.closeIfOpen();
                             return true;
-                        }))
-                .child(ButtonWidget.panelCloseButton());
+                        })));
 
+        // Scrollable list of available parties (invites + free-to-join)
+        List<PartyEntry> entries = collectAvailableParties(playerId);
+
+        @SuppressWarnings("rawtypes")
+        ListWidget list = new ListWidget();
+        list.left(8).right(8).top(44).bottom(8);
+        list.crossAxisAlignment(Alignment.CrossAxis.START);
+
+        for (PartyEntry entry : entries) {
+            list.child(createPartyRow(entry, panel));
+        }
+
+        panel.child(list);
         return panel;
+    }
+
+    private static List<PartyEntry> collectAvailableParties(UUID playerId) {
+        List<PartyEntry> result = new ArrayList<>();
+
+        for (Party party : ClientPartyCache.getAllParties()) {
+            if (party.isMember(playerId)) continue;
+
+            boolean invited = party.hasInvite(playerId);
+            boolean freeToJoin = party.isFreeToJoin();
+
+            if (invited || freeToJoin) {
+                String displayName = !party.getTitle().isEmpty() ? party.getTitle() : party.getName();
+                result.add(new PartyEntry(party.getPartyId(), displayName,
+                        party.getDescription(), invited, freeToJoin));
+            }
+        }
+
+        // Invites first, then free-to-join
+        result.sort((a, b) -> {
+            if (a.invited != b.invited) return a.invited ? -1 : 1;
+            return a.displayName.compareToIgnoreCase(b.displayName);
+        });
+        return result;
+    }
+
+    private static Flow createPartyRow(PartyEntry entry, ModularPanel panel) {
+        int color = entry.invited ? 0xFF55FF55 : 0xFFCCCCCC;
+        String label = entry.invited ? entry.displayName + " [" + IKey.lang("blpc.party.invited_label").get() + "]" :
+                entry.displayName;
+
+        ButtonWidget<?> btn = new ButtonWidget<>();
+        btn.widthRel(1f).height(18).padding(4, 0, 0, 0);
+        btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
+
+        // Tooltip: description if available
+        if (!entry.description.isEmpty()) {
+            btn.addTooltipLine(IKey.str(entry.description));
+        }
+        if (entry.invited) {
+            btn.addTooltipLine(IKey.lang("blpc.party.tooltip.accept_invite"));
+        } else {
+            btn.addTooltipLine(IKey.lang("blpc.party.tooltip.join_free"));
+        }
+
+        int partyId = entry.partyId;
+        btn.onMousePressed(b -> {
+            if (entry.invited) {
+                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.acceptInvite(partyId));
+            } else {
+                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.joinFreeParty(partyId));
+            }
+            panel.closeIfOpen();
+            return true;
+        });
+
+        return Flow.row()
+                .widthRel(1f).height(18)
+                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                .child(btn);
+    }
+
+    private static class PartyEntry {
+
+        final int partyId;
+        final String displayName;
+        final String description;
+        final boolean invited;
+        final boolean freeToJoin;
+
+        PartyEntry(int partyId, String displayName, String description,
+                   boolean invited, boolean freeToJoin) {
+            this.partyId = partyId;
+            this.displayName = displayName;
+            this.description = description;
+            this.invited = invited;
+            this.freeToJoin = freeToJoin;
+        }
     }
 }

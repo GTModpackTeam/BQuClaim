@@ -13,6 +13,8 @@ import com.cleanroommc.modularui.utils.Platform;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
+import com.github.gtexpert.blpc.common.party.ClientPartyCache;
+import com.github.gtexpert.blpc.common.party.Party;
 
 public class ChunkMapRenderer {
 
@@ -96,12 +98,16 @@ public class ChunkMapRenderer {
         if (d == null) return;
 
         int color;
+        Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
         if (d.ownerUUID.equals(playerUUID)) {
-            color = COLOR_OWN;
+            // Own claim: use party color if set, otherwise default green
+            color = (ownerParty != null) ? (0x55000000 | (ownerParty.getColor() & 0xFFFFFF)) : COLOR_OWN;
         } else if (PartyProviderRegistry.get().areInSameParty(playerUUID, d.ownerUUID)) {
-            color = COLOR_PARTY;
+            // Same party: use party color if set, otherwise default cyan
+            color = (ownerParty != null) ? (0x55000000 | (ownerParty.getColor() & 0xFFFFFF)) : COLOR_PARTY;
         } else {
-            color = COLOR_OTHER;
+            // Other party: use their party color if set, otherwise default red
+            color = (ownerParty != null) ? (0x55000000 | (ownerParty.getColor() & 0xFFFFFF)) : COLOR_OTHER;
         }
 
         GuiDraw.drawRect(dx, dy, size, size, color);

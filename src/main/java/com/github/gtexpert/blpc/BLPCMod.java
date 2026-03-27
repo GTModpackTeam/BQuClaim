@@ -13,9 +13,6 @@ import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import com.github.gtexpert.blpc.api.util.Mods;
 import com.github.gtexpert.blpc.client.gui.KeyInputHandler;
 import com.github.gtexpert.blpc.client.gui.MinimapHUD;
@@ -32,7 +29,6 @@ import com.github.gtexpert.blpc.module.Modules;
 public class BLPCMod {
 
     public static BLPCMod INSTANCE;
-    public static final Logger LOGGER = LogManager.getLogger(Tags.MODID);
 
     private ModuleManager moduleManager;
 

@@ -185,14 +185,14 @@ public class DefaultPartyProvider implements IPartyProvider {
         MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server == null) return;
         PartyManagerData data = PartyManagerData.getInstance();
-        ModNetwork.INSTANCE.sendToAll(new MessagePartySync(data.serializeAll()));
+        ModNetwork.INSTANCE.sendToAll(new MessagePartySync(data.serializeForSync()));
     }
 
     @Override
     public NBTTagCompound serializeForClient() {
         MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server == null) return new NBTTagCompound();
-        return PartyManagerData.getInstance().serializeAll();
+        return PartyManagerData.getInstance().serializeForSync();
     }
 
     @Nullable

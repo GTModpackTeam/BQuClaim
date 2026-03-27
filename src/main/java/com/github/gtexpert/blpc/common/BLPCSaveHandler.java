@@ -14,7 +14,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 
-import com.github.gtexpert.blpc.BLPCMod;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.party.Party;
@@ -66,10 +65,7 @@ public class BLPCSaveHandler {
         try (FileInputStream fis = new FileInputStream(file)) {
             NBTTagCompound nbt = CompressedStreamTools.readCompressed(fis);
             data.readConfigNBT(nbt);
-            BLPCMod.LOGGER.debug("Loaded config from {}", file);
-        } catch (IOException e) {
-            BLPCMod.LOGGER.error("Failed to load config", e);
-        }
+        } catch (IOException e) {}
     }
 
     public void saveConfig(PartyManagerData data) {
@@ -78,9 +74,7 @@ public class BLPCSaveHandler {
             NBTTagCompound nbt = new NBTTagCompound();
             data.writeConfigNBT(nbt);
             CompressedStreamTools.writeCompressed(nbt, fos);
-        } catch (IOException e) {
-            BLPCMod.LOGGER.error("Failed to save config", e);
-        }
+        } catch (IOException e) {}
     }
 
     // --- Parties (one file per party) ---
@@ -93,11 +87,8 @@ public class BLPCSaveHandler {
                 NBTTagCompound nbt = CompressedStreamTools.readCompressed(fis);
                 Party party = Party.fromNBT(nbt);
                 data.addParty(party);
-            } catch (IOException e) {
-                BLPCMod.LOGGER.error("Failed to load party from {}", file, e);
-            }
+            } catch (IOException e) {}
         }
-        BLPCMod.LOGGER.debug("Loaded {} parties from {}", data.getAllParties().size(), partiesDir);
     }
 
     public void saveParties(PartyManagerData data) {
@@ -109,9 +100,7 @@ public class BLPCSaveHandler {
             File file = new File(partiesDir, party.getPartyId() + ".dat");
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 CompressedStreamTools.writeCompressed(party.toNBT(), fos);
-            } catch (IOException e) {
-                BLPCMod.LOGGER.error("Failed to save party {}", party.getPartyId(), e);
-            }
+            } catch (IOException e) {}
         }
     }
 
@@ -129,11 +118,8 @@ public class BLPCSaveHandler {
                     data.setClaim(claim.x, claim.z, claim.ownerUUID, claim.ownerName, claim.partyName,
                             claim.isForceLoaded);
                 }
-            } catch (IOException e) {
-                BLPCMod.LOGGER.error("Failed to load claims from {}", file, e);
-            }
+            } catch (IOException e) {}
         }
-        BLPCMod.LOGGER.debug("Loaded claims from {}", claimsDir);
     }
 
     public void saveClaims(ChunkManagerData chunkData, PartyManagerData partyData) {
@@ -166,9 +152,7 @@ public class BLPCSaveHandler {
             NBTTagCompound nbt = new NBTTagCompound();
             nbt.setTag("claims", list);
             CompressedStreamTools.writeCompressed(nbt, fos);
-        } catch (IOException e) {
-            BLPCMod.LOGGER.error("Failed to save claims to {}", file, e);
-        }
+        } catch (IOException e) {}
     }
 
     // --- Full save/load ---

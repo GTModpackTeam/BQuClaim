@@ -20,13 +20,27 @@ import net.minecraftforge.event.world.ExplosionEvent;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.party.TrustAction;
+import com.github.gtexpert.blpc.common.party.TrustLevel;
 
+/**
+ * Central Forge event handler for chunk protection.
+ * <p>
+ * Subscribes to block, entity, explosion, and environmental events and denies
+ * actions in claimed chunks based on the acting player's effective
+ * {@link TrustLevel} versus the party's configured required level for the
+ * corresponding {@link TrustAction}. OP players (permission level 2+) bypass
+ * all protection checks.
+ * <p>
+ * Additional protections (mob griefing, fluid flow, fire spread, farmland
+ * trampling) are gated by {@link com.github.gtexpert.blpc.common.ModConfig ModConfig}
+ * flags.
+ */
 public class ChunkProtectionHandler {
 
     // --- Helper methods ---
@@ -40,7 +54,25 @@ public class ChunkProtectionHandler {
         return PartyManagerData.getInstance().getPartyByPlayer(claim.ownerUUID);
     }
 
-    private static boolean canPlayerActAt(@Nullable EntityPlayer player, BlockPos pos) {
+    /**
+     * Determines whether a player is allowed to perform the given action at a position.
+     * <p>
+     * Returns {@code true} (allowed) when any of the following hold:
+     * <ol>
+     * <li>Protection is globally disabled ({@code ModConfig.enableProtection == false})</li>
+     * <li>The chunk is unclaimed</li>
+     * <li>The player is an OP (permission level 2+)</li>
+     * <li>The player is the claim owner</li>
+     * <li>The player's effective trust level meets the party's required level for the action</li>
+     * </ol>
+     * FakePlayers are checked against the party's dedicated fake-player trust level.
+     *
+     * @param player the acting player, or {@code null} for non-player entities
+     * @param pos    the block position to check
+     * @param action the action being attempted
+     * @return {@code true} if the action is allowed
+     */
+    private static boolean canPlayerActAt(@Nullable EntityPlayer player, BlockPos pos, TrustAction action) {
         if (!ModConfig.enableProtection) return true;
 
         int chunkX = pos.getX() >> 4;
@@ -50,51 +82,74 @@ public class ChunkProtectionHandler {
         if (claim == null) return true;
         if (player == null) return false;
 
+        // OP bypass
+        if (player.canUseCommand(2, "")) return true;
+
+        // Claim owner always allowed
+        if (claim.ownerUUID.equals(player.getUniqueID())) return true;
+
+        Party party = getPartyForClaim(claim);
+
+        // FakePlayer handling
         if (player instanceof FakePlayer) {
-            Party party = getPartyForClaim(claim);
-            return party == null || party.allowsFakePlayers();
+            if (party == null) return false;
+            TrustLevel fakeLevel = party.getFakePlayerTrustLevel();
+            return fakeLevel.isAtLeast(party.getTrustLevel(action));
         }
 
-        if (player.canUseCommand(2, "")) return true;
-        if (claim.ownerUUID.equals(player.getUniqueID())) return true;
-        if (PartyProviderRegistry.get().areInSameParty(claim.ownerUUID, player.getUniqueID())) return true;
+        // No party: only owner (already checked above) is allowed
+        if (party == null) return false;
 
-        return false;
+        // Trust level check
+        TrustLevel effectiveLevel = party.getEffectiveTrustLevel(player.getUniqueID());
+        if (effectiveLevel == null) return false; // Enemy
+        return effectiveLevel.isAtLeast(party.getTrustLevel(action));
     }
 
-    // --- Priority 1: Block breaking ---
+    // --- Block breaking ---
 
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
         if (event.getWorld().isRemote) return;
-        if (!canPlayerActAt(event.getPlayer(), event.getPos())) {
+        if (!canPlayerActAt(event.getPlayer(), event.getPos(), TrustAction.BLOCK_EDIT)) {
             event.setCanceled(true);
         }
     }
 
-    // --- Priority 1: Block placing ---
+    // --- Block placing ---
 
     @SubscribeEvent
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getWorld().isRemote) return;
         Entity entity = event.getEntity();
         EntityPlayer player = (entity instanceof EntityPlayer) ? (EntityPlayer) entity : null;
-        if (!canPlayerActAt(player, event.getPos())) {
+        if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT)) {
             event.setCanceled(true);
         }
     }
 
-    // --- Priority 1: Right-click interactions ---
+    // --- Right-click interactions ---
 
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (event.getWorld().isRemote) return;
-        if (!canPlayerActAt(event.getEntityPlayer(), event.getPos())) {
+        if (!canPlayerActAt(event.getEntityPlayer(), event.getPos(), TrustAction.BLOCK_INTERACT)) {
             event.setCanceled(true);
         }
     }
 
-    // --- Priority 1: Explosions (per-party setting) ---
+    // --- Item use in claimed chunks ---
+
+    @SubscribeEvent
+    public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        if (event.getWorld().isRemote) return;
+        if (!canPlayerActAt(event.getEntityPlayer(), event.getEntityPlayer().getPosition(),
+                TrustAction.USE_ITEM)) {
+            event.setCanceled(true);
+        }
+    }
+
+    // --- Explosions (per-party setting) ---
 
     @SubscribeEvent
     public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
@@ -125,12 +180,13 @@ public class ChunkProtectionHandler {
         }
     }
 
-    // --- Priority 2: Entity interactions ---
+    // --- Entity interactions ---
 
     @SubscribeEvent
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (event.getWorld().isRemote) return;
-        if (!canPlayerActAt(event.getEntityPlayer(), event.getTarget().getPosition())) {
+        if (!canPlayerActAt(event.getEntityPlayer(), event.getTarget().getPosition(),
+                TrustAction.BLOCK_INTERACT)) {
             event.setCanceled(true);
         }
     }
@@ -138,23 +194,24 @@ public class ChunkProtectionHandler {
     @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         if (event.getWorld().isRemote) return;
-        if (!canPlayerActAt(event.getEntityPlayer(), event.getTarget().getPosition())) {
+        if (!canPlayerActAt(event.getEntityPlayer(), event.getTarget().getPosition(),
+                TrustAction.BLOCK_INTERACT)) {
             event.setCanceled(true);
         }
     }
 
-    // --- Priority 2: Entity attack ---
+    // --- Entity attack ---
 
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
         if (event.getEntityPlayer().world.isRemote) return;
         Entity target = event.getTarget();
-        if (!canPlayerActAt(event.getEntityPlayer(), target.getPosition())) {
+        if (!canPlayerActAt(event.getEntityPlayer(), target.getPosition(), TrustAction.ATTACK_ENTITY)) {
             event.setCanceled(true);
         }
     }
 
-    // --- Priority 2: Mob griefing ---
+    // --- Mob griefing ---
 
     @SubscribeEvent
     public static void onMobGriefing(EntityMobGriefingEvent event) {
@@ -169,7 +226,7 @@ public class ChunkProtectionHandler {
         }
     }
 
-    // --- Priority 2: Farmland trampling ---
+    // --- Farmland trampling ---
 
     @SubscribeEvent
     public static void onFarmlandTrample(BlockEvent.FarmlandTrampleEvent event) {
@@ -180,7 +237,7 @@ public class ChunkProtectionHandler {
         EntityPlayer player = (entity instanceof EntityPlayer) ? (EntityPlayer) entity : null;
 
         if (player != null) {
-            if (!canPlayerActAt(player, event.getPos())) {
+            if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT)) {
                 event.setCanceled(true);
             }
         } else {
@@ -192,7 +249,7 @@ public class ChunkProtectionHandler {
         }
     }
 
-    // --- Priority 3: Fluid block generation across chunk boundaries ---
+    // --- Fluid block generation across chunk boundaries ---
 
     @SubscribeEvent
     public static void onFluidPlaceBlock(BlockEvent.FluidPlaceBlockEvent event) {
@@ -215,7 +272,7 @@ public class ChunkProtectionHandler {
         }
     }
 
-    // --- Priority 3: Fire spread across chunk boundaries ---
+    // --- Fire spread across chunk boundaries ---
 
     @SubscribeEvent
     public static void onNeighborNotify(BlockEvent.NeighborNotifyEvent event) {

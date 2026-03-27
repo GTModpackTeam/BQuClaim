@@ -4,7 +4,6 @@ import java.util.UUID;
 
 import net.minecraft.world.World;
 
-import com.github.gtexpert.blpc.BLPCMod;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 import com.github.gtexpert.blpc.common.party.PartyRole;
@@ -39,12 +38,10 @@ public class BQMigrationHelper {
                 }
 
                 if (ownerUUID == null) {
-                    BLPCMod.LOGGER.warn("[Migration] Skipping BQu party '{}' (no owner)", name);
                     continue;
                 }
 
                 if (data.getPartyByPlayer(ownerUUID) != null) {
-                    BLPCMod.LOGGER.debug("[Migration] Skipping BQu party '{}' (owner already in a party)", name);
                     continue;
                 }
 
@@ -58,14 +55,10 @@ public class BQMigrationHelper {
                 }
 
                 count++;
-                BLPCMod.LOGGER.info("[Migration] BQu party '{}' -> BLPC party (id={})", name,
-                        party.getPartyId());
+
             }
 
             data.setMigrated(true);
-            BLPCMod.LOGGER.info("[Migration] Complete. {} BQu parties migrated.", count);
-        } catch (Exception e) {
-            BLPCMod.LOGGER.error("[Migration] Failed to migrate BQu parties", e);
-        }
+        } catch (Exception e) {}
     }
 }

@@ -28,17 +28,17 @@ blpc.map.help_drag=ドラッグ: 一括操作
 blpc.map.party=パーティ
 
 # Party
-blpc.party.default_name=新規パーティ
+blpc.party.default_name=新しいパーティ
 blpc.party.create_title=パーティ作成
 blpc.party.create=作成
 blpc.party.invite=招待
-blpc.party.invite_title=プレイヤーを招待
-blpc.party.send=送信
+blpc.party.invite_title=プレイヤー招待
+blpc.party.send=招待
 blpc.party.leave=脱退
 blpc.party.disband=解散
-blpc.party.open_native=パーティ管理
+blpc.party.open_native=BQuパーティ管理
 blpc.party.disband_confirm_title=パーティを解散しますか？
-blpc.party.disband_confirm_msg=全メンバーの保護チャンクが解放されます。
+blpc.party.disband_confirm_msg=全メンバーのチャンク保護が解除されます。BQuパーティには影響しません。
 blpc.party.disband_yes=はい、解散する
 blpc.party.disband_no=キャンセル
 blpc.party.settings=設定
@@ -47,13 +47,81 @@ blpc.party.members=メンバー
 blpc.party.members_title=メンバー一覧
 blpc.party.link_bqu=BQu連携
 blpc.party.link_bqu_title=BQuと連携しますか？
-blpc.party.link_bqu_msg=パーティ管理がBQuに委譲されます。
+blpc.party.link_bqu_msg=パーティの管理をBetterQuestingに委譲します。
 blpc.party.unlink_bqu=BQu連携解除
 blpc.party.unlink_bqu_title=BQu連携を解除しますか？
-blpc.party.unlink_bqu_msg=パーティ管理が自己管理モードに戻ります。
+blpc.party.unlink_bqu_msg=パーティの管理をBLPC独自管理に戻します。
 blpc.party.invite_sent=%s に招待を送りました。
 blpc.party.invite_received=%s からパーティ「%s」への招待が届きました。
-blpc.party.fakeplayer_on=FakePlayer: 許可
-blpc.party.fakeplayer_off=FakePlayer: 拒否
-blpc.party.explosion_on=爆発保護: ON
-blpc.party.explosion_off=爆発保護: OFF
+blpc.party.fakeplayer_on=FakePlayer: 許可する
+blpc.party.fakeplayer_off=FakePlayer: 拒否する
+blpc.party.explosion_on=領有チャンクで爆発を有効化: false
+blpc.party.explosion_off=領有チャンクで爆発を有効化: true
+
+# ロール
+blpc.party.role.member=メンバー
+blpc.party.role.admin=モデレーター
+blpc.party.role.owner=オーナー
+
+# 信頼アクション
+blpc.party.trust.blockEdit=ブロック編集に必要なレベル
+blpc.party.trust.blockInteract=ブロックの使用に必要なレベル
+blpc.party.trust.attackEntity=エンティティへの攻撃に必要なレベル
+blpc.party.trust.useItem=アイテムの使用に必要なレベル
+
+# 信頼レベル
+blpc.party.trust_level.none=None
+blpc.party.trust_level.ally=Ally
+blpc.party.trust_level.member=Member
+blpc.party.trust_level.moderator=Moderator
+blpc.party.trust_level.owner=Owner
+
+# 保護設定
+blpc.party.settings_protection=-- 保護設定 --
+blpc.party.settings_party=-- パーティ情報 --
+blpc.party.fakeplayer_trust=Fake Playerの権限
+blpc.party.free_to_join_on=自由参加: ON
+blpc.party.free_to_join_off=自由参加: OFF
+blpc.party.color=カラー
+blpc.party.title_field=タイトル
+blpc.party.description_field=説明文
+blpc.party.join=参加
+blpc.party.free_parties=公開パーティ
+blpc.party.invited_label=招待中
+blpc.party.tooltip.accept_invite=クリックで招待を承認
+blpc.party.tooltip.join_free=クリックでこのパーティに参加
+
+# 味方 / 敵対
+blpc.party.allies=味方一覧
+blpc.party.allies_title=味方一覧
+blpc.party.enemies=敵対一覧
+blpc.party.enemies_title=敵対一覧
+blpc.party.add=追加
+blpc.party.remove=削除
+blpc.party.promote=昇格
+blpc.party.demote=降格
+blpc.party.moderators=モデレーター
+blpc.party.moderators_title=モデレーター一覧
+
+# オーナー移譲
+blpc.party.transfer=オーナー移譲
+blpc.party.transfer_title=オーナー移譲
+blpc.party.transfer_confirm=移譲
+blpc.party.transfer_msg=選択したプレイヤーがオーナーになり、あなたはモデレーターに降格します。BQuパーティには影響しません。
+
+# ツールチップ
+blpc.party.tooltip.free_to_join=招待なしで誰でも参加できます
+blpc.party.tooltip.color=チャンクマップ上のチーム表示色
+blpc.party.tooltip.title=保護チャンクに入った時に表示されます
+blpc.party.tooltip.description=タイトルの下に表示されます
+blpc.party.tooltip.explosion=保護チャンク内の爆発を許可または禁止します
+blpc.party.tooltip.fakeplayer=自動化MOD(BuildCraft, EnderIO等)の権限レベル
+blpc.party.tooltip.trust_level=この操作に必要な最低権限レベル
+blpc.party.tooltip.member=クリックでキック / クリックで招待
+blpc.party.tooltip.member_self=クリックでパーティを脱退
+blpc.party.tooltip.ally=クリックで味方ステータスを切替
+blpc.party.tooltip.enemy=クリックで敵対ステータスを切替
+blpc.party.tooltip.moderator=クリックで昇格 / 降格
+
+# 検索
+blpc.party.search=検索...

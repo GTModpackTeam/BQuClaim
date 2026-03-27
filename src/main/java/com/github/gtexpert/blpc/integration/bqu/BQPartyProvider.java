@@ -14,7 +14,6 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 
-import com.github.gtexpert.blpc.BLPCMod;
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
@@ -59,9 +58,7 @@ public class BQPartyProvider implements IPartyProvider {
                     return true;
                 }
             }
-        } catch (Exception e) {
-            BLPCMod.LOGGER.debug("Failed to check party status", e);
-        }
+        } catch (Exception e) {}
         return fallback.areInSameParty(playerA, playerB);
     }
 
@@ -268,11 +265,8 @@ public class BQPartyProvider implements IPartyProvider {
         NBTTagCompound syncData = serializeForClient();
         NBTTagList syncParties = syncData.getTagList("parties", Constants.NBT.TAG_COMPOUND);
         NBTTagList syncLinked = syncData.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);
-        BLPCMod.LOGGER.debug("[SyncToAll] parties={} bquLinked={}", syncParties.tagCount(), syncLinked.tagCount());
         for (int i = 0; i < syncParties.tagCount(); i++) {
             Party p = Party.fromNBT(syncParties.getCompoundTagAt(i));
-            BLPCMod.LOGGER.debug("[SyncToAll]   party: {} (id={}) members={}", p.getName(), p.getPartyId(),
-                    p.getMemberUUIDs());
         }
         ModNetwork.INSTANCE.sendToAll(new MessagePartySync(syncData));
     }
@@ -299,16 +293,35 @@ public class BQPartyProvider implements IPartyProvider {
                 hasLinkedMember = true;
             }
             if (!hasLinkedMember) continue;
-            // Copy protection settings from the corresponding self-managed party
+            // Copy BLPC settings from self-managed party (BLPC data takes priority)
             for (UUID memberId : party.getMemberUUIDs()) {
                 Party selfParty = pmData.getPartyByPlayer(memberId);
                 if (selfParty != null) {
-                    party.setAllowFakePlayers(selfParty.allowsFakePlayers());
+                    // Name and metadata: BLPC's own values override BQu
+                    party.setName(selfParty.getName());
+                    party.setTitle(selfParty.getTitle());
+                    party.setDescription(selfParty.getDescription());
+                    party.setColor(selfParty.getColor());
+                    party.setFreeToJoin(selfParty.isFreeToJoin());
+                    // Protection settings
+                    party.setFakePlayerTrustLevel(selfParty.getFakePlayerTrustLevel());
                     party.setProtectExplosions(selfParty.protectsExplosions());
+                    for (com.github.gtexpert.blpc.common.party.TrustAction ta : com.github.gtexpert.blpc.common.party.TrustAction
+                            .values()) {
+                        party.setTrustLevel(ta, selfParty.getTrustLevel(ta));
+                    }
+                    // Allies and enemies
+                    for (UUID allyId : selfParty.getAllies()) {
+                        party.addAlly(allyId);
+                    }
+                    for (UUID enemyId : selfParty.getEnemies()) {
+                        party.addEnemy(enemyId);
+                    }
                     break;
                 }
             }
-            list.appendTag(party.toNBT());
+            party.resolvePlayerNames();
+            list.appendTag(party.toSyncNBT());
         }
 
         NBTTagCompound selfData = fallback.serializeForClient();
@@ -323,7 +336,7 @@ public class BQPartyProvider implements IPartyProvider {
                 }
             }
             if (hasNonBQuMember) {
-                list.appendTag(selfParty.toNBT());
+                list.appendTag(selfParty.toSyncNBT());
             }
         }
 

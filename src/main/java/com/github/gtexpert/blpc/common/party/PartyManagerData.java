@@ -120,6 +120,7 @@ public class PartyManagerData {
 
     // --- Client sync ---
 
+    /** Serializes all data for file persistence (no player name cache). */
     public NBTTagCompound serializeAll() {
         NBTTagCompound all = new NBTTagCompound();
         NBTTagList list = new NBTTagList();
@@ -127,13 +128,30 @@ public class PartyManagerData {
             list.appendTag(party.toNBT());
         }
         all.setTag("parties", list);
+        all.setTag("bquLinked", serializeBQuLinked());
+        return all;
+    }
+
+    /** Serializes all data for client sync (includes player name cache). */
+    public NBTTagCompound serializeForSync() {
+        NBTTagCompound all = new NBTTagCompound();
+        NBTTagList list = new NBTTagList();
+        for (Party party : parties.values()) {
+            party.resolvePlayerNames();
+            list.appendTag(party.toSyncNBT());
+        }
+        all.setTag("parties", list);
+        all.setTag("bquLinked", serializeBQuLinked());
+        return all;
+    }
+
+    private NBTTagList serializeBQuLinked() {
         NBTTagList linkedList = new NBTTagList();
         for (UUID uuid : bquLinkedPlayers) {
             NBTTagCompound tag = new NBTTagCompound();
             tag.setUniqueId("uuid", uuid);
             linkedList.appendTag(tag);
         }
-        all.setTag("bquLinked", linkedList);
-        return all;
+        return linkedList;
     }
 }

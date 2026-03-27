@@ -1,41 +1,30 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
-import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.screen.ModularPanel;
-import com.cleanroommc.modularui.widgets.ButtonWidget;
+import com.cleanroommc.modularui.widgets.Dialog;
 
+import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 
+/**
+ * BQu unlink confirmation dialog (panel ID: {@value #PANEL_ID}).
+ * <p>
+ * Built using {@link ConfirmDialog} template. On confirmation, sends a
+ * BQu unlink request to the server.
+ */
 public class UnlinkBQuDialog {
 
     public static final String PANEL_ID = "blpc.party.dialog.unlink_bqu";
-    private static final int W = 240;
-    private static final int H = 80;
 
-    public static ModularPanel build(ModularPanel parentPanel) {
-        ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(W, H);
-
-        panel.child(IKey.lang("blpc.party.unlink_bqu_title").color(0xFFFFFFFF).shadow(true)
-                .asWidget().pos(8, 6))
-                .child(IKey.lang("blpc.party.unlink_bqu_msg").color(0xFFAAAAAA).shadow(true)
-                        .asWidget().pos(8, 20))
-                .child(new ButtonWidget<>().size(80, 16).pos(20, 56)
-                        .overlay(IKey.lang("blpc.map.yes"))
-                        .onMousePressed(btn -> {
-                            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(false));
-                            panel.closeIfOpen();
-                            parentPanel.closeIfOpen();
-                            return true;
-                        }))
-                .child(new ButtonWidget<>().size(80, 16).pos(140, 56)
-                        .overlay(IKey.lang("blpc.map.no"))
-                        .onMousePressed(btn -> {
-                            panel.closeIfOpen();
-                            return true;
-                        }));
-
-        return panel;
+    /** Builds the BQu unlink confirmation dialog. */
+    public static Dialog<Boolean> build(ModularPanel parentPanel) {
+        return ConfirmDialog.builder(PANEL_ID)
+                .title("blpc.party.unlink_bqu_title")
+                .message("blpc.party.unlink_bqu_msg")
+                .size(240, 80)
+                .closeParent(false)
+                .onConfirm(() -> ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(false)))
+                .build(parentPanel);
     }
 }

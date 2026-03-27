@@ -192,6 +192,7 @@ public class ChunkMapScreen extends CustomModularScreen {
     }
 
     private void openPartyScreen() {
+        com.github.gtexpert.blpc.client.gui.party.PartyWidgets.resetSubPanelHandler();
         if (partyHandler != null) {
             partyHandler.deleteCachedPanel();
         } else {

@@ -88,7 +88,7 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
         Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
         if (ownerParty == null) return;
-        String text = ownerParty.getName();
+        String text = !ownerParty.getTitle().isEmpty() ? ownerParty.getTitle() : ownerParty.getName();
 
         FontRenderer fr = mc.fontRenderer;
         int tw = fr.getStringWidth(text);

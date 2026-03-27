@@ -30,6 +30,19 @@ public enum PartyRole {
         return this == OWNER;
     }
 
+    public TrustLevel toTrustLevel() {
+        switch (this) {
+            case OWNER:
+                return TrustLevel.OWNER;
+            case ADMIN:
+                return TrustLevel.MODERATOR;
+            case MEMBER:
+                return TrustLevel.MEMBER;
+            default:
+                return TrustLevel.NONE;
+        }
+    }
+
     /** Maps a role name string (e.g. from BQu's EnumPartyStatus) to PartyRole. Defaults to MEMBER. */
     public static PartyRole fromName(String name) {
         if (name == null) return MEMBER;

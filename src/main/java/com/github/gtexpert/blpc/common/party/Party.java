@@ -9,7 +9,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
 
 /**
- * Represents a party with members, roles, and invitations.
+ * Represents a party with members, roles, trust settings, and invitations.
  * <p>
  * Persisted to {@code world/betterlink/pc/parties/<id>.dat} via
  * {@link com.github.gtexpert.blpc.common.BLPCSaveHandler}.
@@ -24,8 +24,23 @@ public class Party {
     private final Map<UUID, PartyRole> members = new LinkedHashMap<>();
     private final long createdAt;
 
-    private boolean allowFakePlayers = true;
+    // Trust level settings per action
+    private final Map<TrustAction, TrustLevel> requiredTrustLevels = new EnumMap<>(TrustAction.class);
+    private TrustLevel fakePlayerTrustLevel = TrustLevel.ALLY;
     private boolean protectExplosions = true;
+
+    // Ally / Enemy sets
+    private final Set<UUID> allies = new LinkedHashSet<>();
+    private final Set<UUID> enemies = new LinkedHashSet<>();
+
+    // Party metadata
+    private boolean freeToJoin = false;
+    private int color = 0x0000FF;
+    private String title = "";
+    private String description = "";
+
+    /** UUID → display name cache. Populated server-side before sync, read client-side. */
+    private final Map<UUID, String> playerNames = new HashMap<>();
 
     private final Map<UUID, Long> invites = new HashMap<>();
 
@@ -101,14 +116,22 @@ public class Party {
         return null;
     }
 
-    // --- Protection settings ---
+    // --- Trust level settings ---
 
-    public boolean allowsFakePlayers() {
-        return allowFakePlayers;
+    public TrustLevel getTrustLevel(TrustAction action) {
+        return requiredTrustLevels.getOrDefault(action, action.getDefaultLevel());
     }
 
-    public void setAllowFakePlayers(boolean allow) {
-        this.allowFakePlayers = allow;
+    public void setTrustLevel(TrustAction action, TrustLevel level) {
+        requiredTrustLevels.put(action, level);
+    }
+
+    public TrustLevel getFakePlayerTrustLevel() {
+        return fakePlayerTrustLevel;
+    }
+
+    public void setFakePlayerTrustLevel(TrustLevel level) {
+        this.fakePlayerTrustLevel = level;
     }
 
     public boolean protectsExplosions() {
@@ -117,6 +140,133 @@ public class Party {
 
     public void setProtectExplosions(boolean protect) {
         this.protectExplosions = protect;
+    }
+
+    /**
+     * Resolves a player's effective trust level in this party.
+     *
+     * @return the trust level, or {@code null} if the player is an enemy (absolute deny).
+     */
+    @Nullable
+    public TrustLevel getEffectiveTrustLevel(UUID playerUUID) {
+        if (enemies.contains(playerUUID)) return null;
+        PartyRole role = members.get(playerUUID);
+        if (role != null) return role.toTrustLevel();
+        if (allies.contains(playerUUID)) return TrustLevel.ALLY;
+        return TrustLevel.NONE;
+    }
+
+    // --- Allies ---
+
+    public Set<UUID> getAllies() {
+        return Collections.unmodifiableSet(allies);
+    }
+
+    public boolean isAlly(UUID uuid) {
+        return allies.contains(uuid);
+    }
+
+    public void addAlly(UUID uuid) {
+        allies.add(uuid);
+        enemies.remove(uuid);
+    }
+
+    public void removeAlly(UUID uuid) {
+        allies.remove(uuid);
+    }
+
+    // --- Enemies ---
+
+    public Set<UUID> getEnemies() {
+        return Collections.unmodifiableSet(enemies);
+    }
+
+    public boolean isEnemy(UUID uuid) {
+        return enemies.contains(uuid);
+    }
+
+    public void addEnemy(UUID uuid) {
+        enemies.add(uuid);
+        allies.remove(uuid);
+    }
+
+    public void removeEnemy(UUID uuid) {
+        enemies.remove(uuid);
+    }
+
+    // --- Party metadata ---
+
+    public boolean isFreeToJoin() {
+        return freeToJoin;
+    }
+
+    public void setFreeToJoin(boolean freeToJoin) {
+        this.freeToJoin = freeToJoin;
+    }
+
+    public int getColor() {
+        return color;
+    }
+
+    public void setColor(int color) {
+        this.color = color;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    // --- Player name cache ---
+
+    /**
+     * Returns the cached display name for a player, or {@code null} if unknown.
+     * Populated by {@link #resolvePlayerNames()} on the server before sync.
+     */
+    @Nullable
+    public String getPlayerName(UUID uuid) {
+        return playerNames.get(uuid);
+    }
+
+    /** Sets a cached display name for a player UUID. */
+    public void setPlayerName(UUID uuid, String name) {
+        playerNames.put(uuid, name);
+    }
+
+    /**
+     * Resolves display names for all known UUIDs (members, allies, enemies)
+     * using Forge's {@link net.minecraftforge.common.UsernameCache}.
+     * Call this server-side before serializing for client sync.
+     */
+    public void resolvePlayerNames() {
+        playerNames.clear();
+        for (UUID uuid : members.keySet()) {
+            resolveOne(uuid);
+        }
+        for (UUID uuid : allies) {
+            resolveOne(uuid);
+        }
+        for (UUID uuid : enemies) {
+            resolveOne(uuid);
+        }
+    }
+
+    private void resolveOne(UUID uuid) {
+        String cached = net.minecraftforge.common.UsernameCache.getLastKnownUsername(uuid);
+        if (cached != null) {
+            playerNames.put(uuid, cached);
+        }
     }
 
     // --- Invites (memory only, not persisted) ---
@@ -152,6 +302,7 @@ public class Party {
         tag.setString("name", name);
         tag.setLong("created", createdAt);
 
+        // Members
         NBTTagList memberList = new NBTTagList();
         for (Map.Entry<UUID, PartyRole> entry : members.entrySet()) {
             NBTTagCompound memberTag = new NBTTagCompound();
@@ -160,8 +311,71 @@ public class Party {
             memberList.appendTag(memberTag);
         }
         tag.setTag("members", memberList);
-        tag.setBoolean("allowFakePlayers", allowFakePlayers);
+
+        // Trust levels
+        NBTTagCompound trustTag = new NBTTagCompound();
+        for (Map.Entry<TrustAction, TrustLevel> entry : requiredTrustLevels.entrySet()) {
+            trustTag.setString(entry.getKey().getNbtKey(), entry.getValue().name());
+        }
+        tag.setTag("trustLevels", trustTag);
+        tag.setString("fakePlayerTrust", fakePlayerTrustLevel.name());
         tag.setBoolean("protectExplosions", protectExplosions);
+
+        // Allies
+        NBTTagList allyList = new NBTTagList();
+        for (UUID uuid : allies) {
+            NBTTagCompound allyTag = new NBTTagCompound();
+            allyTag.setUniqueId("uuid", uuid);
+            allyList.appendTag(allyTag);
+        }
+        tag.setTag("allies", allyList);
+
+        // Enemies
+        NBTTagList enemyList = new NBTTagList();
+        for (UUID uuid : enemies) {
+            NBTTagCompound enemyTag = new NBTTagCompound();
+            enemyTag.setUniqueId("uuid", uuid);
+            enemyList.appendTag(enemyTag);
+        }
+        tag.setTag("enemies", enemyList);
+
+        // Metadata
+        tag.setBoolean("freeToJoin", freeToJoin);
+        tag.setInteger("color", color);
+        tag.setString("title", title);
+        tag.setString("description", description);
+
+        return tag;
+    }
+
+    /**
+     * Returns NBT for client sync (includes player name cache).
+     * Use this instead of {@link #toNBT()} when sending to clients.
+     */
+    public NBTTagCompound toSyncNBT() {
+        NBTTagCompound tag = toNBT();
+        // Player name cache
+        if (!playerNames.isEmpty()) {
+            NBTTagList nameList = new NBTTagList();
+            for (Map.Entry<UUID, String> entry : playerNames.entrySet()) {
+                NBTTagCompound nameTag = new NBTTagCompound();
+                nameTag.setUniqueId("uuid", entry.getKey());
+                nameTag.setString("name", entry.getValue());
+                nameList.appendTag(nameTag);
+            }
+            tag.setTag("playerNames", nameList);
+        }
+        // Pending invites (UUID only, no expiry)
+        if (!invites.isEmpty()) {
+            cleanExpiredInvites();
+            NBTTagList inviteList = new NBTTagList();
+            for (UUID uuid : invites.keySet()) {
+                NBTTagCompound inviteTag = new NBTTagCompound();
+                inviteTag.setUniqueId("uuid", uuid);
+                inviteList.appendTag(inviteTag);
+            }
+            tag.setTag("pendingInvites", inviteList);
+        }
         return tag;
     }
 
@@ -171,6 +385,7 @@ public class Party {
         long created = tag.getLong("created");
         Party party = new Party(id, name, created);
 
+        // Members
         NBTTagList memberList = tag.getTagList("members", Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < memberList.tagCount(); i++) {
             NBTTagCompound memberTag = memberList.getCompoundTagAt(i);
@@ -183,12 +398,62 @@ public class Party {
             }
             party.addMember(uuid, role);
         }
-        if (tag.hasKey("allowFakePlayers")) {
-            party.setAllowFakePlayers(tag.getBoolean("allowFakePlayers"));
+
+        // Trust levels
+        if (tag.hasKey("trustLevels")) {
+            NBTTagCompound trustTag = tag.getCompoundTag("trustLevels");
+            for (TrustAction action : TrustAction.values()) {
+                if (trustTag.hasKey(action.getNbtKey())) {
+                    party.setTrustLevel(action, TrustLevel.fromName(trustTag.getString(action.getNbtKey())));
+                }
+            }
+        }
+        if (tag.hasKey("fakePlayerTrust")) {
+            party.setFakePlayerTrustLevel(TrustLevel.fromName(tag.getString("fakePlayerTrust")));
+        } else if (tag.hasKey("allowFakePlayers")) {
+            // Migration from old boolean format
+            party.setFakePlayerTrustLevel(tag.getBoolean("allowFakePlayers") ? TrustLevel.ALLY : TrustLevel.NONE);
         }
         if (tag.hasKey("protectExplosions")) {
             party.setProtectExplosions(tag.getBoolean("protectExplosions"));
         }
+
+        // Allies
+        NBTTagList allyList = tag.getTagList("allies", Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < allyList.tagCount(); i++) {
+            party.addAlly(allyList.getCompoundTagAt(i).getUniqueId("uuid"));
+        }
+
+        // Enemies
+        NBTTagList enemyList = tag.getTagList("enemies", Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < enemyList.tagCount(); i++) {
+            party.addEnemy(enemyList.getCompoundTagAt(i).getUniqueId("uuid"));
+        }
+
+        // Metadata
+        if (tag.hasKey("freeToJoin")) party.setFreeToJoin(tag.getBoolean("freeToJoin"));
+        if (tag.hasKey("color")) party.setColor(tag.getInteger("color"));
+        if (tag.hasKey("title")) party.setTitle(tag.getString("title"));
+        if (tag.hasKey("description")) party.setDescription(tag.getString("description"));
+
+        // Player name cache
+        if (tag.hasKey("playerNames")) {
+            NBTTagList nameList = tag.getTagList("playerNames", Constants.NBT.TAG_COMPOUND);
+            for (int i = 0; i < nameList.tagCount(); i++) {
+                NBTTagCompound nameTag = nameList.getCompoundTagAt(i);
+                party.setPlayerName(nameTag.getUniqueId("uuid"), nameTag.getString("name"));
+            }
+        }
+
+        // Pending invites (sync only, no expiry on client)
+        if (tag.hasKey("pendingInvites")) {
+            NBTTagList inviteList = tag.getTagList("pendingInvites", Constants.NBT.TAG_COMPOUND);
+            for (int i = 0; i < inviteList.tagCount(); i++) {
+                UUID uuid = inviteList.getCompoundTagAt(i).getUniqueId("uuid");
+                party.addInvite(uuid, Long.MAX_VALUE);
+            }
+        }
+
         return party;
     }
 }

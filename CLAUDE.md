@@ -50,18 +50,6 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 
 **Design principle (Approach A):** When BQu is present, BLPC integrates INTO BQu's party system. BLPC's UI sends operations that `BQPartyProvider` translates into BQu API calls. BQu's quest sharing works unchanged.
 
-### BQu Linking Toggle (P4)
-
-Players can individually toggle whether their party is backed by BQu. The linking state is stored in `PartyManagerData.bquLinkedPlayers` (a `Set<UUID>`) and persisted in `config.dat` via `BLPCSaveHandler`. Clients receive the current link flags in `MessageTeamSync` as part of the `serializeForClient` payload. `TeamScreen` branches its UI based on `ClientPartyCache.isBQuLinked(playerId)`:
-
-| BQu installed | Link toggle | Party management UI |
-|---|---|---|
-| No | — | Full self-managed UI (Invite / Leave / Disband) |
-| Yes | OFF | Full self-managed UI (uses local `PartyManagerData`) |
-| Yes | ON | Member list + "Open BQu Party Screen" button |
-
-Toggle changes are sent as `MessageTeamAction(ACTION_TOGGLE_BQU_LINK = 7)`.
-
 ### Naming Conventions
 
 - **Panel IDs:** `blpc.map`, `blpc.party`, `blpc.map.dialog.confirm`, `blpc.party.dialog.invite`
@@ -111,6 +99,109 @@ world/betterlink/pc/
 Claims: `ClaimedChunkData` includes `partyName` resolved server-side via `PartyProviderRegistry`. NBT key `"team"` for party name.
 
 Parties (self-managed mode only): `PartyManagerData`. Not used for storage when BQu is the active backend.
+
+### Trust Level System
+
+Trust levels control who can interact with claimed chunks. Each party configures the minimum trust level required per action.
+
+**TrustLevel enum** (ascending privilege):
+
+| Value | Description |
+|---|---|
+| `NONE` | Outsiders with no relationship to the party |
+| `ALLY` | Explicitly added to the party's ally list |
+| `MEMBER` | Regular party member |
+| `MODERATOR` | Maps from `PartyRole.ADMIN` |
+| `OWNER` | Party creator / current owner |
+
+**TrustAction enum** (configurable per-party):
+
+| Action | NBT Key | Forge Events |
+|---|---|---|
+| `BLOCK_EDIT` | `blockEdit` | `BreakEvent`, `EntityPlaceEvent`, `FarmlandTrampleEvent` |
+| `BLOCK_INTERACT` | `blockInteract` | `RightClickBlock`, `EntityInteract`, `EntityInteractSpecific` |
+| `ATTACK_ENTITY` | `attackEntity` | `AttackEntityEvent` |
+| `USE_ITEM` | `useItem` | `RightClickItem` |
+
+The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Additional per-party settings: FakePlayer trust level (same cycle), explosion protection (boolean toggle), free-to-join (boolean toggle).
+
+### Party UI Panels
+
+| Panel ID | File | Purpose |
+|---|---|---|
+| `blpc.party` | `MainPanel.java` | Party menu |
+| `blpc.party.create` | `CreatePanel.java` | Create party |
+| `blpc.party.settings` | `SettingsPanel.java` | Protection settings |
+| `blpc.party.members` | `MembersPanel.java` | Member list |
+| `blpc.party.moderators` | `ModeratorsPanel.java` | Moderator promote/demote |
+| `blpc.party.allies` | `AlliesPanel.java` | Ally management |
+| `blpc.party.enemies` | `EnemiesPanel.java` | Enemy management |
+| `blpc.party.dialog.invite` | `InviteDialog.java` | Invite player |
+| `blpc.party.dialog.disband` | `DisbandDialog.java` | Disband confirmation |
+| `blpc.party.dialog.link_bqu` | `LinkBQuDialog.java` | Link BQu confirmation |
+| `blpc.party.dialog.unlink_bqu` | `UnlinkBQuDialog.java` | Unlink BQu confirmation |
+| `blpc.party.dialog.transfer` | `TransferOwnerDialog.java` | Transfer ownership |
+
+### BLPCLog Categories
+
+| Category | Logger | Purpose |
+|---|---|---|
+| `BLPCLog.ROOT` | `blpc` | General |
+| `BLPCLog.IO` | `blpc/IO` | File I/O |
+| `BLPCLog.PARTY` | `blpc/Party` | Party operations |
+| `BLPCLog.SYNC` | `blpc/Sync` | Client sync |
+| `BLPCLog.BQU` | `blpc/BQu` | BQu integration |
+| `BLPCLog.MIGRATION` | `blpc/Migration` | Data migration |
+| `BLPCLog.UI` | `blpc/UI` | Panel navigation |
+| `BLPCLog.PROTECTION` | `blpc/Protection` | Chunk protection |
+
+### BQu Link/Unlink/Disband Flow
+
+**Link** (`MessagePartyAction.toggleBQuLink(true)`):
+1. Server receives action, verifies player is ADMIN+ in their BLPC party.
+2. Adds player UUID to `PartyManagerData.bquLinkedPlayers` set.
+3. `BLPCSaveHandler` persists the updated set to `config.dat`.
+4. `syncToAll()` broadcasts updated party state (including link flags) to all clients.
+5. Client-side `TeamScreen` switches to BQu-linked UI (member list + "Open BQu Party Screen" button).
+
+**Unlink** (`MessagePartyAction.toggleBQuLink(false)`):
+1. Server receives action, verifies player is ADMIN+.
+2. Removes player UUID from `bquLinkedPlayers` set.
+3. Persists and syncs as above.
+4. Client-side UI reverts to full self-managed mode (Invite / Leave / Disband).
+
+**Disband** (`MessagePartyAction.disband()`):
+1. Server receives action, verifies player is OWNER.
+2. Removes the party from `PartyManagerData`, clears BQu link flag for all members.
+3. Releases all chunk claims associated with the party.
+4. Persists and syncs.
+5. Client immediately clears `ClientPartyCache` and resets BQu link flag for instant feedback.
+
+### MUI Widget Patterns
+
+| Widget | Usage | Notes |
+|---|---|---|
+| `CycleButtonWidget` + `IntValue.Dynamic` + `IKey.dynamic()` | Multi-state settings (trust levels) | `stateCount()` sets number of states; overlay label updates dynamically |
+| `ToggleButton` + `BoolValue.Dynamic` | Boolean settings (explosions, free-to-join) | `overlay(false, ...)` / `overlay(true, ...)` for state-dependent labels |
+| `ListWidget` | Scrollable lists (members, allies, enemies) | `children(iterable, mapper)` for data-driven population |
+| `Dialog<T>` | Modal confirmations (disband, link/unlink BQu) | `closeWith(result)` triggers the result consumer and closes; extends `ModularPanel` |
+| `Flow.col()` / `Flow.row()` | Automatic vertical/horizontal layout | `childPadding(n)` for spacing; eliminates manual `y += ROW_H` positioning |
+
+MUI source reference: `/mnt/data/git/ModularUI/src/` — always check here for API details.
+
+### UI Reusable Templates
+
+All party panels use builder-pattern templates in `client/gui/party/widget/`:
+
+- **`ConfirmDialog`** — Yes/No confirmation dialog (`Dialog<Boolean>`). Used by: DisbandDialog, LinkBQuDialog, UnlinkBQuDialog.
+- **`InputDialog`** — Text field + submit dialog (`Dialog<Void>`). Used by: InviteDialog, TransferOwnerDialog.
+- **`PlayerListPanel`** — Scrollable player list with optional Add/Remove (`ModularPanel`). Used by: AlliesPanel, EnemiesPanel.
+
+Shared utilities in `client/gui/party/PartyWidgets`:
+- `getDisplayName(UUID)` — resolve player UUID to display name
+- `getRoleColor(PartyRole)` — ARGB color for role
+- `openSubPanel(parent, child)` — open a sub-panel with logging
+- `reopenPanel(current, factory)` — close and reopen a panel (for list refresh)
 
 ### Adding a New Integration Module
 
