@@ -81,8 +81,8 @@ public class MapColorHelper {
     }
 
     /**
-     * 1チャンク分の色配列を一括計算する。
-     * Chunkオブジェクトに直接アクセスし、ブロックごとのチャンクルックアップを排除する。
+     * Computes the color array for a single chunk.
+     * Directly accesses the Chunk object to avoid per-block chunk lookups.
      */
     public static int[] computeChunkColors(World world, Chunk chunk, Chunk northChunk, int cx, int cz) {
         int[] colors = new int[256];
@@ -113,7 +113,8 @@ public class MapColorHelper {
                     color = computeSolidColor(state, world, pos);
                 }
 
-                // 北隣との高低差シェーディング（チャンク内は直接参照、境界は隣チャンク参照）
+                // Height-difference shading against north neighbor (direct access within chunk, neighbor chunk at
+                // boundary)
                 int northY;
                 if (lz > 0) {
                     northY = chunk.getHeightValue(lx, lz - 1);
@@ -159,7 +160,7 @@ public class MapColorHelper {
             fluidColor = (mapColor != 0) ? mapColor : DEFAULT_FLUID_COLOR;
         }
 
-        // 水深を計測（同一チャンク内を下方向にスキャン）
+        // Measure fluid depth by scanning downward within the same chunk
         Material fluidMat = state.getMaterial();
         int depth = 0;
         int origY = pos.getY();

@@ -37,7 +37,7 @@ public class MessageSyncConfig implements IMessage {
 
         @Override
         public IMessage onMessage(MessageSyncConfig message, MessageContext ctx) {
-            // クライアント側のメモリ上の設定値をサーバーの値で上書き
+            // Override client-side config values with server values
             Minecraft.getMinecraft().addScheduledTask(() -> {
                 ModConfig.maxClaimsPerPlayer = message.maxClaims;
                 ModConfig.maxForceLoadsPerPlayer = message.maxForce;

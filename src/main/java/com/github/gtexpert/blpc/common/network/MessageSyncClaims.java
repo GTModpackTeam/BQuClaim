@@ -20,7 +20,7 @@ public class MessageSyncClaims implements IMessage {
     private String partyName;
     private boolean isForceLoaded;
 
-    public MessageSyncClaims() {} // 必須
+    public MessageSyncClaims() {}
 
     public MessageSyncClaims(int x, int z, UUID owner, String name, String partyName, boolean isForceLoaded) {
         this.x = x;
@@ -35,7 +35,7 @@ public class MessageSyncClaims implements IMessage {
     public void fromBytes(ByteBuf buf) {
         this.x = buf.readInt();
         this.z = buf.readInt();
-        // ownerがnull（Unclaim）の場合はUUIDを飛ばすための判定
+        // Skip UUID fields when owner is null (unclaim)
         if (buf.readBoolean()) {
             this.owner = new UUID(buf.readLong(), buf.readLong());
             this.name = ByteBufUtils.readUTF8String(buf);

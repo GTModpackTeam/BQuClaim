@@ -11,7 +11,7 @@ public class ModKeyBindings {
     public static KeyBinding toggleMinimap;
 
     public static void init() {
-        // "M" キーでマップを開く設定
+        // M key opens the chunk map
         keyOpenMap = new KeyBinding("key.blpc.open_map", Keyboard.KEY_M, "key.categories.blpc");
         ClientRegistry.registerKeyBinding(keyOpenMap);
         // Use N for minimap toggle to avoid collision with open-map (M)

@@ -4,6 +4,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+
+import com.github.gtexpert.blpc.common.network.MessageSyncClaims;
+import com.github.gtexpert.blpc.common.network.ModNetwork;
 
 /**
  * Server-side chunk claim storage. Singleton, persisted by {@link com.github.gtexpert.blpc.common.BLPCSaveHandler}.
@@ -67,6 +71,19 @@ public class ChunkManagerData {
             if (d.ownerUUID.equals(owner) && d.isForceLoaded) count++;
         }
         return count;
+    }
+
+    /**
+     * Removes all claims and force-loads for the given player, broadcasting unclaim messages.
+     */
+    public void releaseAllClaims(UUID owner, World world) {
+        for (ClaimedChunkData claim : getClaimsByOwner(owner)) {
+            if (claim.isForceLoaded) {
+                TicketManager.unforceChunk(world, claim.x, claim.z);
+            }
+            setClaim(claim.x, claim.z, null, "", "", false);
+            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(claim.x, claim.z, null, "", "", false));
+        }
     }
 
     public NBTTagCompound serializeAll() {

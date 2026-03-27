@@ -12,14 +12,12 @@ import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
 import net.minecraftforge.fml.common.event.*;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.modules.*;
+import com.github.gtexpert.blpc.common.ModLog;
 
 public class ModuleManager implements IModuleManager {
 
@@ -35,7 +33,6 @@ public class ModuleManager implements IModuleManager {
     private IModuleContainer currentContainer;
 
     private ModuleStage currentStage = ModuleStage.C_SETUP;
-    private final Logger logger = LogManager.getLogger("BLPCMod Module Loader");
     private Configuration config;
 
     private ModuleManager() {}
@@ -75,7 +72,8 @@ public class ModuleManager implements IModuleManager {
     @Override
     public void registerContainer(IModuleContainer container) {
         if (currentStage != ModuleStage.C_SETUP) {
-            logger.error("Failed to register module container {}, as module loading has already begun", container);
+            ModLog.MODULE.error("Failed to register module container {}, as module loading has already begun",
+                    container);
             return;
         }
         Preconditions.checkNotNull(container);
@@ -232,7 +230,7 @@ public class ModuleManager implements IModuleManager {
                 IModule module = iterator.next();
                 if (!isModuleEnabled(module)) {
                     iterator.remove();
-                    logger.debug("Module disabled: {}", module);
+                    ModLog.MODULE.debug("Module disabled: {}", module);
                     continue;
                 }
                 TModule annotation = module.getClass().getAnnotation(TModule.class);
@@ -256,7 +254,8 @@ public class ModuleManager implements IModuleManager {
                     TModule annotation = module.getClass().getAnnotation(TModule.class);
                     String moduleID = annotation.moduleID();
                     toLoad.remove(new ResourceLocation(moduleID));
-                    logger.debug("Module {} is missing at least one of module dependencies: {}, skipping loading...",
+                    ModLog.MODULE.debug(
+                            "Module {} is missing at least one of module dependencies: {}, skipping loading...",
                             moduleID, dependencies);
                 }
             }
@@ -323,10 +322,11 @@ public class ModuleManager implements IModuleManager {
                     Class<?> clazz = Class.forName(data.getClassName());
                     instances.add((IModule) clazz.newInstance());
                 } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
-                    logger.error("Could not initialize module " + moduleID, e);
+                    ModLog.MODULE.error("Could not initialize module " + moduleID, e);
                 }
             } else {
-                logger.debug("Module {} is missing at least one of mod dependencies: {}, skipping loading...", moduleID,
+                ModLog.MODULE.debug("Module {} is missing at least one of mod dependencies: {}, skipping loading...",
+                        moduleID,
                         modDependencies);
             }
         }
@@ -344,7 +344,7 @@ public class ModuleManager implements IModuleManager {
                 Class<?> clazz = Class.forName(data.getClassName());
                 registerContainer((IModuleContainer) clazz.newInstance());
             } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
-                logger.error("Could not initialize module container " + data.getClassName(), e);
+                ModLog.MODULE.error("Could not initialize module container " + data.getClassName(), e);
             }
         }
     }

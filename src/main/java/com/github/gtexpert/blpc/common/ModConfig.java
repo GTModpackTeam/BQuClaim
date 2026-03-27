@@ -42,7 +42,7 @@ public class ModConfig {
     @Config.Comment("Block fluid interaction effects (cobble/obsidian gen) into claimed chunks from unclaimed sources.")
     public static boolean protectFluidFlow = true;
 
-    // ゲーム内の設定画面から変更した際、即座に反映させるための処理
+    // Sync config values immediately when changed via in-game settings GUI
     @Mod.EventBusSubscriber(modid = Tags.MODID)
     private static class EventHandler {
 

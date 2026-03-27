@@ -25,7 +25,7 @@ public class TextureCache {
             return CACHE.get(key);
         }
 
-        // 古いテクスチャを解放してから置換
+        // Release old texture before replacing
         ChunkTexture old = CACHE.get(key);
         if (old != null) {
             Minecraft.getMinecraft().getTextureManager().deleteTexture(old.resourceLocation);

@@ -87,16 +87,23 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
         if (d == null) return;
 
         Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
-        if (ownerParty == null) return;
-        String text = !ownerParty.getTitle().isEmpty() ? ownerParty.getTitle() : ownerParty.getName();
+        String partyLabel;
+        int textColor;
+        if (ownerParty != null) {
+            partyLabel = !ownerParty.getTitle().isEmpty() ? ownerParty.getTitle() : ownerParty.getName();
+            textColor = 0xFF000000 | (ownerParty.getColor() & 0xFFFFFF);
+        } else {
+            partyLabel = d.ownerName;
+            textColor = 0xFFFFFFFF;
+        }
 
         FontRenderer fr = mc.fontRenderer;
-        int tw = fr.getStringWidth(text);
+        int tw = fr.getStringWidth(partyLabel);
         int tx = mouseX + 8;
         int ty = mouseY - fr.FONT_HEIGHT - 2;
 
         GuiDraw.drawRect(tx - 2, ty - 1, tw + 4, fr.FONT_HEIGHT + 2, 0xCC000000);
-        GuiDraw.drawText(text, tx, ty, 1f, 0xFFFFFFFF, true);
+        GuiDraw.drawText(partyLabel, tx, ty, 1f, textColor, true);
     }
 
     private void drawPlayerIcon(Minecraft mc, int ox, int oy, int cs) {

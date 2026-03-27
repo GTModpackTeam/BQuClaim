@@ -12,6 +12,7 @@ public class Modules implements IModuleContainer {
 
     // Integration modules
     public static final String MODULE_BQU = "bqu_integration";
+    public static final String MODULE_JMAP = "jmap_integration";
 
     @Override
     public String getID() {

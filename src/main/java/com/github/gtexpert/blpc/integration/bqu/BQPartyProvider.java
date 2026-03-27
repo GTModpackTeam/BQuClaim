@@ -16,10 +16,7 @@ import net.minecraftforge.common.util.Constants;
 
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
-import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.network.MessagePartySync;
-import com.github.gtexpert.blpc.common.network.MessageSyncClaims;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
 import com.github.gtexpert.blpc.common.party.Party;
@@ -124,13 +121,7 @@ public class BQPartyProvider implements IPartyProvider {
 
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
         for (UUID memberId : party.getMembers()) {
-            for (ClaimedChunkData claim : chunkData.getClaimsByOwner(memberId)) {
-                if (claim.isForceLoaded) {
-                    TicketManager.unforceChunk(player.world, claim.x, claim.z);
-                }
-                chunkData.setClaim(claim.x, claim.z, null, "", "", false);
-                ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(claim.x, claim.z, null, "", "", false));
-            }
+            chunkData.releaseAllClaims(memberId, player.world);
         }
 
         PartyManager.INSTANCE.removeID(entry.getID());
@@ -263,11 +254,6 @@ public class BQPartyProvider implements IPartyProvider {
         NetPartySync.sendSync(null, null);
         autoUnlinkOrphanedPlayers();
         NBTTagCompound syncData = serializeForClient();
-        NBTTagList syncParties = syncData.getTagList("parties", Constants.NBT.TAG_COMPOUND);
-        NBTTagList syncLinked = syncData.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < syncParties.tagCount(); i++) {
-            Party p = Party.fromNBT(syncParties.getCompoundTagAt(i));
-        }
         ModNetwork.INSTANCE.sendToAll(new MessagePartySync(syncData));
     }
 

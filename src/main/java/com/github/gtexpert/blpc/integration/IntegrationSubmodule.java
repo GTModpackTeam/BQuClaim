@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.api.util.ModUtility;
+import com.github.gtexpert.blpc.common.ModLog;
 import com.github.gtexpert.blpc.module.BaseModule;
 import com.github.gtexpert.blpc.module.Modules;
 
@@ -20,7 +21,7 @@ public abstract class IntegrationSubmodule extends BaseModule {
     @NotNull
     @Override
     public Logger getLogger() {
-        return IntegrationModule.logger;
+        return ModLog.ROOT;
     }
 
     @NotNull

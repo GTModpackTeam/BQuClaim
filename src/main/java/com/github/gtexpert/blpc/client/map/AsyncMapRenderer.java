@@ -29,7 +29,7 @@ public class AsyncMapRenderer {
         Chunk chunk = world.getChunkProvider().getLoadedChunk(cx, cz);
         if (chunk == null) return;
 
-        // シェーディング用に北隣チャンクも事前取得（未ロードならnull）
+        // Pre-fetch north neighbor chunk for height shading (null if unloaded)
         Chunk northChunk = world.getChunkProvider().getLoadedChunk(cx, cz - 1);
 
         PROCESSING.add(key);

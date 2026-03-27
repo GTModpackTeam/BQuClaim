@@ -65,7 +65,9 @@ public class BLPCSaveHandler {
         try (FileInputStream fis = new FileInputStream(file)) {
             NBTTagCompound nbt = CompressedStreamTools.readCompressed(fis);
             data.readConfigNBT(nbt);
-        } catch (IOException e) {}
+        } catch (IOException e) {
+            ModLog.IO.error("Failed to load config.dat", e);
+        }
     }
 
     public void saveConfig(PartyManagerData data) {
@@ -74,7 +76,9 @@ public class BLPCSaveHandler {
             NBTTagCompound nbt = new NBTTagCompound();
             data.writeConfigNBT(nbt);
             CompressedStreamTools.writeCompressed(nbt, fos);
-        } catch (IOException e) {}
+        } catch (IOException e) {
+            ModLog.IO.error("Failed to save config.dat", e);
+        }
     }
 
     // --- Parties (one file per party) ---
@@ -87,7 +91,9 @@ public class BLPCSaveHandler {
                 NBTTagCompound nbt = CompressedStreamTools.readCompressed(fis);
                 Party party = Party.fromNBT(nbt);
                 data.addParty(party);
-            } catch (IOException e) {}
+            } catch (IOException e) {
+                ModLog.IO.error("Failed to load party file: {}", file.getName(), e);
+            }
         }
     }
 
@@ -100,7 +106,9 @@ public class BLPCSaveHandler {
             File file = new File(partiesDir, party.getPartyId() + ".dat");
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 CompressedStreamTools.writeCompressed(party.toNBT(), fos);
-            } catch (IOException e) {}
+            } catch (IOException e) {
+                ModLog.IO.error("Failed to save party file: {}", file.getName(), e);
+            }
         }
     }
 
@@ -118,7 +126,9 @@ public class BLPCSaveHandler {
                     data.setClaim(claim.x, claim.z, claim.ownerUUID, claim.ownerName, claim.partyName,
                             claim.isForceLoaded);
                 }
-            } catch (IOException e) {}
+            } catch (IOException e) {
+                ModLog.IO.error("Failed to load claim file: {}", file.getName(), e);
+            }
         }
     }
 
@@ -152,7 +162,9 @@ public class BLPCSaveHandler {
             NBTTagCompound nbt = new NBTTagCompound();
             nbt.setTag("claims", list);
             CompressedStreamTools.writeCompressed(nbt, fos);
-        } catch (IOException e) {}
+        } catch (IOException e) {
+            ModLog.IO.error("Failed to save claim file: {}", file.getName(), e);
+        }
     }
 
     // --- Full save/load ---

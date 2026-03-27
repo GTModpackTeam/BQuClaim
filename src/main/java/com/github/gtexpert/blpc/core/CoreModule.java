@@ -8,7 +8,6 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,6 +17,7 @@ import com.github.gtexpert.blpc.api.modules.IModule;
 import com.github.gtexpert.blpc.api.modules.TModule;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
+import com.github.gtexpert.blpc.common.ModLog;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.command.BLPCCommand;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
@@ -32,11 +32,9 @@ import com.github.gtexpert.blpc.module.Modules;
          coreModule = true)
 public class CoreModule implements IModule {
 
-    public static final Logger logger = LogManager.getLogger(Tags.MODNAME + " Core");
-
     @Override
     public @NotNull Logger getLogger() {
-        return logger;
+        return ModLog.ROOT;
     }
 
     @Override

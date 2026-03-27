@@ -13,8 +13,6 @@ import com.cleanroommc.modularui.utils.Platform;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
-import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
 
 public class ChunkMapRenderer {
 
@@ -31,19 +29,19 @@ public class ChunkMapRenderer {
     private static final int ICON_SHEET_SIZE = 32;
 
     /**
-     * チャンクグリッド全体を描画する共通メソッド。
-     * フルマップとミニマップの両方から使用される。
+     * Draws the full chunk grid. Used by both the full map screen and the minimap HUD.
      *
-     * @param ox            描画原点X
-     * @param oy            描画原点Y
-     * @param chunkSize     1チャンクあたりの描画ピクセル数
-     * @param radius        中心からの表示チャンク数
-     * @param centerCX      中心チャンクX
-     * @param centerCZ      中心チャンクZ
-     * @param gridColor     グリッド線の色（0で非表示）
-     * @param world         ワールド
-     * @param playerUUID    プレイヤーUUID
-     * @param showForceLoad フォースロードのハッチング表示
+     * @param ox              drawing origin X
+     * @param oy              drawing origin Y
+     * @param chunkSize       pixel size per chunk
+     * @param radius          visible chunk radius from center
+     * @param centerCX        center chunk X
+     * @param centerCZ        center chunk Z
+     * @param gridColor       grid line color (0 to hide)
+     * @param world           the world
+     * @param playerUUID      local player UUID
+     * @param showForceLoad   show force-load hatching
+     * @param showClaimBorder show borders between different claim owners
      */
     public static void drawChunkGrid(int ox, int oy, int chunkSize, int radius,
                                      int centerCX, int centerCZ, int gridColor,
@@ -71,7 +69,7 @@ public class ChunkMapRenderer {
             }
         }
 
-        // グリッド線
+        // Grid lines
         if (gridColor != 0) {
             for (int i = 1; i < gridLen; i++) {
                 GuiDraw.drawRect(ox + i * chunkSize, oy, 1, mapPx, gridColor);
@@ -98,16 +96,12 @@ public class ChunkMapRenderer {
         if (d == null) return;
 
         int color;
-        Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
         if (d.ownerUUID.equals(playerUUID)) {
-            // Own claim: use party color if set, otherwise default green
-            color = (ownerParty != null) ? (0x55000000 | (ownerParty.getColor() & 0xFFFFFF)) : COLOR_OWN;
+            color = COLOR_OWN;
         } else if (PartyProviderRegistry.get().areInSameParty(playerUUID, d.ownerUUID)) {
-            // Same party: use party color if set, otherwise default cyan
-            color = (ownerParty != null) ? (0x55000000 | (ownerParty.getColor() & 0xFFFFFF)) : COLOR_PARTY;
+            color = COLOR_PARTY;
         } else {
-            // Other party: use their party color if set, otherwise default red
-            color = (ownerParty != null) ? (0x55000000 | (ownerParty.getColor() & 0xFFFFFF)) : COLOR_OTHER;
+            color = COLOR_OTHER;
         }
 
         GuiDraw.drawRect(dx, dy, size, size, color);

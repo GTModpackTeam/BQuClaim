@@ -1,6 +1,5 @@
 package com.github.gtexpert.blpc.common.command;
 
-import java.util.List;
 import java.util.UUID;
 
 import net.minecraft.command.CommandBase;
@@ -8,11 +7,9 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentTranslation;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
@@ -67,12 +64,5 @@ public class MoveOwnerCommand extends CommandBase {
     @Override
     public int getRequiredPermissionLevel() {
         return 3;
-    }
-
-    @Override
-    public @NotNull List<String> getTabCompletions(@NotNull MinecraftServer server, @NotNull ICommandSender sender,
-                                                   String @NotNull [] args,
-                                                   @Nullable BlockPos targetPos) {
-        return super.getTabCompletions(server, sender, args, targetPos);
     }
 }

@@ -1,6 +1,9 @@
 package com.github.gtexpert.blpc.common.network;
 
+import java.util.UUID;
+
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -30,19 +33,18 @@ public class MessagePartyAction implements IMessage {
     public static final int ACTION_TOGGLE_BQU_LINK = 7;
     public static final int ACTION_TOGGLE_FAKE_PLAYERS = 8;
     public static final int ACTION_TOGGLE_EXPLOSION_PROTECTION = 9;
-    public static final int ACTION_DISBAND_SELF = 10;
-    public static final int ACTION_ADD_ALLY = 11;
-    public static final int ACTION_REMOVE_ALLY = 12;
-    public static final int ACTION_ADD_ENEMY = 13;
-    public static final int ACTION_REMOVE_ENEMY = 14;
-    public static final int ACTION_TRANSFER_OWNERSHIP = 15;
-    public static final int ACTION_SET_TRUST_LEVEL = 16;
-    public static final int ACTION_SET_FAKEPLAYER_TRUST = 17;
-    public static final int ACTION_SET_FREE_TO_JOIN = 18;
-    public static final int ACTION_SET_COLOR = 19;
-    public static final int ACTION_SET_TITLE = 20;
-    public static final int ACTION_SET_DESCRIPTION = 21;
-    public static final int ACTION_JOIN_FREE_PARTY = 22;
+    public static final int ACTION_ADD_ALLY = 10;
+    public static final int ACTION_REMOVE_ALLY = 11;
+    public static final int ACTION_ADD_ENEMY = 12;
+    public static final int ACTION_REMOVE_ENEMY = 13;
+    public static final int ACTION_TRANSFER_OWNERSHIP = 14;
+    public static final int ACTION_SET_TRUST_LEVEL = 15;
+    public static final int ACTION_SET_FAKEPLAYER_TRUST = 16;
+    public static final int ACTION_SET_FREE_TO_JOIN = 17;
+    public static final int ACTION_SET_COLOR = 18;
+    public static final int ACTION_SET_TITLE = 19;
+    public static final int ACTION_SET_DESCRIPTION = 20;
+    public static final int ACTION_JOIN_FREE_PARTY = 21;
 
     private int action;
     private String stringArg;
@@ -92,10 +94,6 @@ public class MessagePartyAction implements IMessage {
 
     public static MessagePartyAction toggleExplosionProtection() {
         return new MessagePartyAction(ACTION_TOGGLE_EXPLOSION_PROTECTION, "");
-    }
-
-    public static MessagePartyAction disbandSelf() {
-        return new MessagePartyAction(ACTION_DISBAND_SELF, "");
     }
 
     public static MessagePartyAction addAlly(String username) {
@@ -183,8 +181,6 @@ public class MessagePartyAction implements IMessage {
                         .isBQuLinked(player.getUniqueID());
                 DefaultPartyProvider selfProvider = new DefaultPartyProvider();
                 IPartyProvider activeProvider = playerBQuLinked ? provider : selfProvider;
-
-                String actionName = actionName(msg.action);
 
                 boolean success = false;
                 switch (msg.action) {
@@ -285,8 +281,6 @@ public class MessagePartyAction implements IMessage {
                         }
                         break;
                     }
-                    case ACTION_DISBAND_SELF:
-                        break;
                     case ACTION_ADD_ALLY:
                     case ACTION_REMOVE_ALLY:
                     case ACTION_ADD_ENEMY:
@@ -295,12 +289,12 @@ public class MessagePartyAction implements IMessage {
                         if (allyParty == null) break;
                         PartyRole allyRole = allyParty.getRole(player.getUniqueID());
                         if (allyRole == null || !allyRole.canInvite()) break;
-                        net.minecraft.server.MinecraftServer srv = player.getServer();
+                        MinecraftServer srv = player.getServer();
                         if (srv == null) break;
-                        net.minecraft.entity.player.EntityPlayerMP target = srv.getPlayerList()
+                        EntityPlayerMP target = srv.getPlayerList()
                                 .getPlayerByUsername(msg.stringArg);
                         if (target == null) break;
-                        java.util.UUID targetId = target.getUniqueID();
+                        UUID targetId = target.getUniqueID();
                         if (allyParty.isMember(targetId)) break;
                         switch (msg.action) {
                             case ACTION_ADD_ALLY:
@@ -324,9 +318,9 @@ public class MessagePartyAction implements IMessage {
                         if (tParty == null) break;
                         PartyRole tRole = tParty.getRole(player.getUniqueID());
                         if (tRole != PartyRole.OWNER && !player.canUseCommand(2, "")) break;
-                        net.minecraft.server.MinecraftServer srv = player.getServer();
+                        MinecraftServer srv = player.getServer();
                         if (srv == null) break;
-                        net.minecraft.entity.player.EntityPlayerMP target = srv.getPlayerList()
+                        EntityPlayerMP target = srv.getPlayerList()
                                 .getPlayerByUsername(msg.stringArg);
                         if (target == null) break;
                         if (!tParty.isMember(target.getUniqueID())) break;
@@ -417,59 +411,6 @@ public class MessagePartyAction implements IMessage {
                 }
             });
             return null;
-        }
-
-        private static String actionName(int action) {
-            switch (action) {
-                case ACTION_CREATE:
-                    return "CREATE";
-                case ACTION_DISBAND:
-                    return "DISBAND";
-                case ACTION_RENAME:
-                    return "RENAME";
-                case ACTION_INVITE:
-                    return "INVITE";
-                case ACTION_ACCEPT_INVITE:
-                    return "ACCEPT_INVITE";
-                case ACTION_KICK_OR_LEAVE:
-                    return "KICK_OR_LEAVE";
-                case ACTION_CHANGE_ROLE:
-                    return "CHANGE_ROLE";
-                case ACTION_TOGGLE_BQU_LINK:
-                    return "TOGGLE_BQU_LINK";
-                case ACTION_TOGGLE_FAKE_PLAYERS:
-                    return "TOGGLE_FAKE_PLAYERS";
-                case ACTION_TOGGLE_EXPLOSION_PROTECTION:
-                    return "TOGGLE_EXPLOSION";
-                case ACTION_DISBAND_SELF:
-                    return "DISBAND_SELF(deprecated)";
-                case ACTION_ADD_ALLY:
-                    return "ADD_ALLY";
-                case ACTION_REMOVE_ALLY:
-                    return "REMOVE_ALLY";
-                case ACTION_ADD_ENEMY:
-                    return "ADD_ENEMY";
-                case ACTION_REMOVE_ENEMY:
-                    return "REMOVE_ENEMY";
-                case ACTION_TRANSFER_OWNERSHIP:
-                    return "TRANSFER_OWNERSHIP";
-                case ACTION_SET_TRUST_LEVEL:
-                    return "SET_TRUST_LEVEL";
-                case ACTION_SET_FAKEPLAYER_TRUST:
-                    return "SET_FAKEPLAYER_TRUST";
-                case ACTION_SET_FREE_TO_JOIN:
-                    return "SET_FREE_TO_JOIN";
-                case ACTION_SET_COLOR:
-                    return "SET_COLOR";
-                case ACTION_SET_TITLE:
-                    return "SET_TITLE";
-                case ACTION_SET_DESCRIPTION:
-                    return "SET_DESCRIPTION";
-                case ACTION_JOIN_FREE_PARTY:
-                    return "JOIN_FREE_PARTY";
-                default:
-                    return "UNKNOWN(" + action + ")";
-            }
         }
     }
 }

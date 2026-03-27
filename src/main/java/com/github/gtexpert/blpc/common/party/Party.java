@@ -294,6 +294,26 @@ public class Party {
         invites.entrySet().removeIf(e -> now > e.getValue());
     }
 
+    // --- NBT helpers ---
+
+    private static NBTTagList uuidSetToNBT(Collection<UUID> uuids) {
+        NBTTagList list = new NBTTagList();
+        for (UUID uuid : uuids) {
+            NBTTagCompound tag = new NBTTagCompound();
+            tag.setUniqueId("uuid", uuid);
+            list.appendTag(tag);
+        }
+        return list;
+    }
+
+    private static List<UUID> uuidSetFromNBT(NBTTagList list) {
+        List<UUID> result = new ArrayList<>();
+        for (int i = 0; i < list.tagCount(); i++) {
+            result.add(list.getCompoundTagAt(i).getUniqueId("uuid"));
+        }
+        return result;
+    }
+
     // --- NBT ---
 
     public NBTTagCompound toNBT() {
@@ -321,23 +341,9 @@ public class Party {
         tag.setString("fakePlayerTrust", fakePlayerTrustLevel.name());
         tag.setBoolean("protectExplosions", protectExplosions);
 
-        // Allies
-        NBTTagList allyList = new NBTTagList();
-        for (UUID uuid : allies) {
-            NBTTagCompound allyTag = new NBTTagCompound();
-            allyTag.setUniqueId("uuid", uuid);
-            allyList.appendTag(allyTag);
-        }
-        tag.setTag("allies", allyList);
-
-        // Enemies
-        NBTTagList enemyList = new NBTTagList();
-        for (UUID uuid : enemies) {
-            NBTTagCompound enemyTag = new NBTTagCompound();
-            enemyTag.setUniqueId("uuid", uuid);
-            enemyList.appendTag(enemyTag);
-        }
-        tag.setTag("enemies", enemyList);
+        // Allies / Enemies
+        tag.setTag("allies", uuidSetToNBT(allies));
+        tag.setTag("enemies", uuidSetToNBT(enemies));
 
         // Metadata
         tag.setBoolean("freeToJoin", freeToJoin);
@@ -368,13 +374,7 @@ public class Party {
         // Pending invites (UUID only, no expiry)
         if (!invites.isEmpty()) {
             cleanExpiredInvites();
-            NBTTagList inviteList = new NBTTagList();
-            for (UUID uuid : invites.keySet()) {
-                NBTTagCompound inviteTag = new NBTTagCompound();
-                inviteTag.setUniqueId("uuid", uuid);
-                inviteList.appendTag(inviteTag);
-            }
-            tag.setTag("pendingInvites", inviteList);
+            tag.setTag("pendingInvites", uuidSetToNBT(invites.keySet()));
         }
         return tag;
     }
@@ -390,12 +390,7 @@ public class Party {
         for (int i = 0; i < memberList.tagCount(); i++) {
             NBTTagCompound memberTag = memberList.getCompoundTagAt(i);
             UUID uuid = memberTag.getUniqueId("uuid");
-            PartyRole role;
-            try {
-                role = PartyRole.valueOf(memberTag.getString("role"));
-            } catch (IllegalArgumentException e) {
-                role = PartyRole.MEMBER;
-            }
+            PartyRole role = PartyRole.fromName(memberTag.getString("role"));
             party.addMember(uuid, role);
         }
 
@@ -418,16 +413,12 @@ public class Party {
             party.setProtectExplosions(tag.getBoolean("protectExplosions"));
         }
 
-        // Allies
-        NBTTagList allyList = tag.getTagList("allies", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < allyList.tagCount(); i++) {
-            party.addAlly(allyList.getCompoundTagAt(i).getUniqueId("uuid"));
+        // Allies / Enemies
+        for (UUID uuid : uuidSetFromNBT(tag.getTagList("allies", Constants.NBT.TAG_COMPOUND))) {
+            party.addAlly(uuid);
         }
-
-        // Enemies
-        NBTTagList enemyList = tag.getTagList("enemies", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < enemyList.tagCount(); i++) {
-            party.addEnemy(enemyList.getCompoundTagAt(i).getUniqueId("uuid"));
+        for (UUID uuid : uuidSetFromNBT(tag.getTagList("enemies", Constants.NBT.TAG_COMPOUND))) {
+            party.addEnemy(uuid);
         }
 
         // Metadata
@@ -447,9 +438,7 @@ public class Party {
 
         // Pending invites (sync only, no expiry on client)
         if (tag.hasKey("pendingInvites")) {
-            NBTTagList inviteList = tag.getTagList("pendingInvites", Constants.NBT.TAG_COMPOUND);
-            for (int i = 0; i < inviteList.tagCount(); i++) {
-                UUID uuid = inviteList.getCompoundTagAt(i).getUniqueId("uuid");
+            for (UUID uuid : uuidSetFromNBT(tag.getTagList("pendingInvites", Constants.NBT.TAG_COMPOUND))) {
                 party.addInvite(uuid, Long.MAX_VALUE);
             }
         }
