@@ -90,22 +90,27 @@ public class PartyProviderRegistry {
     private static volatile IPartyProvider provider = NO_OP;
     private static volatile Runnable nativePartyScreenOpener;
 
+    /** Registers the active party provider, replacing the previous one. */
     public static void register(IPartyProvider teamProvider) {
         provider = teamProvider;
     }
 
+    /** Registers a runnable that opens the native party management screen (e.g. BQu's party UI). */
     public static void registerNativeScreenOpener(Runnable opener) {
         nativePartyScreenOpener = opener;
     }
 
+    /** Returns the currently registered party provider. */
     public static IPartyProvider get() {
         return provider;
     }
 
+    /** Returns true if a native party screen opener has been registered. */
     public static boolean hasNativeScreen() {
         return nativePartyScreenOpener != null;
     }
 
+    /** Opens the native party screen if one has been registered; otherwise a no-op. */
     public static void openNativeScreen() {
         if (nativePartyScreenOpener != null) {
             nativePartyScreenOpener.run();

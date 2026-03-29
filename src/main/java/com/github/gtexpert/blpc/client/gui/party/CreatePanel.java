@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import net.minecraft.client.Minecraft;
 
+import org.lwjgl.input.Keyboard;
+
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.screen.ModularPanel;
@@ -35,14 +37,12 @@ import com.github.gtexpert.blpc.common.party.Party;
 public class CreatePanel {
 
     public static final String PANEL_ID = "blpc.party.create";
-    private static final int W = 220;
-    private static final int H = 180;
 
     public static ModularPanel build() {
         UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(W, H);
+        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
 
         // Title
         panel.child(IKey.lang("blpc.party.create_title").color(GuiColors.WHITE).shadow(true)
@@ -63,7 +63,7 @@ public class CreatePanel {
 
             @Override
             public Interactable.Result onKeyPressed(char c, int keyCode) {
-                if (keyCode == 28) { // Enter key
+                if (keyCode == Keyboard.KEY_RETURN) {
                     doCreate.run();
                     return Interactable.Result.SUCCESS;
                 }
@@ -71,7 +71,7 @@ public class CreatePanel {
             }
         };
         fieldRef[0] = nameField;
-        nameField.size(W - 80, 14);
+        nameField.size(PanelSizes.STANDARD_W - 80, 14);
         nameField.setText(IKey.lang(Party.DEFAULT_NAME_KEY).get());
 
         panel.child(Flow.row()
@@ -132,7 +132,7 @@ public class CreatePanel {
                 entry.displayName;
 
         ButtonWidget<?> btn = new ButtonWidget<>();
-        btn.widthRel(1f).height(18).padding(4, 0, 0, 0);
+        btn.widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0);
         btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
         // Tooltip: description if available
@@ -157,7 +157,7 @@ public class CreatePanel {
         });
 
         return Flow.row()
-                .widthRel(1f).height(18)
+                .widthRel(1f).height(PanelSizes.BTN_H)
                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
                 .child(btn);
     }

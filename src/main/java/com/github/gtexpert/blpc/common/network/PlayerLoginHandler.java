@@ -11,6 +11,7 @@ import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 
 @Mod.EventBusSubscriber(modid = Tags.MODID)
+/** Sends initial sync packets (claims, config, parties) to newly connected players. */
 public class PlayerLoginHandler {
 
     @SubscribeEvent

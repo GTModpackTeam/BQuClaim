@@ -372,13 +372,10 @@ public class BQPartyProvider implements IPartyProvider {
 
     static PartyRole mapRole(EnumPartyStatus status) {
         if (status == null) return PartyRole.MEMBER;
-        switch (status) {
-            case OWNER:
-                return PartyRole.OWNER;
-            case ADMIN:
-                return PartyRole.ADMIN;
-            default:
-                return PartyRole.MEMBER;
-        }
+        return switch (status) {
+            case OWNER -> PartyRole.OWNER;
+            case ADMIN -> PartyRole.ADMIN;
+            default -> PartyRole.MEMBER;
+        };
     }
 }

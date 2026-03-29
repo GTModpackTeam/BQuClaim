@@ -6,6 +6,7 @@ import net.minecraftforge.fml.relauncher.Side;
 
 import com.github.gtexpert.blpc.Tags;
 
+/** Network channel initialization. Messages use incrementing discriminator IDs. */
 public class ModNetwork {
 
     public static final SimpleNetworkWrapper INSTANCE = NetworkRegistry.INSTANCE.newSimpleChannel(Tags.MODID);
@@ -22,5 +23,7 @@ public class ModNetwork {
         INSTANCE.registerMessage(MessageSyncAllClaims.Handler.class, MessageSyncAllClaims.class, id++, Side.CLIENT);
         INSTANCE.registerMessage(MessageSyncConfig.Handler.class, MessageSyncConfig.class, id++, Side.CLIENT);
         INSTANCE.registerMessage(MessagePartySync.Handler.class, MessagePartySync.class, id++, Side.CLIENT);
+        INSTANCE.registerMessage(MessageChunkTransitNotify.Handler.class, MessageChunkTransitNotify.class, id++,
+                Side.CLIENT);
     }
 }

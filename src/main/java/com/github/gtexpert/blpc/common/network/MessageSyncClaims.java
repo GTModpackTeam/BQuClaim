@@ -12,6 +12,7 @@ import com.github.gtexpert.blpc.common.chunk.ClientCache;
 
 import io.netty.buffer.ByteBuf;
 
+/** S→C: Updates a single chunk's ownership state. */
 public class MessageSyncClaims implements IMessage {
 
     private int x, z;

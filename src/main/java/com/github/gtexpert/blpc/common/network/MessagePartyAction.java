@@ -25,6 +25,7 @@ import com.github.gtexpert.blpc.common.party.TrustLevel;
 
 import io.netty.buffer.ByteBuf;
 
+/** C→S: Party operation request. Supports 21+ action types via a single packet. */
 public class MessagePartyAction implements IMessage {
 
     public static final int ACTION_CREATE = 0;

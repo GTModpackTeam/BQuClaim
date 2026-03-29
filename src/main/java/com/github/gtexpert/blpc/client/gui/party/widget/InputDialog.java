@@ -2,6 +2,8 @@ package com.github.gtexpert.blpc.client.gui.party.widget;
 
 import java.util.function.Consumer;
 
+import org.lwjgl.input.Keyboard;
+
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.utils.Alignment;
@@ -12,6 +14,7 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.party.PanelSizes;
 
 /**
  * Reusable text input dialog template.
@@ -49,8 +52,8 @@ public final class InputDialog {
         private String confirmKey = "blpc.party.send";
         private String defaultValue = "";
         private Consumer<String> onSubmit = s -> {};
-        private int width = 200;
-        private int height = 60;
+        private int width = PanelSizes.DIALOG_W;
+        private int height = PanelSizes.DIALOG_H;
 
         Builder(String panelId) {
             this.panelId = panelId;
@@ -86,7 +89,7 @@ public final class InputDialog {
             return this;
         }
 
-        /** Dialog size in pixels. Defaults to 200×60. */
+        /** Dialog size in pixels. Defaults to 220×70. */
         public Builder size(int w, int h) {
             this.width = w;
             this.height = h;
@@ -131,7 +134,7 @@ public final class InputDialog {
 
                 @Override
                 public Interactable.Result onKeyPressed(char c, int keyCode) {
-                    if (keyCode == 28) { // Enter key
+                    if (keyCode == Keyboard.KEY_RETURN) {
                         doSubmit.run();
                         return Interactable.Result.SUCCESS;
                     }

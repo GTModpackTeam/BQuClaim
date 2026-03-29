@@ -68,6 +68,6 @@ public class CoreModule implements IModule {
     @NotNull
     @Override
     public List<Class<?>> getEventBusSubscribers() {
-        return Arrays.asList(CoreEventHandler.class, ChunkProtectionHandler.class);
+        return Arrays.asList(CoreEventHandler.class, ChunkProtectionHandler.class, ChunkTransitHandler.class);
     }
 }

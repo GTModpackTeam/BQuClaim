@@ -42,6 +42,33 @@ public class ModConfig {
     @Config.Comment("Block fluid interaction effects (cobble/obsidian gen) into claimed chunks from unclaimed sources.")
     public static boolean protectFluidFlow = true;
 
+    @Config.Name("Enable Transit Notifications")
+    @Config.Comment("Show toast notifications when players enter/leave claimed chunks.")
+    public static boolean enableTransitNotify = true;
+
+    @Config.Name("Transit Toast Duration (ms)")
+    @Config.Comment("How long transit toast notifications are displayed.")
+    @Config.RangeInt(min = 1000, max = 10000)
+    public static int transitToastDuration = 3000;
+
+    @Config.Name("Enable Area Effects")
+    @Config.Comment("Apply potion effects to enemies and defenders in claimed chunks.")
+    public static boolean enableAreaEffects = true;
+
+    @Config.Name("Enemy Weakness Amplifier")
+    @Config.Comment("Weakness potion amplifier for enemy invaders (0 = level I).")
+    @Config.RangeInt(min = 0, max = 3)
+    public static int enemyWeaknessAmplifier = 0;
+
+    @Config.Name("Enemy Mining Fatigue")
+    @Config.Comment("Also apply mining fatigue to enemy invaders.")
+    public static boolean enemyMiningFatigue = true;
+
+    @Config.Name("Defender Resistance Amplifier")
+    @Config.Comment("Resistance potion amplifier for defenders (0 = level I).")
+    @Config.RangeInt(min = 0, max = 3)
+    public static int defenderResistanceAmplifier = 0;
+
     // Sync config values immediately when changed via in-game settings GUI
     @Mod.EventBusSubscriber(modid = Tags.MODID)
     private static class EventHandler {

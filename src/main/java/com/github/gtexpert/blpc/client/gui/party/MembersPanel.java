@@ -11,7 +11,6 @@ import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
-import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
@@ -30,8 +29,6 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
 public class MembersPanel {
 
     public static final String PANEL_ID = "blpc.party.members";
-    private static final int W = 220;
-    private static final int H = 180;
 
     public static ModularPanel build(Party party) {
         UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
@@ -39,27 +36,19 @@ public class MembersPanel {
         boolean canManage = myRole != null && myRole.canInvite();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(W, H);
+        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
 
-        panel.child(IKey.lang("blpc.party.members_title").color(GuiColors.WHITE).shadow(true)
-                .asWidget().alignment(Alignment.Center).left(0).right(0).top(8).height(10));
-        panel.child(ButtonWidget.panelCloseButton());
-
-        panel.child(new TextFieldWidget()
-                .hintText(IKey.lang("blpc.party.search").get())
-                .left(8).right(8).top(22).height(14));
+        PanelBuilder.addHeader(panel, "blpc.party.members_title");
 
         @SuppressWarnings("rawtypes")
         ListWidget list = new ListWidget();
-        list.left(8).right(8).top(40).bottom(8);
-        list.crossAxisAlignment(Alignment.CrossAxis.START);
 
         List<PlayerEntry> entries = collectAllPlayers(party);
         for (PlayerEntry entry : entries) {
             list.child(createRow(entry, party, playerId, myRole, canManage));
         }
 
-        panel.child(list);
+        PanelBuilder.addSearchableList(panel, list);
         return panel;
     }
 
@@ -102,7 +91,7 @@ public class MembersPanel {
         }
 
         ButtonWidget<?> btn = new ButtonWidget<>();
-        btn.widthRel(1f).height(18).padding(4, 0, 0, 0);
+        btn.widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0);
         btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
         boolean isSelf = entry.uuid.equals(playerId);
@@ -135,7 +124,7 @@ public class MembersPanel {
         }
 
         return Flow.row()
-                .widthRel(1f).height(18)
+                .widthRel(1f).height(PanelSizes.BTN_H)
                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
                 .child(btn);
     }

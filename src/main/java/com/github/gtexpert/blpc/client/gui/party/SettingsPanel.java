@@ -4,7 +4,6 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.EnumDyeColor;
@@ -19,13 +18,13 @@ import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.value.IntValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.CycleButtonWidget;
-import com.cleanroommc.modularui.widgets.Dialog;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.TextWidget;
 import com.cleanroommc.modularui.widgets.ToggleButton;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.party.widget.InputDialog;
+import com.github.gtexpert.blpc.client.gui.party.widget.PartySelectDialog;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -48,9 +47,8 @@ import com.github.gtexpert.blpc.common.party.TrustLevel;
 public class SettingsPanel {
 
     public static final String PANEL_ID = "blpc.party.settings";
-    private static final int W = 260;
-    private static final int H = 220;
-    private static final int BTN_H = 18;
+    private static final int W = PanelSizes.LARGE_W;
+    private static final int BTN_H = PanelSizes.BTN_H;
 
     private static final TrustLevel[] CYCLE_LEVELS = { TrustLevel.NONE, TrustLevel.ALLY, TrustLevel.MEMBER };
 
@@ -58,13 +56,10 @@ public class SettingsPanel {
 
     public static ModularPanel build(Party party) {
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(W, H);
+        panel.size(PanelSizes.LARGE_W, PanelSizes.LARGE_H);
 
-        panel.child(IKey.lang("blpc.party.settings_title").color(GuiColors.WHITE).shadow(true)
-                .asWidget().pos(8, 8));
-        panel.child(ButtonWidget.panelCloseButton());
+        PanelBuilder.addHeader(panel, "blpc.party.settings_title");
 
-        // Scrollable settings list with section headers
         ListWidget<IWidget, ?> list = new ListWidget<>();
         list.left(4).right(4).top(24).bottom(4);
         list.crossAxisAlignment(Alignment.CrossAxis.START);
@@ -165,7 +160,6 @@ public class SettingsPanel {
                         IKey.dynamic(() -> TextFormatting.UNDERLINE + IKey.lang("blpc.party.tooltip.explosion").get()))
                 .addTooltipLine(IKey.dynamic(() -> defaultTooltip("true"))));
 
-        // --- Allies section ---
         list.child(sectionHeader("blpc.party.settings_allies").marginTop(8));
 
         // Show current allies as removable entries
@@ -181,28 +175,25 @@ public class SettingsPanel {
                     }));
         }
 
-        // Add ally button
         final UUID myPartyId = party.getPartyId();
         list.child(PartyWidgets.createActionButton(
                 IKey.lang("blpc.party.add_ally").alignment(Alignment.CenterLeft),
                 "Add ally party",
                 () -> {
-                    // Build list of available parties (exclude self and already-allied)
                     Set<UUID> excluded = new HashSet<>(party.getAllies());
                     excluded.addAll(party.getEnemies());
                     excluded.add(myPartyId);
-                    // Open a selection dialog
-                    IPanelHandler.simple(panel, (pp, player) -> buildPartySelectDialog(
-                            "blpc.party.dialog.add_ally",
-                            excluded,
-                            selectedId -> {
+                    IPanelHandler.simple(panel, (pp, player) -> PartySelectDialog
+                            .builder("blpc.party.dialog.add_ally")
+                            .excluded(excluded)
+                            .onSelect(selectedId -> {
                                 party.addAlly(selectedId);
                                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addAlly(selectedId));
-                            }), true).openPanel();
+                            })
+                            .build(), true).openPanel();
                 })
                 .size(W - 16, BTN_H).padding(4, 0, 0, 0));
 
-        // --- Enemies section ---
         list.child(sectionHeader("blpc.party.settings_enemies").marginTop(8));
 
         // Show current enemies as removable entries
@@ -218,23 +209,21 @@ public class SettingsPanel {
                     }));
         }
 
-        // Add enemy button
         list.child(PartyWidgets.createActionButton(
                 IKey.lang("blpc.party.add_enemy").alignment(Alignment.CenterLeft),
                 "Add enemy party",
                 () -> {
-                    // Build list of available parties (exclude self, allies, and already-enemies)
                     Set<UUID> excluded = new HashSet<>(party.getAllies());
                     excluded.addAll(party.getEnemies());
                     excluded.add(myPartyId);
-                    // Open a selection dialog
-                    IPanelHandler.simple(panel, (pp, player) -> buildPartySelectDialog(
-                            "blpc.party.dialog.add_enemy",
-                            excluded,
-                            selectedId -> {
+                    IPanelHandler.simple(panel, (pp, player) -> PartySelectDialog
+                            .builder("blpc.party.dialog.add_enemy")
+                            .excluded(excluded)
+                            .onSelect(selectedId -> {
                                 party.addEnemy(selectedId);
                                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addEnemy(selectedId));
-                            }), true).openPanel();
+                            })
+                            .build(), true).openPanel();
                 })
                 .size(W - 16, BTN_H).padding(4, 0, 0, 0));
 
@@ -378,38 +367,5 @@ public class SettingsPanel {
             if (i < DYE_COLORS.length - 1) sb.append("\n");
         }
         return sb.toString();
-    }
-
-    private static Dialog<Void> buildPartySelectDialog(String panelId, Set<UUID> excluded,
-                                                       Consumer<UUID> onSelect) {
-        Dialog<Void> dialog = new Dialog<>(panelId);
-        dialog.setDisablePanelsBelow(true);
-        dialog.setCloseOnOutOfBoundsClick(true);
-        dialog.size(200, 120);
-
-        dialog.child(IKey.lang(panelId).color(GuiColors.WHITE).shadow(true)
-                .asWidget().pos(8, 6));
-        dialog.child(ButtonWidget.panelCloseButton());
-
-        @SuppressWarnings("rawtypes")
-        ListWidget partyList = new ListWidget();
-        partyList.left(8).right(8).top(22).bottom(4);
-        partyList.crossAxisAlignment(Alignment.CrossAxis.START);
-
-        for (Party p : ClientPartyCache.getAllParties()) {
-            if (excluded.contains(p.getPartyId())) continue;
-            UUID pId = p.getPartyId();
-            String pName = p.getName();
-            partyList.child(new ButtonWidget<>().size(180, 16).padding(4, 0, 0, 0)
-                    .overlay(IKey.str(pName).alignment(Alignment.CenterLeft))
-                    .onMousePressed(btn -> {
-                        onSelect.accept(pId);
-                        dialog.closeWith(null);
-                        return true;
-                    }));
-        }
-
-        dialog.child(partyList);
-        return dialog;
     }
 }

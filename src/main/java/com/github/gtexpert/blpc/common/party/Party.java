@@ -32,16 +32,13 @@ public class Party {
     private final Map<UUID, PartyRole> members = new LinkedHashMap<>();
     private final long createdAt;
 
-    // Trust level settings per action
     private final Map<TrustAction, TrustLevel> requiredTrustLevels = new EnumMap<>(TrustAction.class);
     private TrustLevel fakePlayerTrustLevel = TrustLevel.ALLY;
     private boolean protectExplosions = true;
 
-    // Ally / Enemy sets
     private final Set<UUID> allies = new LinkedHashSet<>();
     private final Set<UUID> enemies = new LinkedHashSet<>();
 
-    // Party metadata
     private boolean freeToJoin = false;
     private int color = EnumDyeColor.BLUE.getColorValue();
     private String description = "";
@@ -77,8 +74,6 @@ public class Party {
     public long getCreatedAt() {
         return createdAt;
     }
-
-    // --- Members ---
 
     public Map<UUID, PartyRole> getMembers() {
         return Collections.unmodifiableMap(members);
@@ -128,8 +123,6 @@ public class Party {
         return null;
     }
 
-    // --- Trust level settings ---
-
     public TrustLevel getTrustLevel(TrustAction action) {
         return requiredTrustLevels.getOrDefault(action, action.getDefaultLevel());
     }
@@ -174,8 +167,6 @@ public class Party {
         return TrustLevel.NONE;
     }
 
-    // --- Allies ---
-
     public Set<UUID> getAllies() {
         return Collections.unmodifiableSet(allies);
     }
@@ -193,8 +184,6 @@ public class Party {
         allies.remove(uuid);
     }
 
-    // --- Enemies ---
-
     public Set<UUID> getEnemies() {
         return Collections.unmodifiableSet(enemies);
     }
@@ -211,8 +200,6 @@ public class Party {
     public void removeEnemy(UUID uuid) {
         enemies.remove(uuid);
     }
-
-    // --- Party metadata ---
 
     public boolean isFreeToJoin() {
         return freeToJoin;
@@ -350,7 +337,6 @@ public class Party {
         tag.setString("name", name);
         tag.setLong("created", createdAt);
 
-        // Members
         NBTTagList memberList = new NBTTagList();
         for (Map.Entry<UUID, PartyRole> entry : members.entrySet()) {
             NBTTagCompound memberTag = new NBTTagCompound();
@@ -360,7 +346,6 @@ public class Party {
         }
         tag.setTag("members", memberList);
 
-        // Trust levels
         NBTTagCompound trustTag = new NBTTagCompound();
         for (Map.Entry<TrustAction, TrustLevel> entry : requiredTrustLevels.entrySet()) {
             trustTag.setString(entry.getKey().getNbtKey(), entry.getValue().name());
@@ -369,11 +354,9 @@ public class Party {
         tag.setString("fakePlayerTrust", fakePlayerTrustLevel.name());
         tag.setBoolean("protectExplosions", protectExplosions);
 
-        // Allies / Enemies
         tag.setTag("allies", uuidSetToNBT(allies));
         tag.setTag("enemies", uuidSetToNBT(enemies));
 
-        // Metadata
         tag.setBoolean("freeToJoin", freeToJoin);
         tag.setInteger("color", color);
         tag.setString("description", description);

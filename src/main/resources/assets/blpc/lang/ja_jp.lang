@@ -109,7 +109,6 @@ blpc.party.moderators_title=モデレーター一覧
 blpc.party.transfer=オーナー移譲
 blpc.party.transfer_title=オーナー移譲
 blpc.party.transfer_confirm=移譲
-blpc.party.transfer_msg=選択したプレイヤーがオーナーになり、あなたはモデレーターに降格します。BQuパーティには影響しません。
 
 # ツールチップ
 blpc.party.tooltip.free_to_join=招待なしで誰でも参加できます
@@ -138,3 +137,11 @@ blpc.party.tooltip.open_native=BetterQuestingのパーティー管理を開く
 
 # 検索
 blpc.party.search=検索...
+
+# 領域出入り通知
+blpc.transit.member.enter=%sが帰宅した
+blpc.transit.member.leave=%sが探索に出た
+blpc.transit.ally.enter=%sが訪ねてきた
+blpc.transit.ally.leave=%sは帰った
+blpc.transit.enemy.enter=%sに侵入された
+blpc.transit.enemy.leave=%sは逃げた

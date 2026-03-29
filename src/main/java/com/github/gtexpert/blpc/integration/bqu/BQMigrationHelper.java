@@ -60,6 +60,7 @@ public class BQMigrationHelper {
 
             }
 
+            ModLog.MIGRATION.info("Migrated {} BQu parties", count);
             data.setMigrated(true);
             BLPCSaveHandler.INSTANCE.saveConfig(data);
         } catch (Exception e) {

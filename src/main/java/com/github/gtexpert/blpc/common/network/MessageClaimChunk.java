@@ -18,6 +18,7 @@ import com.github.gtexpert.blpc.common.chunk.TicketManager;
 
 import io.netty.buffer.ByteBuf;
 
+/** C→S: Request to claim/unclaim/force-load a chunk. */
 public class MessageClaimChunk implements IMessage {
 
     public static final int MODE_CLAIM = 0;

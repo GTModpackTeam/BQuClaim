@@ -13,9 +13,10 @@ import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
-import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.party.PanelBuilder;
+import com.github.gtexpert.blpc.client.gui.party.PanelSizes;
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
@@ -48,8 +49,8 @@ public final class PlayerListPanel {
         private Predicate<UUID> canClick = uuid -> true;
         private java.util.function.Function<UUID, String> suffixProvider;
         private String tooltipKey;
-        private int width = 220;
-        private int height = 180;
+        private int width = PanelSizes.STANDARD_W;
+        private int height = PanelSizes.STANDARD_H;
 
         Builder(String panelId) {
             this.panelId = panelId;
@@ -134,25 +135,17 @@ public final class PlayerListPanel {
             ModularPanel panel = new ModularPanel(panelId);
             panel.size(width, height);
 
-            panel.child(IKey.lang(titleKey).color(GuiColors.WHITE).shadow(true)
-                    .asWidget().alignment(Alignment.Center).left(0).right(0).top(8).height(10));
-            panel.child(ButtonWidget.panelCloseButton());
-
-            panel.child(new TextFieldWidget()
-                    .hintText(IKey.lang("blpc.party.search").get())
-                    .left(8).right(8).top(22).height(14));
+            PanelBuilder.addHeader(panel, titleKey);
 
             @SuppressWarnings("rawtypes")
             ListWidget list = new ListWidget();
-            list.left(8).right(8).top(40).bottom(8);
-            list.crossAxisAlignment(Alignment.CrossAxis.START);
 
             List<PlayerEntry> entries = collectPlayers();
             for (PlayerEntry entry : entries) {
                 list.child(createToggleRow(entry));
             }
 
-            panel.child(list);
+            PanelBuilder.addSearchableList(panel, list);
             return panel;
         }
 
@@ -202,7 +195,7 @@ public final class PlayerListPanel {
             Consumer<String> deactivateAction = this.onDeactivate;
 
             ButtonWidget<?> btn = new ButtonWidget<>();
-            btn.widthRel(1f).height(18).padding(4, 0, 0, 0);
+            btn.widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0);
             btn.overlay(IKey.str(finalLabel).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
             if (clickable && (activateAction != null || deactivateAction != null)) {
@@ -223,7 +216,7 @@ public final class PlayerListPanel {
             }
 
             return Flow.row()
-                    .widthRel(1f).height(18)
+                    .widthRel(1f).height(PanelSizes.BTN_H)
                     .crossAxisAlignment(Alignment.CrossAxis.CENTER)
                     .child(btn);
         }

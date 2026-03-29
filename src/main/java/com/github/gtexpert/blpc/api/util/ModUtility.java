@@ -6,6 +6,9 @@ import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.Tags;
 
+/**
+ * Utility for creating namespaced ResourceLocations.
+ */
 public class ModUtility {
 
     public static @NotNull ResourceLocation id(String path) {

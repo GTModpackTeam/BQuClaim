@@ -11,7 +11,6 @@ import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
-import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyRole;
@@ -32,8 +31,6 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
 public class MainPanel {
 
     public static final String PANEL_ID = "blpc.party";
-    private static final int W = 220;
-    private static final int H = 180;
 
     public static ModularPanel build(UUID playerId) {
         Party party = ClientPartyCache.getPartyByPlayer(playerId);
@@ -51,12 +48,10 @@ public class MainPanel {
         }
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(W, H);
+        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
 
         String displayName = party.getName();
-        panel.child(IKey.str(displayName).color(GuiColors.WHITE).shadow(true)
-                .asWidget().pos(8, 8));
-        panel.child(ButtonWidget.panelCloseButton());
+        PanelBuilder.addHeader(panel, IKey.str(displayName));
 
         PartyRole myRole = party.getRole(playerId);
         boolean canManage = myRole != null && myRole.canInvite();
@@ -91,7 +86,7 @@ public class MainPanel {
 
         // BQu Manage Party
         if (bquAvailable && bquLinked) {
-            menuList.child((ButtonWidget<?>) new ButtonWidget<>().size(W - 16, 18)
+            menuList.child((ButtonWidget<?>) new ButtonWidget<>().size(PanelSizes.STANDARD_W - 16, PanelSizes.BTN_H)
                     .padding(4, 0, 0, 0)
                     .overlay(IKey.lang("blpc.party.open_native").alignment(Alignment.CenterLeft))
                     .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
@@ -105,7 +100,7 @@ public class MainPanel {
         panel.child(menuList);
 
         // Bottom buttons (pinned to bottom)
-        int btnY = H - 24;
+        int btnY = PanelSizes.STANDARD_H - 24;
 
         if (bquAvailable && bquLinked && canManage) {
             panel.child(PartyWidgets.createActionButton(
@@ -123,7 +118,7 @@ public class MainPanel {
             panel.child(PartyWidgets.createActionButton(
                     IKey.lang("blpc.party.disband"), "Open Disband dialog",
                     () -> PartyWidgets.openSubPanel(panel, DisbandDialog.build(panel)))
-                    .size(50, 16).pos(W - 58, btnY));
+                    .size(50, 16).pos(PanelSizes.STANDARD_W - 58, btnY));
         }
 
         return panel;
@@ -131,7 +126,7 @@ public class MainPanel {
 
     private static ButtonWidget<?> createMenuButton(IKey label, ModularPanel parent,
                                                     PanelFactory factory, String tooltipKey) {
-        ButtonWidget<?> btn = (ButtonWidget<?>) new ButtonWidget<>().size(W - 16, 18)
+        ButtonWidget<?> btn = (ButtonWidget<?>) new ButtonWidget<>().size(PanelSizes.STANDARD_W - 16, PanelSizes.BTN_H)
                 .padding(4, 0, 0, 0)
                 .overlay(label.alignment(Alignment.CenterLeft))
                 .onMousePressed(b -> {

@@ -4,6 +4,9 @@ import net.minecraft.util.ResourceLocation;
 
 import com.github.gtexpert.blpc.api.util.ModUtility;
 
+/**
+ * Manages module lifecycle: discovery, dependency resolution, and stage progression.
+ */
 public interface IModuleManager {
 
     default boolean isModuleEnabled(String containerID, String moduleID) {

@@ -109,7 +109,6 @@ blpc.party.moderators_title=Moderators
 blpc.party.transfer=Transfer Ownership
 blpc.party.transfer_title=Transfer Ownership
 blpc.party.transfer_confirm=Transfer
-blpc.party.transfer_msg=Selected player becomes Owner. You become Moderator. BQu party is not affected.
 
 # Tooltips
 blpc.party.tooltip.free_to_join=Anyone can join without invitation
@@ -138,3 +137,11 @@ blpc.party.tooltip.open_native=Open BetterQuesting party manager
 
 # Search
 blpc.party.search=Search...
+
+# Transit Notifications
+blpc.transit.member.enter=%s returned home
+blpc.transit.member.leave=%s went exploring
+blpc.transit.ally.enter=%s came to visit
+blpc.transit.ally.leave=%s went home
+blpc.transit.enemy.enter=Invaded by %s
+blpc.transit.enemy.leave=%s fled

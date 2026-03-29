@@ -1,5 +1,8 @@
 package com.github.gtexpert.blpc.api.modules;
 
+/**
+ * Module loading stages, executed in declaration order.
+ */
 public enum ModuleStage {
     C_SETUP,
     M_SETUP,

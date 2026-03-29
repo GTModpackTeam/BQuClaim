@@ -11,9 +11,7 @@ import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
-import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -29,8 +27,6 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
 public class TransferOwnerDialog {
 
     public static final String PANEL_ID = "blpc.party.dialog.transfer";
-    private static final int W = 220;
-    private static final int H = 180;
 
     /** Builds the transfer ownership panel with a member selection list. */
     public static ModularPanel build(ModularPanel parentPanel) {
@@ -39,27 +35,16 @@ public class TransferOwnerDialog {
         if (party == null) return new ModularPanel(PANEL_ID);
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(W, H);
+        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
 
-        // Centered title
-        panel.child(IKey.lang("blpc.party.transfer_title").color(GuiColors.WHITE).shadow(true)
-                .asWidget().alignment(Alignment.Center).left(0).right(0).top(6).height(10));
-        // Centered subtitle
-        panel.child(IKey.lang("blpc.party.transfer_msg").color(GuiColors.GRAY).shadow(true)
-                .asWidget().alignment(Alignment.Center).left(0).right(0).top(18).height(10));
-        panel.child(ButtonWidget.panelCloseButton());
+        PanelBuilder.addHeader(panel, "blpc.party.transfer_title");
 
-        // Search field (visual placeholder)
-        panel.child(new TextFieldWidget()
-                .hintText(IKey.lang("blpc.party.search").get())
-                .left(8).right(8).top(32).height(14));
-
-        panel.child(new ListWidget<>()
-                .left(8).right(8).top(50).bottom(8)
+        ListWidget<?, ?> list = new ListWidget<>()
                 .crossAxisAlignment(Alignment.CrossAxis.START)
                 .children(party.getMembers().entrySet(),
-                        entry -> createTransferRow(entry, myId, panel, parentPanel)));
+                        entry -> createTransferRow(entry, myId, panel, parentPanel));
 
+        PanelBuilder.addSearchableList(panel, list);
         return panel;
     }
 
@@ -76,9 +61,9 @@ public class TransferOwnerDialog {
         String roleStr = IKey.lang("blpc.party.role." + role.name().toLowerCase()).get();
 
         return Flow.row()
-                .widthRel(1f).height(18)
+                .widthRel(1f).height(PanelSizes.BTN_H)
                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                .child(new ButtonWidget<>().widthRel(1f).height(18).padding(4, 0, 0, 0)
+                .child(new ButtonWidget<>().widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0)
                         .overlay(IKey.str(memberName + " [" + roleStr + "]").alignment(Alignment.CenterLeft))
                         .onMousePressed(btn -> {
                             ModNetwork.INSTANCE.sendToServer(

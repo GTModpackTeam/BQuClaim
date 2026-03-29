@@ -31,16 +31,11 @@ public enum PartyRole {
     }
 
     public TrustLevel toTrustLevel() {
-        switch (this) {
-            case OWNER:
-                return TrustLevel.OWNER;
-            case ADMIN:
-                return TrustLevel.MODERATOR;
-            case MEMBER:
-                return TrustLevel.MEMBER;
-            default:
-                return TrustLevel.NONE;
-        }
+        return switch (this) {
+            case OWNER -> TrustLevel.OWNER;
+            case ADMIN -> TrustLevel.MODERATOR;
+            case MEMBER -> TrustLevel.MEMBER;
+        };
     }
 
     /** Maps a role name string (e.g. from BQu's EnumPartyStatus) to PartyRole. Defaults to MEMBER. */

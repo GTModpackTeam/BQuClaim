@@ -2,6 +2,7 @@ package com.github.gtexpert.blpc.core;
 
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -22,6 +23,11 @@ public class CoreEventHandler {
                 party.cleanExpiredInvites();
             }
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        ChunkTransitHandler.onPlayerLogout(event.player.getUniqueID());
     }
 
     @SideOnly(Side.CLIENT)

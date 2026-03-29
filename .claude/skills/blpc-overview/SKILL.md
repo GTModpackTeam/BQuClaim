@@ -39,10 +39,10 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 
 ## Package Layout
 
-- **`common/party/`** — Party data: `Party`, `PartyRole`, `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`.
+- **`common/party/`** — Party data: `Party`, `PartyRole`, `RelationType`, `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`.
 - **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
-- **`common/network/`** — Messages: `MessageClaimChunk` (C→S), `MessagePartyAction` (C→S party ops), `MessageSyncClaims`/`MessageSyncAllClaims`/`MessageSyncConfig`/`MessagePartySync` (S→C), `PlayerLoginHandler`.
-- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage (`MainPanel`, `CreatePanel`, `SettingsPanel`, etc.), `MinimapHUD`, `ModKeyBindings`/`KeyInputHandler`.
+- **`common/network/`** — Messages: `MessageClaimChunk` (C→S), `MessagePartyAction` (C→S party ops), `MessageSyncClaims`/`MessageSyncAllClaims`/`MessageSyncConfig`/`MessagePartySync`/`MessageChunkTransitNotify` (S→C), `PlayerLoginHandler`.
+- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, standalone widgets in `widget/` subpackage (`ChunkTransitToast`), `MinimapHUD`, `ModKeyBindings`/`KeyInputHandler`.
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
 ## Data Persistence
@@ -52,6 +52,9 @@ BLPC uses **file-based persistence** (FTB Lib style) instead of `WorldSavedData`
 ```
 world/betterlink/pc/
 ├── config.dat          # migrated flag + bquLinkedPlayers set
+├── backup/
+│   ├── parties/        # most recent backup of parties/
+│   └── claims/         # most recent backup of claims/
 ├── parties/
 │   ├── 0.dat           # one compressed NBT file per party (keyed by partyId)
 │   └── ...
@@ -178,13 +181,26 @@ For ModularUI API details, consult the ModularUI source code or documentation.
 
 ## UI Reusable Templates
 
-All party panels use builder-pattern templates in `client/gui/party/widget/`:
+### Dialog/Panel Templates (`client/gui/party/widget/`)
 
-- **`ConfirmDialog`** — Yes/No confirmation dialog (`Dialog<Boolean>`). Used by: DisbandDialog, LinkBQuDialog, UnlinkBQuDialog.
-- **`InputDialog`** — Text field + submit dialog (`Dialog<Void>`). Used by: InviteDialog, TransferOwnerDialog, SettingsPanel (rename/description).
-- **`PlayerListPanel`** — Scrollable player list with optional Add/Remove (`ModularPanel`). Used by: MembersPanel, ModeratorsPanel.
+- **`ConfirmDialog`** — Yes/No confirmation dialog (`Dialog<Boolean>`). Default size: 220x70. Used by: DisbandDialog, LinkBQuDialog, UnlinkBQuDialog, ChunkMapScreen.
+- **`InputDialog`** — Text field + submit dialog (`Dialog<Void>`). Default size: 220x70. Used by: InviteDialog, SettingsPanel (rename/description).
+- **`PlayerListPanel`** — Reusable scrollable player list with Add/Remove (`ModularPanel`). Available for future use.
+- **`PartySelectDialog`** — Party selection dialog (`Dialog<Void>`). Used by: SettingsPanel (add ally/enemy).
 
-**Allies/Enemies Management**: Handled directly in SettingsPanel via inline ListWidget children (not via PlayerListPanel). Each section displays removable entries with a single "Add" button that opens a party selection dialog.
+All dialog templates use a consistent width of 220px. Custom sizing available via `.size(w, h)`.
+
+### Panel Infrastructure (`client/gui/party/`)
+
+- **`PanelSizes`** — Shared size constants: `STANDARD_W/H` (220x180), `LARGE_W/H` (260x220), `DIALOG_W/H` (220x70), `SELECT_H` (120), `BTN_H` (18).
+- **`PanelBuilder`** — Common layout helpers:
+  - `addHeader(panel, titleKey)` — centered title (WHITE, shadow) + close button
+  - `addHeader(panel, IKey)` — IKey variant for dynamic titles
+  - `addSearchableList(panel, list)` — search field (top=22) + list (top=40)
+
+**Allies/Enemies Management**: Handled directly in SettingsPanel via inline ListWidget. Uses `PartySelectDialog` for adding allies/enemies.
+
+### Shared Utilities
 
 Shared color constants in `client/gui/GuiColors`:
 - `WHITE`, `GOLD`, `GREEN`, `RED`, `GRAY`, `GRAY_LIGHT` — ARGB constants matching Minecraft TextFormatting palette
@@ -222,6 +238,42 @@ Forge `@Config` at `common/ModConfig.java`. Auto-syncs when changed in-game.
 | `protectMobGriefing` | boolean | true | Prevent mob griefing in claims |
 | `protectFireSpread` | boolean | true | Prevent fire spread in claims |
 | `protectFluidFlow` | boolean | true | Prevent fluid flow into claims |
+| `enableTransitNotify` | boolean | true | Show toast notifications when players enter/leave claimed chunks |
+| `transitToastDuration` | int (1000–10000) | 3000 | Toast display duration in milliseconds |
+| `enableAreaEffects` | boolean | true | Apply potion effects to enemies and defenders |
+| `enemyWeaknessAmplifier` | int (0–3) | 0 | Weakness amplifier for enemy invaders (0 = level I) |
+| `enemyMiningFatigue` | boolean | true | Also apply mining fatigue to enemies |
+| `defenderResistanceAmplifier` | int (0–3) | 0 | Resistance amplifier for defenders (0 = level I) |
+
+## Chunk Transit System
+
+Players receive **toast notifications** when entering/leaving claimed chunks, and **potion effects** are applied based on relationship.
+
+### Classes
+
+- **`common/party/RelationType`** — Enum: `MEMBER`, `ALLY`, `ENEMY`, `NONE`.
+- **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `MessageChunkTransitNotify`, and applies area effects.
+- **`common/network/MessageChunkTransitNotify`** — S→C packet. Serializes relation as `name()` string (not ordinal) for forward compatibility.
+- **`client/gui/widget/ChunkTransitToast`** — `IToast` implementation with Builder pattern. `fromTransit(RelationType, boolean, String)` auto-configures title/color.
+
+### Notification Messages
+
+| Relation | Enter | Leave |
+|----------|-------|-------|
+| MEMBER | `blpc.transit.member.enter` — "%s returned home" | `blpc.transit.member.leave` — "%s went exploring" |
+| ALLY | `blpc.transit.ally.enter` — "%s came to visit" | `blpc.transit.ally.leave` — "%s went home" |
+| ENEMY | `blpc.transit.enemy.enter` — "Invaded by %s" | `blpc.transit.enemy.leave` — "%s fled" |
+
+Notifications are sent to all online party members of the claim owner. Enemies also receive their own notification.
+
+### Area Effects
+
+Applied every 20 ticks while player is in a claimed chunk:
+
+- **Enemy debuff**: Weakness + optional Mining Fatigue. Removed immediately on leaving.
+- **Defender buff**: Resistance + Strength. Only active while enemies are invading the party's territory. Expires naturally when all enemies leave.
+
+`activeInvasions` map tracks which parties have enemy invaders. Cleaned up on player logout and enemy departure.
 
 ## BQu Migration
 
@@ -229,7 +281,7 @@ Forge `@Config` at `common/ModConfig.java`. Auto-syncs when changed in-game.
 
 ## Localization
 
-Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust actions/levels, protection settings, allies/enemies, tooltips, and search.
+Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust actions/levels, protection settings, allies/enemies, tooltips, search, and transit notifications (`blpc.transit.*`).
 
 ## Adding a New Integration Module
 

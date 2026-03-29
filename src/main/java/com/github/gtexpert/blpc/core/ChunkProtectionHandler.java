@@ -123,7 +123,7 @@ public class ChunkProtectionHandler {
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getWorld().isRemote) return;
         Entity entity = event.getEntity();
-        EntityPlayer player = (entity instanceof EntityPlayer) ? (EntityPlayer) entity : null;
+        EntityPlayer player = (entity instanceof EntityPlayer ep) ? ep : null;
         if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT)) {
             event.setCanceled(true);
         }
@@ -235,7 +235,7 @@ public class ChunkProtectionHandler {
         if (!ModConfig.enableProtection) return;
 
         Entity entity = event.getEntity();
-        EntityPlayer player = (entity instanceof EntityPlayer) ? (EntityPlayer) entity : null;
+        EntityPlayer player = (entity instanceof EntityPlayer ep) ? ep : null;
 
         if (player != null) {
             if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT)) {

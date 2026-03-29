@@ -9,6 +9,7 @@ import com.github.gtexpert.blpc.common.ModConfig;
 
 import io.netty.buffer.ByteBuf;
 
+/** S→C: Syncs server config (max claims/force-loads) to client. */
 public class MessageSyncConfig implements IMessage {
 
     private int maxClaims;

@@ -22,7 +22,6 @@ public class UnlinkBQuDialog {
         return ConfirmDialog.builder(PANEL_ID)
                 .title("blpc.party.unlink_bqu_title")
                 .message("blpc.party.unlink_bqu_msg")
-                .size(240, 80)
                 .closeParent(false)
                 .onConfirm(() -> ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(false)))
                 .build(parentPanel);

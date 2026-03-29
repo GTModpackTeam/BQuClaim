@@ -54,14 +54,11 @@ public final class PartyWidgets {
      * @return gold for OWNER, green for ADMIN, white for others
      */
     public static int getRoleColor(PartyRole role) {
-        switch (role) {
-            case OWNER:
-                return GuiColors.GOLD;
-            case ADMIN:
-                return GuiColors.GREEN;
-            default:
-                return GuiColors.WHITE;
-        }
+        return switch (role) {
+            case OWNER -> GuiColors.GOLD;
+            case ADMIN -> GuiColors.GREEN;
+            case MEMBER -> GuiColors.WHITE;
+        };
     }
 
     /** Cached handler for exclusive sub-panel opening. */

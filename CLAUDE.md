@@ -8,7 +8,7 @@ Better Link Party Claim (BLPC) is a Minecraft 1.12.2 Forge mod that adds chunk c
 
 ## Build System
 
-RetroFuturaGradle (RFG) with GTNH Buildscripts. **Do not edit `build.gradle`** (auto-generated). Mod-specific config lives in `buildscript.properties`.
+RetroFuturaGradle (RFG) with GTNH Buildscripts. **Do not edit `build.gradle`** (auto-generated). Mod-specific config lives in `buildscript.properties`. Jabel enables **Java 17 syntax** (switch expressions, pattern matching instanceof, etc.) while targeting JVM 8.
 
 ### Common Commands
 

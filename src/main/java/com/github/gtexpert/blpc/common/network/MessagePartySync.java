@@ -11,6 +11,7 @@ import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
 import io.netty.buffer.ByteBuf;
 
+/** S→C: Syncs all party data as NBT to the client. */
 public class MessagePartySync implements IMessage {
 
     private NBTTagCompound data;

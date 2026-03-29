@@ -10,6 +10,9 @@ import net.minecraftforge.fml.common.event.*;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Module lifecycle interface. Implementations are discovered via @TModule annotation scanning.
+ */
 public interface IModule {
 
     @NotNull

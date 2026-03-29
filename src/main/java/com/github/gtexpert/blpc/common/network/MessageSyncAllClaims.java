@@ -12,6 +12,7 @@ import com.github.gtexpert.blpc.common.chunk.ClientCache;
 
 import io.netty.buffer.ByteBuf;
 
+/** S→C: Sends all chunk ownership data on login. */
 public class MessageSyncAllClaims implements IMessage {
 
     private NBTTagCompound data;

@@ -21,7 +21,6 @@ public class InviteDialog {
         return InputDialog.builder(PANEL_ID)
                 .title("blpc.party.invite_title")
                 .confirmLabel("blpc.party.send")
-                .size(180, 60)
                 .onSubmit(username -> ModNetwork.INSTANCE.sendToServer(MessagePartyAction.invite(username)))
                 .build();
     }

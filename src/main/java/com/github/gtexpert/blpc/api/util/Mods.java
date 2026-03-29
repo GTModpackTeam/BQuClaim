@@ -2,6 +2,9 @@ package com.github.gtexpert.blpc.api.util;
 
 import net.minecraftforge.fml.common.Loader;
 
+/**
+ * Enum of known mod IDs with lazy-loaded presence check.
+ */
 public enum Mods {
 
     BetterQuesting(Names.BETTER_QUESTING),
