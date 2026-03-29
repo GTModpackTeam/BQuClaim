@@ -244,12 +244,12 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `autoCreatePartySingleplayer` | boolean | true | Auto-create party in singleplayer  |
-| `autoCreatePartyMultiplayer` | boolean | false | Auto-create party in multiplayer  |
-| `autoCreateServerParty` | boolean | false | Automatically create a shared party on server start  |
-| `serverPartyName` | String | "server" | Name for the auto-created server party  |
-| `autoCreatedPartyFreeToJoin` | boolean | true | Enable free-to-join on auto-created parties  |
-| `autoCreatedPartyOwnerUUID` | String | "" | Owner UUID for auto-created parties; empty = server-owned  |
+| `autoCreatePartySingleplayer` | boolean | true | Auto-create party in singleplayer |
+| `autoCreateServerParty` | boolean | false | Automatically create a shared party on server start |
+| `serverPartyName` | String | "server" | Name for the auto-created server party |
+| `autoCreatedPartyFreeToJoin` | boolean | true | Enable free-to-join on auto-created parties |
+| `autoCreatedPartyOwner` | String | "" | Player name who owns auto-created parties; empty = server-owned |
+| `autoCreatedPartyModerators` | String[] | [] | Player names to assign as moderators (ADMIN role) |
 
 **Data** (`ModConfig.data`)
 

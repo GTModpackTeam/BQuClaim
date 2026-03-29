@@ -57,8 +57,7 @@ public class PlayerLoginHandler {
         IPartyProvider activeProvider = PartyProviderRegistry.get();
         if (!activeProvider.hasNativeParty(player.getUniqueID())) {
             boolean isSingleplayer = player.getServer() != null && player.getServer().isSinglePlayer();
-            boolean shouldCreate = isSingleplayer ? ModConfig.party.autoCreatePartySingleplayer :
-                    ModConfig.party.autoCreatePartyMultiplayer;
+            boolean shouldCreate = isSingleplayer && ModConfig.party.autoCreatePartySingleplayer;
             if (shouldCreate) {
                 if (activeProvider.createParty(player, player.getName())) {
                     activeProvider.syncToAll();

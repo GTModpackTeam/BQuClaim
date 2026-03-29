@@ -1,6 +1,7 @@
 # Config categories
 config.blpc.claims=チャンク確保
 config.blpc.party=パーティ
+config.blpc.server_party=サーバーパーティ
 config.blpc.data=データ
 
 # Key bindings

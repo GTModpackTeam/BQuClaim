@@ -7,6 +7,7 @@ import java.util.UUID;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
@@ -14,6 +15,8 @@ import net.minecraftforge.fml.relauncher.Side;
 
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+
+import com.mojang.authlib.GameProfile;
 
 import com.github.gtexpert.blpc.BLPCMod;
 import com.github.gtexpert.blpc.Tags;
@@ -64,28 +67,49 @@ public class CoreModule implements IModule {
         BLPCSaveHandler.INSTANCE.loadAll(event.getServer());
 
         // Auto-create server party on server start
-        if (ModConfig.party.autoCreateServerParty) {
+        if (ModConfig.serverParty.enabled) {
             PartyManagerData pmData = PartyManagerData.getInstance();
             boolean exists = pmData.getAllParties().stream()
-                    .anyMatch(p -> p.getName().equals(ModConfig.party.serverPartyName));
+                    .anyMatch(p -> p.getName().equals(ModConfig.serverParty.name));
             if (!exists) {
-                Party serverParty = new Party(UUID.randomUUID(), ModConfig.party.serverPartyName,
+                Party serverParty = new Party(UUID.randomUUID(), ModConfig.serverParty.name,
                         System.currentTimeMillis());
-                serverParty.setFreeToJoin(ModConfig.party.autoCreatedPartyFreeToJoin);
+                serverParty.setFreeToJoin(ModConfig.serverParty.freeToJoin);
 
-                String ownerUUIDStr = ModConfig.party.autoCreatedPartyOwnerUUID;
-                if (!ownerUUIDStr.isEmpty()) {
-                    try {
-                        UUID ownerUUID = UUID.fromString(ownerUUIDStr);
-                        serverParty.addMember(ownerUUID, PartyRole.OWNER);
-                    } catch (IllegalArgumentException e) {
-                        ModLog.PARTY.warn("Invalid owner UUID in config: {}", ownerUUIDStr);
+                String ownerName = ModConfig.serverParty.owner;
+                GameProfile ownerProfile = null;
+                if (!ownerName.isEmpty()) {
+                    // Server start: player may be offline; resolve via profile cache
+                    ownerProfile = event.getServer().getPlayerProfileCache()
+                            .getGameProfileForUsername(ownerName);
+                    if (ownerProfile != null) {
+                        serverParty.addMember(ownerProfile.getId(), PartyRole.OWNER);
+                    } else {
+                        ModLog.PARTY.warn("Owner player '{}' not found in profile cache", ownerName);
+                    }
+                }
+
+                for (String modName : ModConfig.serverParty.moderators) {
+                    if (modName.isEmpty()) continue;
+                    GameProfile modProfile = event.getServer().getPlayerProfileCache()
+                            .getGameProfileForUsername(modName);
+                    if (modProfile != null) {
+                        serverParty.addMember(modProfile.getId(), PartyRole.ADMIN);
+                    } else {
+                        ModLog.PARTY.warn("Moderator player '{}' not found in profile cache", modName);
                     }
                 }
 
                 pmData.addParty(serverParty);
+
+                // Auto-link to BQu if BQu is present and an owner was resolved
+                if (Loader.isModLoaded("betterquesting") && ownerProfile != null) {
+                    pmData.setBQuLinked(ownerProfile.getId(), true);
+                    ModLog.PARTY.info("Auto-linked server party to BQu for owner {}", ownerName);
+                }
+
                 BLPCSaveHandler.INSTANCE.markDirty();
-                ModLog.PARTY.info("Auto-created server party: {}", ModConfig.party.serverPartyName);
+                ModLog.PARTY.info("Auto-created server party: {}", ModConfig.serverParty.name);
             }
         }
 

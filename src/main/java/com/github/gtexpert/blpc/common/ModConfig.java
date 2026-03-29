@@ -17,6 +17,9 @@ public class ModConfig {
     @Config.LangKey("config.blpc.party")
     public static final Party party = new Party();
 
+    @Config.LangKey("config.blpc.server_party")
+    public static final ServerParty serverParty = new ServerParty();
+
     @Config.LangKey("config.blpc.data")
     public static final Data data = new Data();
 
@@ -29,7 +32,7 @@ public class ModConfig {
 
         @Config.Name("Max Force Loads Per Player")
         @Config.Comment("Maximum chunks a player can force load.")
-        @Config.RangeInt(min = 0, max = 1000)
+        @Config.RangeInt(min = 0, max = 10000)
         public int maxForceLoadsPerPlayer = 64;
     }
 
@@ -37,27 +40,30 @@ public class ModConfig {
 
         @Config.Name("Auto Create Party (Singleplayer)")
         @Config.Comment("Automatically create a party named after the player in singleplayer.")
-        public boolean autoCreatePartySingleplayer = true;
+        public boolean autoCreatePartySingleplayer = false;
+    }
 
-        @Config.Name("Auto Create Party (Multiplayer)")
-        @Config.Comment("Automatically create a party named after the player in multiplayer.")
-        public boolean autoCreatePartyMultiplayer = false;
+    public static class ServerParty {
 
-        @Config.Name("Auto Create Server Party")
+        @Config.Name("Enable")
         @Config.Comment("Automatically create a shared party on server start.")
-        public boolean autoCreateServerParty = false;
+        public boolean enabled = false;
 
-        @Config.Name("Server Party Name")
+        @Config.Name("Party Name")
         @Config.Comment("Name for the auto-created server party.")
-        public String serverPartyName = "server";
+        public String name = "Server";
 
-        @Config.Name("Auto-Created Party: Free to Join")
-        @Config.Comment("Enable free-to-join (auto-join) on auto-created parties.")
-        public boolean autoCreatedPartyFreeToJoin = true;
+        @Config.Name("Free to Join")
+        @Config.Comment("Enable free-to-join (auto-join) on the server party.")
+        public boolean freeToJoin = true;
 
-        @Config.Name("Auto-Created Party: Owner UUID")
-        @Config.Comment("UUID of the player who owns auto-created parties. Leave empty for server-owned.")
-        public String autoCreatedPartyOwnerUUID = "";
+        @Config.Name("Owner")
+        @Config.Comment("Player name who owns the server party. Leave empty for server-owned.")
+        public String owner = "";
+
+        @Config.Name("Moderators")
+        @Config.Comment("Player names to assign as moderators (ADMIN role).")
+        public String[] moderators = {};
     }
 
     public static class Data {

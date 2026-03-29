@@ -1,6 +1,7 @@
 # Config categories
 config.blpc.claims=Claims
 config.blpc.party=Party
+config.blpc.server_party=Server Party
 config.blpc.data=Data
 
 # Key bindings
