@@ -22,7 +22,7 @@ public class LinkBQuDialog {
         return ConfirmDialog.builder(PANEL_ID)
                 .title("blpc.party.link_bqu_title")
                 .message("blpc.party.link_bqu_msg")
-                .closeParent(true)
+                .closeParent(false)
                 .onConfirm(() -> ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(true)))
                 .build(parentPanel);
     }

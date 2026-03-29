@@ -100,6 +100,10 @@ public class Party {
         members.remove(uuid);
     }
 
+    /**
+     * Sets a member's role. When assigning OWNER, the previous owner is
+     * automatically demoted to ADMIN (not MEMBER) to retain moderation rights.
+     */
     public void setRole(UUID uuid, PartyRole role) {
         if (!members.containsKey(uuid)) return;
         if (role == PartyRole.OWNER) {

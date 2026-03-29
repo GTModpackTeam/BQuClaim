@@ -20,4 +20,9 @@ public class BLPCCommand extends CommandTreeBase {
     public @NotNull String getUsage(@NotNull ICommandSender sender) {
         return "/blpc <move-owner>";
     }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 0;
+    }
 }

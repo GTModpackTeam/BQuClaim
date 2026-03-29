@@ -233,7 +233,7 @@ public class MapColorHelper {
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    public static void clearCache() {
+    public static synchronized void clearCache() {
         colorCache.clear();
         initialized = false;
     }

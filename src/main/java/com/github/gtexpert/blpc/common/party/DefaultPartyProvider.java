@@ -74,6 +74,8 @@ public class DefaultPartyProvider implements IPartyProvider {
         PartyManagerData data = PartyManagerData.getInstance();
         Party party = data.getPartyByPlayer(player.getUniqueID());
         if (party == null) return false;
+        PartyRole role = party.getRole(player.getUniqueID());
+        if (role == null || !role.canDisband()) return false;
 
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
         for (UUID memberId : party.getMemberUUIDs()) {

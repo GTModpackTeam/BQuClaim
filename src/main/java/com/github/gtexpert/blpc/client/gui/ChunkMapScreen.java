@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.text.TextFormatting;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
@@ -77,32 +78,35 @@ public class ChunkMapScreen extends CustomModularScreen {
 
     private ParentWidget<?> createToolButtons() {
         int y = 0;
-        ButtonWidget<?> btnClose = createToolButton("X", "blpc.map.close", y, mb -> close());
+        ButtonWidget<?> btnClose = createToolButton("X", y, mb -> close(),
+                "blpc.map.close");
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnParty = createToolButton("P", "blpc.map.party", y, mb -> openPartyScreen());
+        ButtonWidget<?> btnParty = createToolButton("P", y, mb -> openPartyScreen(),
+                "blpc.map.party");
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnRedraw = createToolButton("R", "blpc.map.redraw", y, mb -> {
+        ButtonWidget<?> btnRedraw = createToolButton("R", y, mb -> {
             AsyncMapRenderer.clearCache();
             TextureCache.clear();
-        });
+        }, "blpc.map.redraw");
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnUnclaimAll = createToolButton("C", "blpc.map.unclaim_all", y,
-                mb -> openConfirmDialog(1));
+        ButtonWidget<?> btnUnclaimAll = createToolButton("C", y,
+                mb -> openConfirmDialog(1),
+                "blpc.map.unclaim_all", "blpc.map.help_claim", "blpc.map.help_unclaim");
         y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnUnloadAll = createToolButton("L", "blpc.map.unload_all", y,
-                mb -> openConfirmDialog(2));
-        y += BTN_SIZE + BTN_GAP;
-        ButtonWidget<?> btnHelp = createToolButton("?", "blpc.map.help", y, mb -> openHelpDialog());
+        ButtonWidget<?> btnUnloadAll = createToolButton("L", y,
+                mb -> openConfirmDialog(2),
+                "blpc.map.unload_all", "blpc.map.help_force", "blpc.map.help_drag");
 
-        int totalH = BTN_SIZE * 6 + BTN_GAP * 5;
+        int totalH = BTN_SIZE * 5 + BTN_GAP * 4;
         return new ParentWidget<>()
                 .size(BTN_SIZE, totalH)
                 .child(btnClose).child(btnRedraw)
                 .child(btnUnclaimAll).child(btnUnloadAll)
-                .child(btnHelp).child(btnParty);
+                .child(btnParty);
     }
 
-    private ButtonWidget<?> createToolButton(String label, String tooltipKey, int y, Consumer<Integer> action) {
+    private ButtonWidget<?> createToolButton(String label, int y, Consumer<Integer> action,
+                                             String... tooltipKeys) {
         ButtonWidget<?> btn = new ButtonWidget<>();
         btn.size(BTN_SIZE, BTN_SIZE).pos(0, y)
                 .overlay(IKey.str(label))
@@ -112,8 +116,17 @@ public class ChunkMapScreen extends CustomModularScreen {
                         return true;
                     }
                     return false;
-                })
-                .addTooltipLine(IKey.lang(tooltipKey));
+                });
+        if (tooltipKeys.length > 0) {
+            btn.addTooltipLine(IKey.lang(tooltipKeys[0]));
+        }
+        if (tooltipKeys.length > 1) {
+            btn.addTooltipLine(IKey.str("")); // 区切り
+        }
+        for (int i = 1; i < tooltipKeys.length; i++) {
+            String key = tooltipKeys[i];
+            btn.addTooltipLine(IKey.dynamic(() -> TextFormatting.GRAY + IKey.lang(key).get()));
+        }
         return btn;
     }
 
@@ -149,26 +162,6 @@ public class ChunkMapScreen extends CustomModularScreen {
                 }
             }
         }
-    }
-
-    private void openHelpDialog() {
-        IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
-            Dialog<Void> dialog = new Dialog<>("blpc.map.dialog.help");
-            dialog.setCloseOnOutOfBoundsClick(true);
-            dialog.size(200, 100)
-                    .child(IKey.lang("blpc.map.controls").color(GuiColors.WHITE).shadow(true).asWidget()
-                            .top(6).left(8))
-                    .child(IKey.lang("blpc.map.help_claim").color(GuiColors.GRAY).shadow(true).asWidget()
-                            .top(20).left(8))
-                    .child(IKey.lang("blpc.map.help_unclaim").color(GuiColors.GRAY).shadow(true).asWidget()
-                            .top(32).left(8))
-                    .child(IKey.lang("blpc.map.help_force").color(GuiColors.GRAY).shadow(true).asWidget()
-                            .top(44).left(8))
-                    .child(IKey.lang("blpc.map.help_drag").color(GuiColors.GRAY).shadow(true).asWidget()
-                            .top(56).left(8))
-                    .child(ButtonWidget.panelCloseButton());
-            return dialog;
-        }, true).openPanel();
     }
 
     private void openPartyScreen() {

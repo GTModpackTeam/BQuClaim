@@ -24,7 +24,7 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
  * <li>Settings (includes allies/enemies management), Transfer - ADMIN+ only</li>
  * <li>Members, Invite - hidden when BQu-linked (managed via BQu screen)</li>
  * <li>Open BQu Party Screen - shown when BQu-linked</li>
- * <li>Link/Unlink BQu, Leave, Disband - bottom-pinned buttons</li>
+ * <li>Link/Unlink BQu, Disband - bottom-pinned buttons</li>
  * </ul>
  * If the player has no party, delegates to {@link CreatePanel}.
  */
@@ -120,6 +120,14 @@ public class MainPanel {
                     () -> PartyWidgets.openSubPanel(panel, DisbandDialog.build(panel)))
                     .size(50, 16).pos(PanelSizes.STANDARD_W - 58, btnY));
         }
+
+        // Rebuild on server sync (BQu link/unlink, disband, member changes)
+        Runnable syncListener = () -> {
+            if (!panel.isOpen()) return;
+            PartyWidgets.reopenPanel(panel, () -> MainPanel.build(playerId));
+        };
+        ClientPartyCache.addSyncListener(syncListener);
+        panel.onCloseAction(() -> ClientPartyCache.removeSyncListener(syncListener));
 
         return panel;
     }

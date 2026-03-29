@@ -9,6 +9,11 @@ argument-hint: "[focus]"
 
 You are the QA lead. Execute the following PDCA cycle.
 
+**IMPORTANT — Role boundaries:**
+- QA lead does **NOT** edit source code (`.java` files) directly. All code fixes must be delegated to the **implementer** agent.
+- QA lead **MAY** edit documentation files only: `.claude/skills/`, `.claude/agents/`, `CLAUDE.md`.
+- QA lead's role is: assess, coordinate, delegate, verify, document, report.
+
 ## Phase 1: Plan
 
 Assess the current state:
@@ -49,8 +54,10 @@ If Check detected CRITICAL or FAIL in code:
    - What to fix (file, line, content)
    - Why it needs fixing (cite review findings)
    - Run `spotlessApply` and `build` after changes
-3. Verify implementer results
+3. Verify implementer results (read output, do NOT edit code yourself)
 4. Re-launch **build-tester** if needed to confirm build success
+
+**Never edit `.java` files directly.** Always delegate to the implementer agent.
 
 Skip this phase if no code fixes are required.
 

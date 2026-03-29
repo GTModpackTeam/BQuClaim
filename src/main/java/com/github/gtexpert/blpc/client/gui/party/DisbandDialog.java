@@ -16,7 +16,8 @@ import com.github.gtexpert.blpc.common.party.ClientPartyCache;
  * Disband confirmation dialog (panel ID: {@value #PANEL_ID}).
  * <p>
  * Built using {@link ConfirmDialog} template. On confirmation, sends a disband
- * message and immediately clears the client-side party cache for instant feedback.
+ * message and clears the client-side party cache. MainPanel transitions to
+ * {@link CreatePanel} automatically when the server sync arrives.
  */
 public class DisbandDialog {
 
@@ -29,6 +30,7 @@ public class DisbandDialog {
                 .message("blpc.party.disband_confirm_msg")
                 .yesLabel("blpc.party.disband_yes")
                 .noLabel("blpc.party.disband_no")
+                .closeParent(false)
                 .onConfirm(() -> {
                     ModNetwork.INSTANCE.sendToServer(MessagePartyAction.disband());
                     UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
