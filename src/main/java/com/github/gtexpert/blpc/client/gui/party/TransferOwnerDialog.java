@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
@@ -70,6 +71,7 @@ public class TransferOwnerDialog {
                 .height(PanelSizes.BTN_H)
                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
                 .child(new ButtonWidget<>().widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0)
+                        .hoverBackground(new Rectangle().color(0x40FFFFFF))
                         .overlay(IKey.str(memberName + " [" + roleStr + "]").alignment(Alignment.CenterLeft))
                         .onMousePressed(btn -> {
                             ModNetwork.INSTANCE.sendToServer(

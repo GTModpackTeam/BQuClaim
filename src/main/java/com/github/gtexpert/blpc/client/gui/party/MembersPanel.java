@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetworkPlayerInfo;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
@@ -91,6 +92,7 @@ public class MembersPanel {
 
         ButtonWidget<?> btn = new ButtonWidget<>();
         btn.widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0);
+        btn.hoverBackground(new Rectangle().color(0x40FFFFFF));
         btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
         boolean isSelf = entry.uuid.equals(playerId);

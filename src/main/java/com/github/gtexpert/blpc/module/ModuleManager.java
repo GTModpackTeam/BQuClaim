@@ -339,34 +339,21 @@ public class ModuleManager implements IModuleManager {
     private String getComment(IModule module) {
         TModule annotation = module.getClass().getAnnotation(TModule.class);
 
-        String comment = annotation.description();
+        var comment = new StringBuilder(annotation.description());
         Set<ResourceLocation> dependencies = module.getDependencyUids();
         if (!dependencies.isEmpty()) {
-            Iterator<ResourceLocation> iter = dependencies.iterator();
-            StringBuilder builder = new StringBuilder(comment);
-            builder.append("\n");
-            builder.append("Module Dependencies: [ ");
-            builder.append(iter.next());
-            while (iter.hasNext()) {
-                builder.append(", ").append(iter.next());
-            }
-            builder.append(" ]");
-            comment = builder.toString();
+            comment.append("\nModule Dependencies: [ ")
+                    .append(String.join(", ",
+                            dependencies.stream().map(ResourceLocation::toString).collect(Collectors.toList())))
+                    .append(" ]");
         }
         String[] modDependencies = annotation.modDependencies();
         if (modDependencies != null && modDependencies.length > 0) {
-            Iterator<String> iter = Arrays.stream(modDependencies).iterator();
-            StringBuilder builder = new StringBuilder(comment);
-            builder.append("\n");
-            builder.append("Mod Dependencies: [ ");
-            builder.append(iter.next());
-            while (iter.hasNext()) {
-                builder.append(", ").append(iter.next());
-            }
-            builder.append(" ]");
-            comment = builder.toString();
+            comment.append("\nMod Dependencies: [ ")
+                    .append(String.join(", ", modDependencies))
+                    .append(" ]");
         }
-        return comment;
+        return comment.toString();
     }
 
     private Configuration getConfiguration() {

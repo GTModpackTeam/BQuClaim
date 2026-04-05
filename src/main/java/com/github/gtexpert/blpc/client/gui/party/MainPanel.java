@@ -6,14 +6,17 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.text.TextFormatting;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
+import com.cleanroommc.modularui.widgets.ScrollingTextWidget;
 import com.cleanroommc.modularui.widgets.ToggleButton;
 
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -58,7 +61,10 @@ public class MainPanel {
         panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
 
         String displayName = party.getName();
-        PanelBuilder.addHeader(panel, IKey.str(displayName));
+        panel.child(new ScrollingTextWidget(IKey.str(displayName))
+                .color(GuiColors.WHITE).shadow(true)
+                .alignment(Alignment.Center).left(0).right(20).top(8).height(10));
+        panel.child(ButtonWidget.panelCloseButton());
 
         PartyRole myRole = party.getRole(playerId);
         boolean canManage = myRole != null && myRole.canInvite();
@@ -93,7 +99,7 @@ public class MainPanel {
 
         // BQu Manage Party
         if (bquAvailable && bquLinked) {
-            menuList.child((ButtonWidget<?>) new ButtonWidget<>().height(PanelSizes.BTN_H)
+            menuList.child((ButtonWidget<?>) new ButtonWidget<>().widthRel(1f).height(PanelSizes.BTN_H)
                     .padding(4, 0, 0, 0)
                     .overlay(IKey.lang("blpc.party.open_native").alignment(Alignment.CenterLeft))
                     .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
@@ -104,14 +110,10 @@ public class MainPanel {
                     }));
         }
 
-        panel.child(menuList);
-
-        // Bottom buttons (pinned to bottom)
-        int btnY = PanelSizes.STANDARD_H - 24;
-
+        // BQu Link/Unlink toggle — placed inside menuList so it gets the full width
         if (bquAvailable && canManage) {
-            panel.child(new ToggleButton()
-                    .size(60, 16).pos(8, btnY).padding(4, 0, 0, 0)
+            menuList.child(new ToggleButton()
+                    .widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0)
                     .value(new BoolValue.Dynamic(
                             () -> ClientPartyCache.isBQuLinked(playerId),
                             val -> {
@@ -133,6 +135,11 @@ public class MainPanel {
                     })));
         }
 
+        panel.child(menuList);
+
+        // Bottom buttons (pinned to bottom)
+        int btnY = PanelSizes.STANDARD_H - 24;
+
         if (isOwner) {
             panel.child(PartyWidgets.createActionButton(
                     IKey.lang("blpc.party.disband"), "Open Disband dialog",
@@ -148,8 +155,9 @@ public class MainPanel {
 
     private static ButtonWidget<?> createMenuButton(IKey label, ModularPanel parent,
                                                     PanelFactory factory, String tooltipKey) {
-        ButtonWidget<?> btn = (ButtonWidget<?>) new ButtonWidget<>().height(PanelSizes.BTN_H)
+        ButtonWidget<?> btn = (ButtonWidget<?>) new ButtonWidget<>().widthRel(1f).height(PanelSizes.BTN_H)
                 .padding(4, 0, 0, 0)
+                .hoverBackground(new Rectangle().color(0x40FFFFFF))
                 .overlay(label.alignment(Alignment.CenterLeft))
                 .onMousePressed(b -> {
                     PartyWidgets.openSubPanel(parent, factory.create());
