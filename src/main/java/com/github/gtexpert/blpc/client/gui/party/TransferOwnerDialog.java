@@ -77,8 +77,13 @@ public class TransferOwnerDialog {
                         .onMousePressed(btn -> {
                             ModNetwork.INSTANCE.sendToServer(
                                     MessagePartyAction.transferOwnership(memberName));
-                            panel.closeIfOpen();
-                            parentPanel.closeIfOpen();
+                            UUID myId = Minecraft.getMinecraft().player.getUniqueID();
+                            Party p = ClientPartyCache.getPartyByPlayer(myId);
+                            if (p != null) {
+                                p.setRole(memberId, PartyRole.OWNER);
+                                p.setRole(myId, PartyRole.ADMIN);
+                            }
+                            ClientPartyCache.fireSyncListeners();
                             return true;
                         }));
     }

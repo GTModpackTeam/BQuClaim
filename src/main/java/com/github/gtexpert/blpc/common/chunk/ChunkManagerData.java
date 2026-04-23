@@ -2,6 +2,7 @@ package com.github.gtexpert.blpc.common.chunk;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 import net.minecraft.nbt.NBTTagCompound;
@@ -11,6 +12,8 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 
 import com.github.gtexpert.blpc.common.network.MessageSyncClaims;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 /**
  * Server-side chunk claim storage. Singleton, persisted by {@link com.github.gtexpert.blpc.common.BLPCSaveHandler}.
@@ -21,6 +24,7 @@ public class ChunkManagerData {
     private static volatile ChunkManagerData instance;
 
     private final Map<Long, ClaimedChunkData> claims = new ConcurrentHashMap<>();
+    private final Queue<ClaimedChunkData> pendingClaims = new ConcurrentLinkedQueue<>();
 
     public static synchronized ChunkManagerData getInstance() {
         if (instance == null) {
@@ -70,6 +74,35 @@ public class ChunkManagerData {
         return (int) claims.values().stream()
                 .filter(d -> d.ownerUUID.equals(owner) && d.isForceLoaded)
                 .count();
+    }
+
+    public int countClaimsForParty(UUID partyId) {
+        Party party = PartyManagerData.getInstance().getParty(partyId);
+        if (party == null) return 0;
+        Set<UUID> memberIds = new HashSet<>(party.getMemberUUIDs());
+        return (int) claims.values().stream()
+                .filter(d -> memberIds.contains(d.ownerUUID))
+                .count();
+    }
+
+    public int countForceLoadsForParty(UUID partyId) {
+        Party party = PartyManagerData.getInstance().getParty(partyId);
+        if (party == null) return 0;
+        Set<UUID> memberIds = new HashSet<>(party.getMemberUUIDs());
+        return (int) claims.values().stream()
+                .filter(d -> memberIds.contains(d.ownerUUID) && d.isForceLoaded)
+                .count();
+    }
+
+    public void enqueueClaim(ClaimedChunkData data) {
+        pendingClaims.add(data);
+    }
+
+    public void flushPending() {
+        ClaimedChunkData d;
+        while ((d = pendingClaims.poll()) != null) {
+            claims.put(chunkKey(d.x, d.z), d);
+        }
     }
 
     /**

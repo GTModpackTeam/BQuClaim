@@ -23,6 +23,9 @@ public class ModConfig {
     @Config.LangKey("config.blpc.data")
     public static final Data data = new Data();
 
+    @Config.LangKey("config.blpc.protection")
+    public static final Protection protection = new Protection();
+
     public static class Claims {
 
         @Config.Name("Max Claims Per Player")
@@ -34,6 +37,29 @@ public class ModConfig {
         @Config.Comment("Maximum chunks a player can force load.")
         @Config.RangeInt(min = 0, max = 10000)
         public int maxForceLoadsPerPlayer = 64;
+
+        @Config.Name("Additive Party Limits")
+        @Config.Comment("When true, party claim limit = sum of each member's individual limit.")
+        public boolean additiveLimits = true;
+
+        @Config.Name("Allow Offline Chunk Loading")
+        @Config.Comment("Keep force-loaded chunks active even when all party members are offline.")
+        public boolean allowOfflineChunkLoading = true;
+    }
+
+    public static class Protection {
+
+        @Config.Name("Block Edit Whitelist")
+        @Config.Comment("Blocks that bypass edit protection (registry names, e.g. 'minecraft:wooden_door').")
+        public String[] blockEditWhitelist = {};
+
+        @Config.Name("Block Interact Whitelist")
+        @Config.Comment("Blocks that bypass interact protection (e.g. 'minecraft:crafting_table').")
+        public String[] blockInteractWhitelist = {};
+
+        @Config.Name("Item Use Blacklist")
+        @Config.Comment("Items always blocked in claimed chunks regardless of trust (e.g. 'minecraft:bucket').")
+        public String[] itemUseBlacklist = {};
     }
 
     public static class Party {

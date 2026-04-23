@@ -16,6 +16,7 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyRole;
 
@@ -98,30 +99,30 @@ public class MembersPanel {
         boolean isSelf = entry.uuid.equals(playerId);
         if (entry.isMember) {
             if (isSelf && entry.role != PartyRole.OWNER) {
-                // Click self to leave (non-owner only)
                 String playerName = entry.name;
                 btn.onMousePressed(b -> {
                     ModNetwork.INSTANCE.sendToServer(MessagePartyAction.kickOrLeave(playerName));
-                    panel.closeIfOpen();
+                    party.removeMember(entry.uuid);
+                    ClientPartyCache.fireSyncListeners();
                     return true;
                 });
                 btn.addTooltipLine(IKey.lang("blpc.party.tooltip.member_self"));
             } else if (!isSelf && canManage && entry.role != null && myRole != null && myRole.canKick(entry.role)) {
-                // Click to kick (if permission allows)
                 String playerName = entry.name;
                 btn.onMousePressed(b -> {
                     ModNetwork.INSTANCE.sendToServer(MessagePartyAction.kickOrLeave(playerName));
-                    panel.closeIfOpen();
+                    party.removeMember(entry.uuid);
+                    ClientPartyCache.fireSyncListeners();
                     return true;
                 });
                 btn.addTooltipLine(IKey.lang("blpc.party.tooltip.kick"));
             }
         } else if (canManage) {
-            // Click to invite
             String playerName = entry.name;
             btn.onMousePressed(b -> {
                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.invite(playerName));
-                panel.closeIfOpen();
+                party.addInvite(entry.uuid, Long.MAX_VALUE);
+                ClientPartyCache.fireSyncListeners();
                 return true;
             });
             btn.addTooltipLine(IKey.lang("blpc.party.tooltip.invite"));

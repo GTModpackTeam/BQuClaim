@@ -1,7 +1,9 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Function;
@@ -21,6 +23,7 @@ import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.value.IntValue;
+import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ColorPickerDialog;
 import com.cleanroommc.modularui.widgets.CycleButtonWidget;
@@ -30,8 +33,10 @@ import com.cleanroommc.modularui.widgets.PagedWidget;
 import com.cleanroommc.modularui.widgets.TextWidget;
 import com.cleanroommc.modularui.widgets.ToggleButton;
 import com.cleanroommc.modularui.widgets.layout.Flow;
+import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
 import com.github.gtexpert.blpc.client.gui.party.widget.InputDialog;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
@@ -60,6 +65,8 @@ public class SettingsPanel {
     private static final TrustLevel[] CYCLE_LEVELS = { TrustLevel.NONE, TrustLevel.ALLY, TrustLevel.MEMBER };
 
     private static final int TAB_H = 16;
+    private static final int SEARCH_H = 14;
+    private static final int FACE_SIZE = 8;
 
     public static ModularPanel build(Party party) {
         ModularPanel panel = new ModularPanel(PANEL_ID);
@@ -94,6 +101,8 @@ public class SettingsPanel {
 
         panel.child(tabRow);
         panel.child(pagedWidget);
+
+        panel.onCloseAction(ClientPartyCache::fireSyncListeners);
 
         return panel;
     }
@@ -252,128 +261,164 @@ public class SettingsPanel {
                 .child(pagedContent);
     }
 
-    /** All known parties as toggles; myParty excluded. Color = GOLD (ally) / RED (enemy) / WHITE (neutral). */
     private static IWidget buildTrustPartyList(Party party, boolean isEnemy) {
         var list = newList();
         final UUID myPartyId = party.getPartyId();
         Collection<Party> allParties = ClientPartyCache.getAllParties();
+        var widgets = new ArrayList<IWidget>();
+        var searchNames = new ArrayList<String>();
 
         for (Party other : allParties) {
             if (other.getPartyId().equals(myPartyId)) continue;
             final UUID pid = other.getPartyId();
             final String name = other.getName();
 
-            list.child(new ButtonWidget<>()
+            var btn = new ButtonWidget<>()
                     .widthRel(1f).height(BTN_H).padding(4, 0, 0, 0)
                     .hoverBackground(new Rectangle().color(GuiColors.HOVER))
                     .overlay(IKey.dynamicKey(() -> {
-                        int col = party.isAlly(pid) ? GuiColors.GOLD :
-                                party.isEnemy(pid) ? GuiColors.RED : GuiColors.WHITE;
+                        int col = trustColor(party, pid);
                         return IKey.str(name).color(col).alignment(Alignment.CenterLeft);
                     }))
-                    .addTooltipLine(
-                            IKey.lang(isEnemy ? "blpc.party.tooltip.toggle_enemy" : "blpc.party.tooltip.toggle_ally"))
-                    .onMousePressed(btn -> {
-                        boolean active = isEnemy ? party.isEnemy(pid) : party.isAlly(pid);
-                        if (active) {
-                            if (isEnemy) {
-                                party.removeEnemy(pid);
-                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.removeEnemy(pid));
-                            } else {
-                                party.removeAlly(pid);
-                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.removeAlly(pid));
-                            }
-                        } else {
-                            if (isEnemy) {
-                                party.addEnemy(pid);
-                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addEnemy(pid));
-                            } else {
-                                party.addAlly(pid);
-                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addAlly(pid));
-                            }
-                        }
+                    .addTooltipLine(trustTooltip(isEnemy))
+                    .onMousePressed(b -> {
+                        toggleTrust(party, pid, isEnemy);
                         return true;
-                    }));
+                    });
+
+            widgets.add(btn);
+            searchNames.add(name.toLowerCase(Locale.ROOT));
+            list.child(btn);
         }
 
-        if (allParties.size() <= 1) {
+        if (widgets.isEmpty()) {
             list.child(IKey.lang("blpc.party.no_other_parties").color(GuiColors.GRAY)
                     .asWidget().widthRel(1f).height(BTN_H).marginLeft(4));
+            return list;
         }
 
-        return list;
+        return wrapWithSearchBox(list, widgets, searchNames);
     }
 
-    /**
-     * Online players as toggles. If a player has a party, clicking toggles that party.
-     * Players without a party are shown disabled (grey, no click).
-     */
     private static IWidget buildTrustPlayerList(Party party, boolean isEnemy) {
         var list = newList();
         final UUID myPartyId = party.getPartyId();
         var conn = Minecraft.getMinecraft().getConnection();
         if (conn == null) return list;
 
-        Collection<NetworkPlayerInfo> onlinePlayers = conn.getPlayerInfoMap();
-        boolean anyEntry = false;
+        var widgets = new ArrayList<IWidget>();
+        var searchNames = new ArrayList<String>();
 
-        for (NetworkPlayerInfo info : onlinePlayers) {
+        for (NetworkPlayerInfo info : conn.getPlayerInfoMap()) {
             UUID playerUUID = info.getGameProfile().getId();
             String playerName = info.getGameProfile().getName();
             Party playerParty = ClientPartyCache.getPartyByPlayer(playerUUID);
 
             if (playerParty != null && playerParty.getPartyId().equals(myPartyId)) continue;
 
-            anyEntry = true;
-
             if (playerParty == null) {
-                // No party — show disabled
                 String noPartyLabel = playerName + " (" + IKey.lang("blpc.party.tab.no_party").get() + ")";
-                list.child(IKey.str(noPartyLabel).color(GuiColors.GRAY).alignment(Alignment.CenterLeft)
-                        .asWidget().widthRel(1f).height(BTN_H).marginLeft(4));
+                var row = Flow.row()
+                        .widthRel(1f).height(BTN_H)
+                        .padding(4, 0, 0, 0)
+                        .childPadding(4)
+                        .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                        .child(new PlayerFaceDrawable(playerUUID).asWidget().size(FACE_SIZE, FACE_SIZE))
+                        .child(IKey.str(noPartyLabel).color(GuiColors.GRAY).alignment(Alignment.CenterLeft)
+                                .asWidget().expanded());
+                widgets.add(row);
+                searchNames.add(playerName.toLowerCase(Locale.ROOT));
+                list.child(row);
             } else {
                 final UUID pid = playerParty.getPartyId();
                 final String partyLabel = playerName + " (" + playerParty.getName() + ")";
-                list.child(new ButtonWidget<>()
-                        .widthRel(1f).height(BTN_H).padding(4, 0, 0, 0)
+                var btn = new ButtonWidget<>()
+                        .widthRel(1f).height(BTN_H).padding(0)
                         .hoverBackground(new Rectangle().color(GuiColors.HOVER))
-                        .overlay(IKey.dynamicKey(() -> {
-                            int col = party.isAlly(pid) ? GuiColors.GOLD :
-                                    party.isEnemy(pid) ? GuiColors.RED : GuiColors.WHITE;
-                            return IKey.str(partyLabel).color(col).alignment(Alignment.CenterLeft);
-                        }))
-                        .addTooltipLine(IKey
-                                .lang(isEnemy ? "blpc.party.tooltip.toggle_enemy" : "blpc.party.tooltip.toggle_ally"))
-                        .onMousePressed(btn -> {
-                            boolean active = isEnemy ? party.isEnemy(pid) : party.isAlly(pid);
-                            if (active) {
-                                if (isEnemy) {
-                                    party.removeEnemy(pid);
-                                    ModNetwork.INSTANCE.sendToServer(MessagePartyAction.removeEnemy(pid));
-                                } else {
-                                    party.removeAlly(pid);
-                                    ModNetwork.INSTANCE.sendToServer(MessagePartyAction.removeAlly(pid));
-                                }
-                            } else {
-                                if (isEnemy) {
-                                    party.addEnemy(pid);
-                                    ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addEnemy(pid));
-                                } else {
-                                    party.addAlly(pid);
-                                    ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addAlly(pid));
-                                }
-                            }
+                        .child(Flow.row()
+                                .widthRel(1f).heightRel(1f)
+                                .padding(4, 0, 0, 0)
+                                .childPadding(4)
+                                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                                .child(new PlayerFaceDrawable(playerUUID).asWidget().size(FACE_SIZE, FACE_SIZE))
+                                .child(IKey.dynamicKey(() -> IKey.str(partyLabel).color(trustColor(party, pid))
+                                        .alignment(Alignment.CenterLeft)).asWidget().expanded()))
+                        .addTooltipLine(trustTooltip(isEnemy))
+                        .onMousePressed(b -> {
+                            toggleTrust(party, pid, isEnemy);
                             return true;
-                        }));
+                        });
+                widgets.add(btn);
+                searchNames.add(playerName.toLowerCase(Locale.ROOT));
+                list.child(btn);
             }
         }
 
-        if (!anyEntry) {
+        if (widgets.isEmpty()) {
             list.child(IKey.lang("blpc.party.no_players_online").color(GuiColors.GRAY)
                     .asWidget().widthRel(1f).height(BTN_H).marginLeft(4));
+            return list;
         }
 
-        return list;
+        return wrapWithSearchBox(list, widgets, searchNames);
+    }
+
+    // --- Trust toggle helpers ---
+
+    private static void toggleTrust(Party party, UUID pid, boolean isEnemy) {
+        boolean active = isEnemy ? party.isEnemy(pid) : party.isAlly(pid);
+        if (active) {
+            if (isEnemy) {
+                party.removeEnemy(pid);
+                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.removeEnemy(pid));
+            } else {
+                party.removeAlly(pid);
+                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.removeAlly(pid));
+            }
+        } else {
+            if (isEnemy) {
+                party.addEnemy(pid);
+                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addEnemy(pid));
+            } else {
+                party.addAlly(pid);
+                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.addAlly(pid));
+            }
+        }
+    }
+
+    private static int trustColor(Party party, UUID pid) {
+        if (party.isAlly(pid)) return GuiColors.GOLD;
+        if (party.isEnemy(pid)) return GuiColors.RED;
+        return GuiColors.WHITE;
+    }
+
+    private static IKey trustTooltip(boolean isEnemy) {
+        return IKey.lang(isEnemy ? "blpc.party.tooltip.toggle_enemy" : "blpc.party.tooltip.toggle_ally");
+    }
+
+    // --- Search filter ---
+
+    private static IWidget wrapWithSearchBox(ListWidget<IWidget, ?> list,
+                                             List<IWidget> widgets, List<String> searchNames) {
+        String[] filterText = { "" };
+        var searchBox = new TextFieldWidget()
+                .widthRel(1f).height(SEARCH_H)
+                .hintText(IKey.lang("blpc.party.search").get())
+                .autoUpdateOnChange(true)
+                .value(new StringValue.Dynamic(
+                        () -> filterText[0],
+                        text -> {
+                            filterText[0] = text;
+                            String lower = text.toLowerCase(Locale.ROOT);
+                            for (int i = 0; i < widgets.size(); i++) {
+                                widgets.get(i).setEnabled(lower.isEmpty() || searchNames.get(i).contains(lower));
+                            }
+                        }));
+
+        return Flow.column()
+                .widthRel(1f).heightRel(1f)
+                .child(searchBox)
+                .child(list.expanded());
     }
 
     @SuppressWarnings("unchecked")

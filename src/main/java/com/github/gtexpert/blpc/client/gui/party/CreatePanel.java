@@ -20,6 +20,7 @@ import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
  * Party creation panel (panel ID: {@value #PANEL_ID}).
@@ -51,7 +52,6 @@ public class CreatePanel {
             if (!name.isEmpty()) {
                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.create(name));
             }
-            panel.closeIfOpen();
         };
 
         TextFieldWidget nameField = PartyWidgets.createEnterSubmitTextField(doCreate);
@@ -80,7 +80,7 @@ public class CreatePanel {
                 .crossAxisAlignment(Alignment.CrossAxis.START)
                 .children(entries, entry -> createPartyRow(entry, panel)));
 
-        PartyWidgets.addAutoRefreshListener(panel, CreatePanel::build);
+        PartyWidgets.addAutoRefreshListener(panel, () -> MainPanel.build(playerId));
 
         return panel;
     }
@@ -136,7 +136,12 @@ public class CreatePanel {
             } else {
                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.joinFreeParty(partyId));
             }
-            panel.closeIfOpen();
+            UUID myId = Minecraft.getMinecraft().player.getUniqueID();
+            Party joinParty = ClientPartyCache.getParty(partyId);
+            if (joinParty != null) {
+                joinParty.addMember(myId, PartyRole.MEMBER);
+            }
+            ClientPartyCache.fireSyncListeners();
             return true;
         });
 

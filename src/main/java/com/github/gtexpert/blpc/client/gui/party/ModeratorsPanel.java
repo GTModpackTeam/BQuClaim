@@ -15,6 +15,7 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyRole;
 
@@ -50,7 +51,7 @@ public class ModeratorsPanel {
         });
 
         ListWidget<?, ?> list = new ListWidget<>()
-                .children(sorted, entry -> createRow(entry, isOwner, playerId));
+                .children(sorted, entry -> createRow(entry, party, isOwner, playerId));
 
         PanelBuilder.addList(panel, list);
 
@@ -59,7 +60,8 @@ public class ModeratorsPanel {
         return panel;
     }
 
-    private static Flow createRow(Map.Entry<UUID, PartyRole> entry, boolean isOwner, UUID myId) {
+    private static Flow createRow(Map.Entry<UUID, PartyRole> entry, Party party,
+                                  boolean isOwner, UUID myId) {
         UUID memberId = entry.getKey();
         PartyRole role = entry.getValue();
         String memberName = PartyWidgets.getDisplayName(memberId);
@@ -74,7 +76,6 @@ public class ModeratorsPanel {
         btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
         btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
-        // Owner can promote/demote other non-owner members (not self)
         if (isOwner && !memberId.equals(myId) && role != PartyRole.OWNER) {
             String newRole = switch (role) {
                 case MEMBER -> "ADMIN";
@@ -82,9 +83,14 @@ public class ModeratorsPanel {
                 default -> null;
             };
             if (newRole != null) {
+                PartyRole newPartyRole = PartyRole.fromName(newRole);
                 btn.onMousePressed(b -> {
                     ModNetwork.INSTANCE.sendToServer(
                             MessagePartyAction.changeRole(memberName + ":" + newRole));
+                    if (newPartyRole != null) {
+                        party.setRole(memberId, newPartyRole);
+                        ClientPartyCache.fireSyncListeners();
+                    }
                     return true;
                 });
             }

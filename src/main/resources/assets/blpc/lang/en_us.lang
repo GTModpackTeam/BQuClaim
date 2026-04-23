@@ -3,6 +3,7 @@ config.blpc.claims=Claims
 config.blpc.party=Party
 config.blpc.server_party=Server Party
 config.blpc.data=Data
+config.blpc.protection=Protection
 
 # Key bindings
 key.blpc.open_map=Open Chunk Map
@@ -90,6 +91,7 @@ blpc.party.tab.players=Players
 blpc.party.tab.no_party=No Party
 blpc.party.no_other_parties=No other parties found
 blpc.party.no_players_online=No players online
+blpc.party.search=Search...
 blpc.party.tooltip.toggle_ally=Click to add/remove as ally
 blpc.party.tooltip.toggle_enemy=Click to add/remove as enemy
 blpc.party.add_ally=+ Add Ally Party

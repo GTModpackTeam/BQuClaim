@@ -5,11 +5,14 @@ import java.util.*;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.EnumDyeColor;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 
+import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.ModLog;
 
 /**
@@ -234,6 +237,23 @@ public class Party {
      * Used by {@link com.github.gtexpert.blpc.integration.bqu.BQPartyProvider} when
      * building the client-sync view from the owner's self-managed party.
      */
+    public int sumClaimLimit() {
+        return members.size() * ModConfig.claims.maxClaimsPerPlayer;
+    }
+
+    public int sumForceLoadLimit() {
+        return members.size() * ModConfig.claims.maxForceLoadsPerPlayer;
+    }
+
+    public int countOnlineMembers(MinecraftServer server) {
+        int count = 0;
+        for (UUID uuid : members.keySet()) {
+            EntityPlayerMP p = server.getPlayerList().getPlayerByUUID(uuid);
+            if (p != null) count++;
+        }
+        return count;
+    }
+
     public void copySettingsFrom(Party source) {
         this.description = source.description;
         this.color = source.color;

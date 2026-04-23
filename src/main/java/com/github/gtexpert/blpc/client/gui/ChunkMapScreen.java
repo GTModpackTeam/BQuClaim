@@ -1,5 +1,8 @@
 package com.github.gtexpert.blpc.client.gui;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
@@ -29,6 +32,8 @@ import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
 import com.github.gtexpert.blpc.common.network.MessageClaimChunk;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.party.ClientPartyCache;
+import com.github.gtexpert.blpc.common.party.Party;
 
 public class ChunkMapScreen extends CustomModularScreen {
 
@@ -64,9 +69,9 @@ public class ChunkMapScreen extends CustomModularScreen {
                         .leftRel(0.5f, leftOff + MAP_PX, 0f)
                         .verticalCenter())
                 .child(createCounterText("blpc.map.claimed_chunks",
-                        this::countMyClaims, () -> ModConfig.claims.maxClaimsPerPlayer, 16))
+                        this::countMyClaims, this::maxClaims, 16))
                 .child(createCounterText("blpc.map.loaded_chunks",
-                        this::countMyForceLoads, () -> ModConfig.claims.maxForceLoadsPerPlayer, 4));
+                        this::countMyForceLoads, this::maxForceLoads, 4));
     }
 
     private TextWidget<?> createCounterText(String langKey,
@@ -165,17 +170,46 @@ public class ChunkMapScreen extends CustomModularScreen {
     }
 
     private int countMyClaims() {
-        return countMyChunks(false);
+        return countChunks(false);
     }
 
     private int countMyForceLoads() {
-        return countMyChunks(true);
+        return countChunks(true);
     }
 
-    private int countMyChunks(boolean forceLoadedOnly) {
+    private int countChunks(boolean forceLoadedOnly) {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
+        Set<UUID> ids = getPartyMemberIds(myId);
         return (int) ClientCache.getAll().stream()
-                .filter(d -> d.ownerUUID.equals(myId) && (!forceLoadedOnly || d.isForceLoaded))
+                .filter(d -> ids.contains(d.ownerUUID) && (!forceLoadedOnly || d.isForceLoaded))
                 .count();
+    }
+
+    private int maxClaims() {
+        UUID myId = Minecraft.getMinecraft().player.getUniqueID();
+        Party party = ClientPartyCache.getPartyByPlayer(myId);
+        if (party != null && ModConfig.claims.additiveLimits) {
+            return party.sumClaimLimit();
+        }
+        return ModConfig.claims.maxClaimsPerPlayer;
+    }
+
+    private int maxForceLoads() {
+        UUID myId = Minecraft.getMinecraft().player.getUniqueID();
+        Party party = ClientPartyCache.getPartyByPlayer(myId);
+        if (party != null && ModConfig.claims.additiveLimits) {
+            return party.sumForceLoadLimit();
+        }
+        return ModConfig.claims.maxForceLoadsPerPlayer;
+    }
+
+    private static Set<UUID> getPartyMemberIds(UUID myId) {
+        if (ModConfig.claims.additiveLimits) {
+            Party party = ClientPartyCache.getPartyByPlayer(myId);
+            if (party != null) {
+                return new HashSet<>(party.getMemberUUIDs());
+            }
+        }
+        return Collections.singleton(myId);
     }
 }

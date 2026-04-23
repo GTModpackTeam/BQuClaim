@@ -1,7 +1,9 @@
 package com.github.gtexpert.blpc.core;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -9,7 +11,9 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.common.util.FakePlayer;
@@ -21,6 +25,7 @@ import net.minecraftforge.event.world.ExplosionEvent;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.ModDefaults;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
@@ -53,6 +58,15 @@ public class ChunkProtectionHandler {
     @Nullable
     private static Party getPartyForClaim(ClaimedChunkData claim) {
         return PartyManagerData.getInstance().getPartyByPlayer(claim.ownerUUID);
+    }
+
+    private static boolean isNameInList(@Nullable ResourceLocation name, String[] list) {
+        if (name == null || list.length == 0) return false;
+        String nameStr = name.toString();
+        for (String entry : list) {
+            if (nameStr.equals(entry)) return true;
+        }
+        return false;
     }
 
     /**
@@ -112,6 +126,9 @@ public class ChunkProtectionHandler {
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
         if (event.getWorld().isRemote) return;
+        if (isNameInList(event.getState().getBlock().getRegistryName(),
+                ModConfig.protection.blockEditWhitelist))
+            return;
         if (!canPlayerActAt(event.getPlayer(), event.getPos(), TrustAction.BLOCK_EDIT)) {
             event.setCanceled(true);
         }
@@ -134,6 +151,10 @@ public class ChunkProtectionHandler {
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (event.getWorld().isRemote) return;
+        IBlockState state = event.getWorld().getBlockState(event.getPos());
+        if (isNameInList(state.getBlock().getRegistryName(),
+                ModConfig.protection.blockInteractWhitelist))
+            return;
         if (!canPlayerActAt(event.getEntityPlayer(), event.getPos(), TrustAction.BLOCK_INTERACT)) {
             event.setCanceled(true);
         }
@@ -144,8 +165,18 @@ public class ChunkProtectionHandler {
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (event.getWorld().isRemote) return;
-        if (!canPlayerActAt(event.getEntityPlayer(), event.getEntityPlayer().getPosition(),
-                TrustAction.USE_ITEM)) {
+        BlockPos playerPos = event.getEntityPlayer().getPosition();
+        int cx = playerPos.getX() >> 4;
+        int cz = playerPos.getZ() >> 4;
+        if (isChunkClaimed(cx, cz)) {
+            ItemStack held = event.getItemStack();
+            if (!held.isEmpty() && isNameInList(held.getItem().getRegistryName(),
+                    ModConfig.protection.itemUseBlacklist)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+        if (!canPlayerActAt(event.getEntityPlayer(), playerPos, TrustAction.USE_ITEM)) {
             event.setCanceled(true);
         }
     }
@@ -157,28 +188,33 @@ public class ChunkProtectionHandler {
         if (event.getWorld().isRemote) return;
         if (!ModDefaults.enableProtection) return;
 
+        Map<Long, Boolean> chunkProtectCache = new HashMap<>();
+
         List<BlockPos> affectedBlocks = event.getAffectedBlocks();
         affectedBlocks.removeIf(pos -> {
-            int chunkX = pos.getX() >> 4;
-            int chunkZ = pos.getZ() >> 4;
-            ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(chunkX, chunkZ);
-            if (claim == null) return false;
-            Party party = getPartyForClaim(claim);
-            return party == null || party.protectsExplosions();
+            long key = ChunkManagerData.chunkKey(pos.getX() >> 4, pos.getZ() >> 4);
+            return chunkProtectCache.computeIfAbsent(key, k -> shouldProtectChunk(k));
         });
 
         Iterator<Entity> entityIt = event.getAffectedEntities().iterator();
         while (entityIt.hasNext()) {
             Entity entity = entityIt.next();
-            int chunkX = MathHelper.floor(entity.posX) >> 4;
-            int chunkZ = MathHelper.floor(entity.posZ) >> 4;
-            ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(chunkX, chunkZ);
-            if (claim == null) continue;
-            Party party = getPartyForClaim(claim);
-            if (party == null || party.protectsExplosions()) {
+            long key = ChunkManagerData.chunkKey(
+                    MathHelper.floor(entity.posX) >> 4,
+                    MathHelper.floor(entity.posZ) >> 4);
+            if (chunkProtectCache.computeIfAbsent(key, k -> shouldProtectChunk(k))) {
                 entityIt.remove();
             }
         }
+    }
+
+    private static boolean shouldProtectChunk(long key) {
+        int cx = (int) (key >> 32);
+        int cz = (int) key;
+        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(cx, cz);
+        if (claim == null) return false;
+        Party party = getPartyForClaim(claim);
+        return party == null || party.protectsExplosions();
     }
 
     // --- Entity interactions ---

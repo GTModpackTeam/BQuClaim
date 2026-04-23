@@ -1,9 +1,13 @@
 package com.github.gtexpert.blpc.common.network;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
@@ -15,6 +19,8 @@ import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.ModLog;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
+import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
+import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 import com.github.gtexpert.blpc.common.party.PartyRole;
@@ -64,6 +70,24 @@ public class PlayerLoginHandler {
                     activeProvider.syncToAll();
                 }
                 BLPCSaveHandler.INSTANCE.markDirty();
+            }
+        }
+
+        // Re-force party chunks if this is the first member logging in after offline suppression
+        if (!ModConfig.claims.allowOfflineChunkLoading) {
+            Party party = PartyManagerData.getInstance().getPartyByPlayer(player.getUniqueID());
+            if (party != null) {
+                MinecraftServer server = player.getServer();
+                if (server != null && party.countOnlineMembers(server) == 1) {
+                    Set<UUID> memberIds = new HashSet<>(party.getMemberUUIDs());
+                    for (ClaimedChunkData claim : ChunkManagerData.getInstance().getAllClaims()) {
+                        if (claim.isForceLoaded && memberIds.contains(claim.ownerUUID)) {
+                            for (WorldServer ws : server.worlds) {
+                                TicketManager.forceChunk(ws, claim.x, claim.z, null);
+                            }
+                        }
+                    }
+                }
             }
         }
 

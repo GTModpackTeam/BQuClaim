@@ -28,7 +28,7 @@ public class DisbandDialog {
                 .closeParent(false)
                 .onConfirm(() -> {
                     ModNetwork.INSTANCE.sendToServer(MessagePartyAction.disband());
-                    parentPanel.getScreen().getMainPanel().closeIfOpen();
+                    parentPanel.closeIfOpen();
                     PartyWidgets.clearLocalPartyData();
                 })
                 .build(parentPanel);
