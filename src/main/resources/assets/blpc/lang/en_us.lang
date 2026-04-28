@@ -143,6 +143,7 @@ blpc.party.tooltip.remove_ally=Click to remove ally
 blpc.party.tooltip.remove_enemy=Click to remove enemy
 blpc.party.tooltip.moderator=Click to promote / demote
 blpc.party.tooltip.default=Default: %s
+blpc.party.tooltip.options=Options:
 blpc.party.tooltip.settings=Protection and party settings
 blpc.party.tooltip.members=View party members
 blpc.party.tooltip.allies=Manage allied parties

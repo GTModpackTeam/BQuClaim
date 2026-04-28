@@ -143,6 +143,7 @@ blpc.party.tooltip.remove_ally=クリックで同盟解除
 blpc.party.tooltip.remove_enemy=クリックで敵対解除
 blpc.party.tooltip.moderator=クリックで昇格 / 降格
 blpc.party.tooltip.default=デフォルト値: %s
+blpc.party.tooltip.options=選択肢:
 blpc.party.tooltip.settings=保護とパーティー設定
 blpc.party.tooltip.members=パーティーメンバーを表示
 blpc.party.tooltip.allies=同盟パーティーの管理

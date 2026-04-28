@@ -3,16 +3,17 @@ package com.github.gtexpert.blpc.client.gui.party;
 import java.util.*;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.text.TextFormatting;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
-import com.cleanroommc.modularui.value.EnumValue;
+import com.cleanroommc.modularui.value.IntValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
+import com.cleanroommc.modularui.widgets.CycleButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
-import com.cleanroommc.modularui.widgets.menu.DropdownWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
@@ -26,7 +27,7 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
  * Moderator management panel (panel ID: {@value #PANEL_ID}).
  * <p>
  * Shows ALL party members in a single list, sorted by role (OWNER → ADMIN → MEMBER).
- * OWNER can change non-self/non-owner members' role via a {@link DropdownWidget}
+ * OWNER can change non-self/non-owner members' role via a {@link CycleButtonWidget}
  * (MEMBER ↔ ADMIN). OWNER role is reserved for the {@link TransferOwnerDialog}.
  */
 public class ModeratorsPanel {
@@ -76,47 +77,53 @@ public class ModeratorsPanel {
             return btn;
         }
 
-        return new DropdownWidget<>("blpc.role." + memberId, PartyRole.class)
-                .options(PartyRole.MEMBER, PartyRole.ADMIN)
-                .optionToWidget(
-                        (r, forSelected) -> roleOptionWidget(memberId, memberName, r, forSelected))
-                .value(new EnumValue.Dynamic<>(PartyRole.class,
-                        () -> {
-                            PartyRole cur = party.getRole(memberId);
-                            // OWNER role is not a Dropdown option; clamp to MEMBER for display.
-                            return cur == PartyRole.OWNER ? PartyRole.MEMBER : cur;
-                        },
-                        r -> {
+        // 2-state cycle: MEMBER (0) <-> ADMIN (1). OWNER is reserved for TransferOwnerDialog.
+        PartyRole[] cycleRoles = { PartyRole.MEMBER, PartyRole.ADMIN };
+        CycleButtonWidget cycle = new CycleButtonWidget()
+                .length(2)
+                .value(new IntValue.Dynamic(
+                        () -> party.getRole(memberId) == PartyRole.ADMIN ? 1 : 0,
+                        idx -> {
+                            PartyRole r = idx == 1 ? PartyRole.ADMIN : PartyRole.MEMBER;
                             if (r == party.getRole(memberId)) return;
                             ModNetwork.INSTANCE.sendToServer(
                                     MessagePartyAction.changeRole(memberName + ":" + r.name()));
                             party.setRole(memberId, r);
                             ClientPartyCache.fireSyncListeners();
                         }))
+                .stateChild(0, memberRowDisplay(memberId, memberName, PartyRole.MEMBER))
+                .stateChild(1, memberRowDisplay(memberId, memberName, PartyRole.ADMIN))
                 .widthRel(1f).height(PartyWidgets.BTN_H)
-                .addTooltipLine(IKey.lang("blpc.party.tooltip.moderator"));
+                .addTooltipLine(IKey.lang("blpc.party.tooltip.moderator"))
+                .addTooltipLine(IKey.lang("blpc.party.tooltip.options"));
+        for (PartyRole r : cycleRoles) {
+            cycle.addTooltipLine(IKey.dynamic(() -> formatRoleOptionLine(r, party.getRole(memberId))));
+        }
+        return cycle;
     }
 
-    private static IWidget roleOptionWidget(UUID memberId, String memberName, PartyRole role,
-                                            boolean forSelected) {
-        if (forSelected) {
-            int color = PartyWidgets.getRoleColor(role);
-            String label = PartyWidgets.formatMemberLabel(memberName, role);
-            return Flow.row()
-                    .widthRel(1f).heightRel(1f)
-                    .padding(4, 0, 0, 0)
-                    .childPadding(4)
-                    .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                    .child(new PlayerFaceDrawable(memberId).asWidget()
-                            .size(PartyWidgets.FACE_SIZE, PartyWidgets.FACE_SIZE))
-                    .child(IKey.str(label).color(color).shadow(true)
-                            .alignment(Alignment.CenterLeft)
-                            .asWidget().expanded());
+    private static String formatRoleOptionLine(PartyRole option, PartyRole current) {
+        String name = IKey.lang("blpc.party.role." + option.name().toLowerCase(Locale.ROOT)).get();
+        // OWNER is not a cycle option; treat as MEMBER for highlight purposes.
+        PartyRole shown = current == PartyRole.OWNER ? PartyRole.MEMBER : current;
+        if (option == shown) {
+            return TextFormatting.YELLOW + "→ " + TextFormatting.WHITE + name;
         }
-        // Menu items render inside MenuPanel (context_menu theme):
-        // theme provides "menu" background, #404040 text, no shadow.
-        String roleStr = IKey.lang("blpc.party.role." + role.name().toLowerCase(Locale.ROOT)).get();
-        return IKey.str(roleStr).alignment(Alignment.Center)
-                .asWidget().widthRel(1f);
+        return TextFormatting.GRAY + "  " + name;
+    }
+
+    private static IWidget memberRowDisplay(UUID memberId, String memberName, PartyRole role) {
+        int color = PartyWidgets.getRoleColor(role);
+        String label = PartyWidgets.formatMemberLabel(memberName, role);
+        return Flow.row()
+                .widthRel(1f).heightRel(1f)
+                .padding(4, 0, 0, 0)
+                .childPadding(4)
+                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                .child(new PlayerFaceDrawable(memberId).asWidget()
+                        .size(PartyWidgets.FACE_SIZE, PartyWidgets.FACE_SIZE))
+                .child(IKey.str(label).color(color).shadow(true)
+                        .alignment(Alignment.CenterLeft)
+                        .asWidget().expanded());
     }
 }

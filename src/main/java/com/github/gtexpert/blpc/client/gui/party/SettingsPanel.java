@@ -19,16 +19,16 @@ import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.value.DoubleValue;
-import com.cleanroommc.modularui.value.EnumValue;
+import com.cleanroommc.modularui.value.IntValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ColorPickerDialog;
+import com.cleanroommc.modularui.widgets.CycleButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.PageButton;
 import com.cleanroommc.modularui.widgets.PagedWidget;
 import com.cleanroommc.modularui.widgets.SliderWidget;
 import com.cleanroommc.modularui.widgets.ToggleButton;
 import com.cleanroommc.modularui.widgets.layout.Flow;
-import com.cleanroommc.modularui.widgets.menu.DropdownWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
@@ -221,9 +221,9 @@ public class SettingsPanel {
         var list = newList();
 
         for (TrustAction action : TrustAction.values()) {
-            list.child(createTrustDropdown(party, action));
+            list.child(createTrustCycle(party, action));
         }
-        list.child(createFakePlayerDropdown(party));
+        list.child(createFakePlayerCycle(party));
 
         // Divider between trust settings and explosion toggle
         list.child(new Rectangle().color(GuiColors.DIVIDER).asWidget().height(1).widthRel(1f).marginTop(4)
@@ -434,9 +434,8 @@ public class SettingsPanel {
         return IKey.dynamic(() -> TextFormatting.UNDERLINE + IKey.lang(langKey).get());
     }
 
-    private static IWidget createTrustDropdown(Party party, TrustAction action) {
-        return createTrustDropdownCommon(
-                "blpc.trust." + action.getNbtKey(),
+    private static IWidget createTrustCycle(Party party, TrustAction action) {
+        return createTrustCycleCommon(
                 () -> party.getTrustLevel(action),
                 level -> {
                     if (level == party.getTrustLevel(action)) return;
@@ -450,9 +449,8 @@ public class SettingsPanel {
                         .get());
     }
 
-    private static IWidget createFakePlayerDropdown(Party party) {
-        return createTrustDropdownCommon(
-                "blpc.trust.fakeplayer",
+    private static IWidget createFakePlayerCycle(Party party) {
+        return createTrustCycleCommon(
                 party::getFakePlayerTrustLevel,
                 level -> {
                     if (level == party.getFakePlayerTrustLevel()) return;
@@ -464,37 +462,45 @@ public class SettingsPanel {
                 () -> IKey.lang("blpc.party.trust_level." + TrustLevel.ALLY.name().toLowerCase(Locale.ROOT)).get());
     }
 
-    private static IWidget createTrustDropdownCommon(
-                                                     String panelName,
-                                                     Supplier<TrustLevel> getter,
-                                                     Consumer<TrustLevel> setter,
-                                                     Supplier<String> labelBuilder,
-                                                     String tooltipKey,
-                                                     Supplier<String> defaultValueBuilder) {
-        return new DropdownWidget<>(panelName, TrustLevel.class)
-                .options(CYCLE_LEVELS)
-                .optionToWidget((level, forSelected) -> {
-                    if (forSelected) {
-                        return IKey.dynamic(labelBuilder::get)
-                                .color(GuiColors.WHITE)
-                                .shadow(true)
-                                .alignment(Alignment.CenterLeft)
-                                .asWidget()
-                                .widthRel(1f).heightRel(1f).padding(4, 0, 0, 0);
-                    }
-                    // Menu items render inside MenuPanel (context_menu theme):
-                    // theme provides "menu" background, #404040 text, no shadow.
-                    String roleStr = IKey.lang(
-                            "blpc.party.trust_level." + level.name().toLowerCase(Locale.ROOT)).get();
-                    return IKey.str(roleStr)
-                            .alignment(Alignment.CenterLeft)
-                            .asWidget()
-                            .widthRel(1f).padding(4, 0, 0, 0);
-                })
-                .value(new EnumValue.Dynamic<>(TrustLevel.class, getter, setter))
+    private static IWidget createTrustCycleCommon(
+                                                  Supplier<TrustLevel> getter,
+                                                  Consumer<TrustLevel> setter,
+                                                  Supplier<String> labelBuilder,
+                                                  String tooltipKey,
+                                                  Supplier<String> defaultValueBuilder) {
+        CycleButtonWidget cycle = new CycleButtonWidget()
+                .length(CYCLE_LEVELS.length)
+                .value(new IntValue.Dynamic(
+                        () -> {
+                            TrustLevel cur = getter.get();
+                            for (int i = 0; i < CYCLE_LEVELS.length; i++) {
+                                if (CYCLE_LEVELS[i] == cur) return i;
+                            }
+                            return 0;
+                        },
+                        idx -> setter.accept(CYCLE_LEVELS[idx])))
+                .child(IKey.dynamic(labelBuilder::get)
+                        .color(GuiColors.WHITE).shadow(true)
+                        .alignment(Alignment.CenterLeft)
+                        .asWidget()
+                        .widthRel(1f).heightRel(1f).padding(4, 0, 0, 0))
                 .widthRel(1f).height(BTN_H).marginBottom(2)
                 .addTooltipLine(underlineKey(tooltipKey))
-                .addTooltipLine(IKey.dynamic(() -> defaultTooltip(defaultValueBuilder.get())));
+                .addTooltipLine(IKey.dynamic(() -> defaultTooltip(defaultValueBuilder.get())))
+                .addTooltipLine(IKey.lang("blpc.party.tooltip.options"));
+        // List all options; current selection is highlighted with an arrow.
+        for (TrustLevel level : CYCLE_LEVELS) {
+            cycle.addTooltipLine(IKey.dynamic(() -> formatTrustOptionLine(level, getter.get())));
+        }
+        return cycle;
+    }
+
+    private static String formatTrustOptionLine(TrustLevel option, TrustLevel current) {
+        String name = IKey.lang("blpc.party.trust_level." + option.name().toLowerCase(Locale.ROOT)).get();
+        if (option == current) {
+            return TextFormatting.YELLOW + "→ " + TextFormatting.WHITE + name;
+        }
+        return TextFormatting.GRAY + "  " + name;
     }
 
     private static String buildTrustLabel(Party party, TrustAction action) {
