@@ -1,13 +1,10 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import net.minecraft.client.Minecraft;
@@ -21,15 +18,17 @@ import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.BoolValue;
-import com.cleanroommc.modularui.value.IntValue;
+import com.cleanroommc.modularui.value.DoubleValue;
+import com.cleanroommc.modularui.value.EnumValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ColorPickerDialog;
-import com.cleanroommc.modularui.widgets.CycleButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.PageButton;
 import com.cleanroommc.modularui.widgets.PagedWidget;
+import com.cleanroommc.modularui.widgets.SliderWidget;
 import com.cleanroommc.modularui.widgets.ToggleButton;
 import com.cleanroommc.modularui.widgets.layout.Flow;
+import com.cleanroommc.modularui.widgets.menu.DropdownWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
@@ -188,16 +187,43 @@ public class SettingsPanel {
                 .addTooltipLine(underlineKey("blpc.party.tooltip.free_to_join"))
                 .addTooltipLine(IKey.dynamic(() -> defaultTooltip("false"))));
 
+        // Max members: label + slider (0 = unlimited, max = 100)
+        list.child(IKey.dynamic(() -> buildMaxMembersLabel(party))
+                .alignment(Alignment.CenterLeft)
+                .asWidget().widthRel(1f).height(10).marginLeft(4).marginTop(4)
+                .addTooltipLine(underlineKey("blpc.party.tooltip.max_members"))
+                .addTooltipLine(IKey.dynamic(() -> defaultTooltip("0"))));
+
+        list.child(new SliderWidget()
+                .widthRel(1f).height(10).marginLeft(4).marginRight(4).marginBottom(4)
+                .bounds(0, 100).stopper(1)
+                .value(new DoubleValue.Dynamic(
+                        () -> party.getMaxMembers(),
+                        val -> {
+                            int max = (int) Math.round(val);
+                            if (max == party.getMaxMembers()) return;
+                            party.setMaxMembers(max);
+                            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.setMaxMembers(max));
+                        })));
+
         return list;
+    }
+
+    private static String buildMaxMembersLabel(Party party) {
+        int max = party.getMaxMembers();
+        int current = party.getMembers().size();
+        String value = max == 0 ? IKey.lang("blpc.party.max_members_unlimited").get() :
+                current + " / " + max;
+        return IKey.lang("blpc.party.max_members").get() + ": " + value;
     }
 
     private static IWidget buildProtectionPage(Party party) {
         var list = newList();
 
         for (TrustAction action : TrustAction.values()) {
-            list.child(createTrustCycleButton(party, action));
+            list.child(createTrustDropdown(party, action));
         }
-        list.child(createFakePlayerCycleButton(party));
+        list.child(createFakePlayerDropdown(party));
 
         // Divider between trust settings and explosion toggle
         list.child(new Rectangle().color(GuiColors.DIVIDER).asWidget().height(1).widthRel(1f).marginTop(4)
@@ -408,11 +434,12 @@ public class SettingsPanel {
         return IKey.dynamic(() -> TextFormatting.UNDERLINE + IKey.lang(langKey).get());
     }
 
-    private static CycleButtonWidget createTrustCycleButton(Party party, TrustAction action) {
-        return createCycleButton(
-                () -> trustLevelToIndex(party.getTrustLevel(action)),
-                val -> {
-                    TrustLevel level = CYCLE_LEVELS[val];
+    private static IWidget createTrustDropdown(Party party, TrustAction action) {
+        return createTrustDropdownCommon(
+                "blpc.trust." + action.getNbtKey(),
+                () -> party.getTrustLevel(action),
+                level -> {
+                    if (level == party.getTrustLevel(action)) return;
                     party.setTrustLevel(action, level);
                     ModNetwork.INSTANCE.sendToServer(
                             MessagePartyAction.setTrustLevel(action.getNbtKey() + ":" + level.name()));
@@ -420,43 +447,65 @@ public class SettingsPanel {
                 () -> buildTrustLabel(party, action),
                 "blpc.party.tooltip.trust_level",
                 () -> IKey.lang("blpc.party.trust_level." + action.getDefaultLevel().name().toLowerCase(Locale.ROOT))
-                        .get(),
-                () -> party.getTrustLevel(action));
+                        .get());
     }
 
-    private static CycleButtonWidget createFakePlayerCycleButton(Party party) {
-        return createCycleButton(
-                () -> trustLevelToIndex(party.getFakePlayerTrustLevel()),
-                val -> {
-                    TrustLevel level = CYCLE_LEVELS[val];
+    private static IWidget createFakePlayerDropdown(Party party) {
+        return createTrustDropdownCommon(
+                "blpc.trust.fakeplayer",
+                party::getFakePlayerTrustLevel,
+                level -> {
+                    if (level == party.getFakePlayerTrustLevel()) return;
                     party.setFakePlayerTrustLevel(level);
                     ModNetwork.INSTANCE.sendToServer(MessagePartyAction.setFakePlayerTrust(level.name()));
                 },
                 () -> buildFakePlayerLabel(party),
                 "blpc.party.tooltip.fakeplayer",
-                () -> IKey.lang("blpc.party.trust_level." + TrustLevel.ALLY.name().toLowerCase(Locale.ROOT)).get(),
-                party::getFakePlayerTrustLevel);
+                () -> IKey.lang("blpc.party.trust_level." + TrustLevel.ALLY.name().toLowerCase(Locale.ROOT)).get());
     }
 
-    private static CycleButtonWidget createCycleButton(
-                                                       IntSupplier getter, IntConsumer setter,
-                                                       Supplier<String> labelBuilder,
-                                                       String tooltipKey, Supplier<String> defaultValueBuilder,
-                                                       Supplier<TrustLevel> currentLevelForList) {
-        var btn = new CycleButtonWidget()
-                .widthRel(1f).height(BTN_H).padding(4, 0, 0, 0)
-                .stateCount(CYCLE_LEVELS.length)
-                .value(new IntValue.Dynamic(getter, setter))
-                .overlay(IKey.dynamic(labelBuilder::get).alignment(Alignment.CenterLeft));
-        btn.addTooltipLine(underlineKey(tooltipKey));
-        btn.addTooltipLine(IKey.dynamic(() -> defaultTooltip(defaultValueBuilder.get())));
-        btn.addTooltipLine(IKey.str(""));
-        btn.addTooltipLine(IKey.dynamic(() -> buildSelectionList(currentLevelForList.get())));
-        return btn;
+    private static IWidget createTrustDropdownCommon(
+                                                     String panelName,
+                                                     Supplier<TrustLevel> getter,
+                                                     Consumer<TrustLevel> setter,
+                                                     Supplier<String> labelBuilder,
+                                                     String tooltipKey,
+                                                     Supplier<String> defaultValueBuilder) {
+        return new DropdownWidget<>(panelName, TrustLevel.class)
+                .options(CYCLE_LEVELS)
+                .optionToWidget((level, forSelected) -> {
+                    if (forSelected) {
+                        return IKey.dynamic(labelBuilder::get)
+                                .color(GuiColors.WHITE)
+                                .shadow(true)
+                                .alignment(Alignment.CenterLeft)
+                                .asWidget()
+                                .widthRel(1f).heightRel(1f).padding(4, 0, 0, 0);
+                    }
+                    String roleStr = IKey.lang(
+                            "blpc.party.trust_level." + level.name().toLowerCase(Locale.ROOT)).get();
+                    return IKey.str(roleStr)
+                            .color(trustLevelColor(level))
+                            .shadow(true)
+                            .alignment(Alignment.CenterLeft)
+                            .asWidget()
+                            .widthRel(1f).height(14).padding(4, 0, 0, 0)
+                            .background(new Rectangle().color(GuiColors.MENU_BG))
+                            .hoverBackground(new Rectangle().color(GuiColors.HOVER));
+                })
+                .value(new EnumValue.Dynamic<>(TrustLevel.class, getter, setter))
+                .widthRel(1f).height(BTN_H).marginBottom(2)
+                .addTooltipLine(underlineKey(tooltipKey))
+                .addTooltipLine(IKey.dynamic(() -> defaultTooltip(defaultValueBuilder.get())));
     }
 
-    private static int trustLevelToIndex(TrustLevel level) {
-        return Math.max(0, Arrays.asList(CYCLE_LEVELS).indexOf(level));
+    private static int trustLevelColor(TrustLevel level) {
+        return switch (level) {
+            case NONE -> GuiColors.GRAY_LIGHT;
+            case ALLY -> GuiColors.GOLD;
+            case MEMBER -> GuiColors.GREEN;
+            case MODERATOR, OWNER -> GuiColors.WHITE;
+        };
     }
 
     private static String buildTrustLabel(Party party, TrustAction action) {
@@ -469,24 +518,6 @@ public class SettingsPanel {
         TrustLevel level = party.getFakePlayerTrustLevel();
         return IKey.lang("blpc.party.fakeplayer_trust").get() + ": " +
                 IKey.lang("blpc.party.trust_level." + level.name().toLowerCase(Locale.ROOT)).get();
-    }
-
-    private static <T> String buildOptionList(T[] options, T current, Function<T, String> nameResolver) {
-        StringBuilder sb = new StringBuilder();
-        for (T option : options) {
-            if (option == current) {
-                sb.append(TextFormatting.GREEN).append("+ ").append(nameResolver.apply(option));
-            } else {
-                sb.append(TextFormatting.GRAY).append("- ").append(nameResolver.apply(option));
-            }
-            sb.append("\n");
-        }
-        return sb.toString().trim();
-    }
-
-    private static String buildSelectionList(TrustLevel current) {
-        return buildOptionList(CYCLE_LEVELS, current,
-                level -> IKey.lang("blpc.party.trust_level." + level.name().toLowerCase(Locale.ROOT)).get());
     }
 
     private static String formatColorHex(int rgb) {

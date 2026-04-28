@@ -5,11 +5,17 @@ import java.util.*;
 import net.minecraft.client.Minecraft;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
+import com.cleanroommc.modularui.utils.Alignment;
+import com.cleanroommc.modularui.value.EnumValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
+import com.cleanroommc.modularui.widgets.layout.Flow;
+import com.cleanroommc.modularui.widgets.menu.DropdownWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -19,10 +25,9 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
 /**
  * Moderator management panel (panel ID: {@value #PANEL_ID}).
  * <p>
- * FTB Utilities style: shows ALL party members in a single list.
- * ADMINs shown in green, MEMBERs in gray, OWNER in gold.
- * OWNER can click to promote MEMBER -> ADMIN or demote ADMIN -> MEMBER.
- * Cannot change OWNER or self.
+ * Shows ALL party members in a single list, sorted by role (OWNER → ADMIN → MEMBER).
+ * OWNER can change non-self/non-owner members' role via a {@link DropdownWidget}
+ * (MEMBER ↔ ADMIN). OWNER role is reserved for the {@link TransferOwnerDialog}.
  */
 public class ModeratorsPanel {
 
@@ -57,35 +62,59 @@ public class ModeratorsPanel {
         return panel;
     }
 
-    private static ButtonWidget<?> createRow(Map.Entry<UUID, PartyRole> entry, Party party,
-                                             boolean isOwner, UUID myId) {
+    private static IWidget createRow(Map.Entry<UUID, PartyRole> entry, Party party,
+                                     boolean isOwner, UUID myId) {
         UUID memberId = entry.getKey();
         PartyRole role = entry.getValue();
         String memberName = PartyWidgets.getDisplayName(memberId);
-        int color = role == PartyRole.MEMBER ? GuiColors.GRAY_LIGHT : PartyWidgets.getRoleColor(role);
-        String label = PartyWidgets.formatMemberLabel(memberName, role);
+        boolean canEdit = isOwner && !memberId.equals(myId) && role != PartyRole.OWNER;
 
-        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(memberId, label, color);
-
-        if (isOwner && !memberId.equals(myId) && role != PartyRole.OWNER) {
-            String newRole = switch (role) {
-                case MEMBER -> "ADMIN";
-                case ADMIN -> "MEMBER";
-                case OWNER -> throw new AssertionError();
-            };
-            PartyRole newPartyRole = PartyRole.fromName(newRole);
-            btn.onMousePressed(b -> {
-                ModNetwork.INSTANCE.sendToServer(
-                        MessagePartyAction.changeRole(memberName + ":" + newRole));
-                if (newPartyRole != null) {
-                    party.setRole(memberId, newPartyRole);
-                    ClientPartyCache.fireSyncListeners();
-                }
-                return true;
-            });
-            btn.addTooltipLine(IKey.lang("blpc.party.tooltip.moderator"));
+        if (!canEdit) {
+            int color = role == PartyRole.MEMBER ? GuiColors.GRAY_LIGHT : PartyWidgets.getRoleColor(role);
+            String label = PartyWidgets.formatMemberLabel(memberName, role);
+            ButtonWidget<?> btn = PartyWidgets.createPlayerRow(memberId, label, color);
+            return btn;
         }
 
-        return btn;
+        return new DropdownWidget<>("blpc.role." + memberId, PartyRole.class)
+                .options(PartyRole.MEMBER, PartyRole.ADMIN)
+                .optionToWidget(
+                        (r, forSelected) -> roleOptionWidget(memberId, memberName, r, forSelected))
+                .value(new EnumValue.Dynamic<>(PartyRole.class,
+                        () -> {
+                            PartyRole cur = party.getRole(memberId);
+                            // OWNER role is not a Dropdown option; clamp to MEMBER for display.
+                            return cur == PartyRole.OWNER ? PartyRole.MEMBER : cur;
+                        },
+                        r -> {
+                            if (r == party.getRole(memberId)) return;
+                            ModNetwork.INSTANCE.sendToServer(
+                                    MessagePartyAction.changeRole(memberName + ":" + r.name()));
+                            party.setRole(memberId, r);
+                            ClientPartyCache.fireSyncListeners();
+                        }))
+                .widthRel(1f).height(PartyWidgets.BTN_H)
+                .addTooltipLine(IKey.lang("blpc.party.tooltip.moderator"));
+    }
+
+    private static IWidget roleOptionWidget(UUID memberId, String memberName, PartyRole role,
+                                            boolean forSelected) {
+        int color = PartyWidgets.getRoleColor(role);
+        if (forSelected) {
+            String label = PartyWidgets.formatMemberLabel(memberName, role);
+            return Flow.row()
+                    .widthRel(1f).heightRel(1f)
+                    .padding(4, 0, 0, 0)
+                    .childPadding(4)
+                    .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                    .child(new PlayerFaceDrawable(memberId).asWidget()
+                            .size(PartyWidgets.FACE_SIZE, PartyWidgets.FACE_SIZE))
+                    .child(IKey.str(label).color(color).shadow(true)
+                            .alignment(Alignment.CenterLeft)
+                            .asWidget().expanded());
+        }
+        String roleStr = IKey.lang("blpc.party.role." + role.name().toLowerCase(Locale.ROOT)).get();
+        return IKey.str(roleStr).color(color).shadow(true).alignment(Alignment.Center)
+                .asWidget().widthRel(1f).height(12);
     }
 }

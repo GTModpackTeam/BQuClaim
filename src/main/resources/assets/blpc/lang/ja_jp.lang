@@ -99,6 +99,8 @@ blpc.party.add_enemy=+ 敵対パーティー追加
 blpc.party.fakeplayer_trust=Fake Playerの権限
 blpc.party.free_to_join_on=自由参加: ON
 blpc.party.free_to_join_off=自由参加: OFF
+blpc.party.max_members=最大メンバー数
+blpc.party.max_members_unlimited=無制限
 blpc.party.color=カラー
 blpc.party.name_field=パーティー名
 blpc.party.tooltip.name=パーティー名を変更
@@ -125,6 +127,7 @@ blpc.party.transfer_confirm=移譲
 
 # ツールチップ
 blpc.party.tooltip.free_to_join=招待なしで誰でも参加できます
+blpc.party.tooltip.max_members=パーティの最大メンバー数 (0 = 無制限)
 blpc.party.tooltip.color=チャンクマップ上のチーム表示色
 blpc.party.tooltip.description=パーティ名の下に表示されます
 blpc.party.tooltip.explosion=保護チャンク内の爆発を許可または禁止します
@@ -171,6 +174,7 @@ blpc.toast.owner_transferred=オーナー権が%sに移譲されました
 blpc.toast.role_changed=あなたのロールが%sに変更されました
 blpc.toast.bqu_linked=BQuパーティ管理と連携しました
 blpc.toast.bqu_unlinked=BQu連携を解除しました
+blpc.toast.party_full=パーティが満員です
 
 # クレーム失敗通知
 blpc.toast.claim_limit=確保上限に達しました (%d/%d)

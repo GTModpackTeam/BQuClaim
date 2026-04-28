@@ -45,6 +45,8 @@ public class Party {
     private boolean freeToJoin = false;
     private int color = EnumDyeColor.BLUE.getColorValue();
     private String description = "";
+    /** Maximum members allowed. 0 = unlimited. */
+    private int maxMembers = 0;
 
     /** UUID → display name cache. Populated server-side before sync, read client-side. */
     private final Map<UUID, String> playerNames = new HashMap<>();
@@ -232,6 +234,19 @@ public class Party {
         this.description = description;
     }
 
+    public int getMaxMembers() {
+        return maxMembers;
+    }
+
+    public void setMaxMembers(int maxMembers) {
+        this.maxMembers = Math.max(0, maxMembers);
+    }
+
+    /** Returns {@code true} if a new member can join (unlimited or below cap). */
+    public boolean canAddMember() {
+        return maxMembers == 0 || members.size() < maxMembers;
+    }
+
     /**
      * Copies all protection and relation settings from {@code source} into this party.
      * Used by {@link com.github.gtexpert.blpc.integration.bqu.BQPartyProvider} when
@@ -258,6 +273,7 @@ public class Party {
         this.description = source.description;
         this.color = source.color;
         this.freeToJoin = source.freeToJoin;
+        this.maxMembers = source.maxMembers;
         this.fakePlayerTrustLevel = source.fakePlayerTrustLevel;
         this.protectExplosions = source.protectExplosions;
         for (TrustAction ta : TrustAction.values()) {
@@ -410,6 +426,7 @@ public class Party {
         tag.setBoolean("freeToJoin", freeToJoin);
         tag.setInteger("color", color);
         tag.setString("description", description);
+        tag.setInteger("maxMembers", maxMembers);
 
         return tag;
     }
@@ -516,6 +533,7 @@ public class Party {
         if (tag.hasKey("freeToJoin")) party.setFreeToJoin(tag.getBoolean("freeToJoin"));
         if (tag.hasKey("color")) party.setColor(tag.getInteger("color"));
         if (tag.hasKey("description")) party.setDescription(tag.getString("description"));
+        if (tag.hasKey("maxMembers")) party.setMaxMembers(tag.getInteger("maxMembers"));
 
         // Player name cache
         if (tag.hasKey("playerNames")) {

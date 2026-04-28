@@ -157,6 +157,11 @@ public class BLPCToast implements IToast {
                     this.titleArgs = new Object[] {};
                     this.color = GuiColors.WHITE;
                 }
+                case "PARTY_FULL" -> {
+                    this.titleKey = "blpc.toast.party_full";
+                    this.titleArgs = new Object[] {};
+                    this.color = GuiColors.RED;
+                }
                 default -> this.titleKey = "";
             }
             return this;

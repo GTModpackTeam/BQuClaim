@@ -26,6 +26,7 @@ public class MessagePartyEventNotify implements IMessage {
     public static final String ROLE_CHANGED = "ROLE_CHANGED";
     public static final String BQU_LINKED = "BQU_LINKED";
     public static final String BQU_UNLINKED = "BQU_UNLINKED";
+    public static final String PARTY_FULL = "PARTY_FULL";
 
     private String eventType;
     private String playerName;

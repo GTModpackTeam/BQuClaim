@@ -52,6 +52,7 @@ public class MessagePartyAction implements IMessage {
     public static final int ACTION_SET_COLOR = 18;
     public static final int ACTION_SET_DESCRIPTION = 19;
     public static final int ACTION_JOIN_FREE_PARTY = 20;
+    public static final int ACTION_SET_MAX_MEMBERS = 21;
 
     private int action;
     private String stringArg;
@@ -141,6 +142,10 @@ public class MessagePartyAction implements IMessage {
 
     public static MessagePartyAction joinFreeParty(UUID partyId) {
         return new MessagePartyAction(ACTION_JOIN_FREE_PARTY, partyId.toString());
+    }
+
+    public static MessagePartyAction setMaxMembers(int max) {
+        return new MessagePartyAction(ACTION_SET_MAX_MEMBERS, Integer.toString(max));
     }
 
     @Override
@@ -248,6 +253,12 @@ public class MessagePartyAction implements IMessage {
                         }
                     }
                     case ACTION_INVITE -> {
+                        Party invInviterParty = PartyManagerData.getInstance()
+                                .getPartyByPlayer(player.getUniqueID());
+                        if (invInviterParty != null && !invInviterParty.canAddMember()) {
+                            notifyPlayer(player, MessagePartyEventNotify.PARTY_FULL, "", "");
+                            break;
+                        }
                         success = activeProvider.invitePlayer(player, msg.stringArg);
                         if (success) {
                             MinecraftServer invSrv = player.getServer();
@@ -271,6 +282,11 @@ public class MessagePartyAction implements IMessage {
                     case ACTION_ACCEPT_INVITE -> {
                         try {
                             UUID partyId = UUID.fromString(msg.stringArg);
+                            Party invTargetParty = PartyManagerData.getInstance().getParty(partyId);
+                            if (invTargetParty != null && !invTargetParty.canAddMember()) {
+                                notifyPlayer(player, MessagePartyEventNotify.PARTY_FULL, "", "");
+                                break;
+                            }
                             success = activeProvider.acceptInvite(player, partyId);
                             if (success) {
                                 Party joinedParty = PartyManagerData.getInstance().getPartyByPlayer(
@@ -488,6 +504,15 @@ public class MessagePartyAction implements IMessage {
                         party.setDescription(desc);
                         success = true;
                     }
+                    case ACTION_SET_MAX_MEMBERS -> {
+                        Party party = getAdminParty(player, activeProvider);
+                        if (party == null) break;
+                        try {
+                            int max = Integer.parseInt(msg.stringArg);
+                            party.setMaxMembers(Math.min(100, Math.max(0, max)));
+                            success = true;
+                        } catch (NumberFormatException ignored) {}
+                    }
                     case ACTION_JOIN_FREE_PARTY -> {
                         try {
                             UUID joinId = UUID.fromString(msg.stringArg);
@@ -496,6 +521,10 @@ public class MessagePartyAction implements IMessage {
                             if (pmJoin.getPartyByPlayer(player.getUniqueID()) != null) break;
                             Party joinParty = pmJoin.getParty(joinId);
                             if (joinParty == null || !joinParty.isFreeToJoin()) break;
+                            if (!joinParty.canAddMember()) {
+                                notifyPlayer(player, MessagePartyEventNotify.PARTY_FULL, "", "");
+                                break;
+                            }
                             joinParty.addMember(player.getUniqueID(), PartyRole.MEMBER);
                             String joinerName = player.getName();
                             MinecraftServer joinSrv = player.getServer();

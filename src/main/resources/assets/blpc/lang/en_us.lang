@@ -99,6 +99,8 @@ blpc.party.add_enemy=+ Add Enemy Party
 blpc.party.fakeplayer_trust=Fake Player Status
 blpc.party.free_to_join_on=Free to Join: ON
 blpc.party.free_to_join_off=Free to Join: OFF
+blpc.party.max_members=Member Cap
+blpc.party.max_members_unlimited=Unlimited
 blpc.party.color=Color
 blpc.party.name_field=Name
 blpc.party.tooltip.name=Change the party name
@@ -125,6 +127,7 @@ blpc.party.transfer_confirm=Transfer
 
 # Tooltips
 blpc.party.tooltip.free_to_join=Anyone can join without invitation
+blpc.party.tooltip.max_members=Maximum members allowed (0 = unlimited)
 blpc.party.tooltip.color=Team display color on the chunk map
 blpc.party.tooltip.description=Displays under party name
 blpc.party.tooltip.explosion=Enable or disable explosions in claimed chunks
@@ -171,6 +174,7 @@ blpc.toast.owner_transferred=Ownership transferred to %s
 blpc.toast.role_changed=Your role changed to %s
 blpc.toast.bqu_linked=Linked to BQu Party Manager
 blpc.toast.bqu_unlinked=Unlinked from BQu
+blpc.toast.party_full=Party is full
 
 # Claim Failed Notifications
 blpc.toast.claim_limit=Claim limit reached (%d/%d)
