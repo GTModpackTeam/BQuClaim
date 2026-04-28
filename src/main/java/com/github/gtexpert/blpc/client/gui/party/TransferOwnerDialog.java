@@ -6,16 +6,11 @@ import java.util.stream.Collectors;
 
 import net.minecraft.client.Minecraft;
 
-import com.cleanroommc.modularui.api.drawable.IKey;
-import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
-import com.cleanroommc.modularui.widgets.layout.Flow;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
-import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -28,60 +23,43 @@ import com.github.gtexpert.blpc.common.party.PartyRole;
  * Displays a scrollable list of party members (excluding the current owner).
  * Clicking a member's name transfers ownership to them.
  */
+
 public class TransferOwnerDialog {
 
     public static final String PANEL_ID = "blpc.party.dialog.transfer";
 
-    /** Builds the transfer ownership panel with a member selection list. */
-    public static ModularPanel build(ModularPanel parentPanel) {
+    public static ModularPanel build(Party party) {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
-        Party party = ClientPartyCache.getPartyByPlayer(myId);
         if (party == null) return new ModularPanel(PANEL_ID);
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
+        panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
-        PanelBuilder.addHeader(panel, "blpc.party.transfer_title");
+        PartyWidgets.addHeader(panel, "blpc.party.transfer_title");
 
         ListWidget<?, ?> list = new ListWidget<>()
                 .crossAxisAlignment(Alignment.CrossAxis.START)
                 .children(party.getMembers().entrySet().stream()
                         .filter(e -> !e.getKey().equals(myId))
                         .collect(Collectors.toList()),
-                        entry -> createTransferRow(entry, panel, parentPanel));
+                        entry -> createTransferRow(entry, panel));
 
-        PanelBuilder.addList(panel, list);
+        PartyWidgets.addList(panel, list);
 
-        Runnable syncListener = () -> {
-            if (!panel.isOpen()) return;
-            panel.closeIfOpen();
-        };
-        ClientPartyCache.addSyncListener(syncListener);
-        panel.onCloseAction(() -> ClientPartyCache.removeSyncListener(syncListener));
+        PartyWidgets.addSyncCloseListener(panel);
 
         return panel;
     }
 
     private static ButtonWidget<?> createTransferRow(Map.Entry<UUID, PartyRole> entry,
-                                                     ModularPanel panel, ModularPanel parentPanel) {
+                                                     ModularPanel panel) {
         UUID memberId = entry.getKey();
         String memberName = PartyWidgets.getDisplayName(memberId);
         PartyRole role = entry.getValue();
-        String roleStr = IKey.lang("blpc.party.role." + role.name().toLowerCase()).get();
-        String label = memberName + " [" + roleStr + "]";
+        String label = PartyWidgets.formatMemberLabel(memberName, role);
 
-        ButtonWidget<?> btn = new ButtonWidget<>();
-        btn.widthRel(1f).height(PanelSizes.BTN_H).padding(0);
-        btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
-        btn.child(Flow.row()
-                .widthRel(1f).heightRel(1f)
-                .padding(4, 0, 0, 0)
-                .childPadding(4)
-                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                .child(new PlayerFaceDrawable(memberId).asWidget()
-                        .size(PanelSizes.FACE_SIZE, PanelSizes.FACE_SIZE))
-                .child(IKey.str(label).alignment(Alignment.CenterLeft)
-                        .asWidget().expanded()));
+        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(memberId, label,
+                PartyWidgets.getRoleColor(role));
         btn.onMousePressed(b -> {
             ModNetwork.INSTANCE.sendToServer(
                     MessagePartyAction.transferOwnership(memberName));
@@ -89,7 +67,6 @@ public class TransferOwnerDialog {
             Party p = ClientPartyCache.getPartyByPlayer(myId);
             if (p != null) {
                 p.setRole(memberId, PartyRole.OWNER);
-                p.setRole(myId, PartyRole.ADMIN);
             }
             ClientPartyCache.fireSyncListeners();
             return true;

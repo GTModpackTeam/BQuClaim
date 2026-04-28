@@ -102,6 +102,8 @@ public class DefaultPartyProvider implements IPartyProvider {
         PartyManagerData data = PartyManagerData.getInstance();
         Party party = data.getPartyByPlayer(inviter.getUniqueID());
         if (party == null) return false;
+        PartyRole role = party.getRole(inviter.getUniqueID());
+        if (role == null || !role.canInvite()) return false;
         MinecraftServer server = inviter.getServer();
         if (server == null) return false;
         EntityPlayerMP target = server.getPlayerList().getPlayerByUsername(targetUsername);

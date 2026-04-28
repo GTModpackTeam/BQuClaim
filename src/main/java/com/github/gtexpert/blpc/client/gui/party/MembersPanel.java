@@ -7,15 +7,12 @@ import net.minecraft.client.network.NetworkPlayerInfo;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
-import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
-import com.cleanroommc.modularui.widgets.layout.Flow;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
-import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -40,9 +37,9 @@ public class MembersPanel {
         boolean canManage = myRole != null && myRole.canInvite();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
+        panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
-        PanelBuilder.addHeader(panel, "blpc.party.members_title");
+        PartyWidgets.addHeader(panel, "blpc.party.members_title");
 
         var entries = collectAllPlayers(party);
 
@@ -61,14 +58,14 @@ public class MembersPanel {
         }
 
         if (widgets.isEmpty()) {
-            PanelBuilder.addList(panel, list);
+            PartyWidgets.addList(panel, list);
         } else {
             var content = PartyWidgets.wrapWithSearchBox(list, widgets, searchNames);
             content.left(8).right(8).top(22).bottom(8);
             panel.child(content);
         }
 
-        PartyWidgets.addPartyRefreshListener(panel, party.getPartyId(), MembersPanel::build);
+        PartyWidgets.addSyncCloseListener(panel);
 
         return panel;
     }
@@ -78,14 +75,12 @@ public class MembersPanel {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.getConnection() == null) return result;
 
-        Set<UUID> seen = new HashSet<>();
         for (NetworkPlayerInfo info : mc.getConnection().getPlayerInfoMap()) {
             UUID uuid = info.getGameProfile().getId();
             String name = info.getGameProfile().getName();
             boolean isMember = party.isMember(uuid);
             PartyRole role = party.getRole(uuid);
             result.add(new PlayerEntry(uuid, name, isMember, role));
-            seen.add(uuid);
         }
 
         result.sort((a, b) -> {
@@ -98,25 +93,9 @@ public class MembersPanel {
     private static ButtonWidget<?> createRow(PlayerEntry entry, Party party, UUID playerId,
                                              PartyRole myRole, boolean canManage) {
         int color = entry.isMember ? PartyWidgets.getRoleColor(entry.role) : GuiColors.GRAY_LIGHT;
+        String label = entry.isMember ? PartyWidgets.formatMemberLabel(entry.name, entry.role) : entry.name;
 
-        String label = entry.name;
-        if (entry.isMember && entry.role != null) {
-            String roleStr = IKey.lang("blpc.party.role." + entry.role.name().toLowerCase()).get();
-            label = entry.name + " [" + roleStr + "]";
-        }
-
-        ButtonWidget<?> btn = new ButtonWidget<>();
-        btn.widthRel(1f).height(PanelSizes.BTN_H).padding(0);
-        btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
-        btn.child(Flow.row()
-                .widthRel(1f).heightRel(1f)
-                .padding(4, 0, 0, 0)
-                .childPadding(4)
-                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                .child(new PlayerFaceDrawable(entry.uuid).asWidget()
-                        .size(PanelSizes.FACE_SIZE, PanelSizes.FACE_SIZE))
-                .child(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft)
-                        .asWidget().expanded()));
+        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid, label, color);
 
         boolean isSelf = entry.uuid.equals(playerId);
         if (entry.isMember) {

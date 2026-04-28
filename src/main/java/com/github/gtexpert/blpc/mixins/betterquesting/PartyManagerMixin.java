@@ -33,7 +33,7 @@ public class PartyManagerMixin {
                 data.setBQuLinked(memberId, false);
             }
         }
-        BLPCSaveHandler.INSTANCE.saveConfig(data);
+        BLPCSaveHandler.INSTANCE.markDirty();
         PartyProviderRegistry.get().syncToAll();
     }
 }

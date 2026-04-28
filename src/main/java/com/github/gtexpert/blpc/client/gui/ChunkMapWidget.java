@@ -23,7 +23,7 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
     public static final int GRID = 15;
     private static final int RADIUS = GRID / 2;
-    private static final int GRID_LINE_COLOR = 0x30FFFFFF;
+    private static final int GRID_LINE_COLOR = GuiColors.DIVIDER;
     private static final int BORDER_COLOR = GuiColors.WHITE;
 
     private int selectedRX = Integer.MIN_VALUE;

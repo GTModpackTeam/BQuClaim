@@ -1,11 +1,9 @@
 package com.github.gtexpert.blpc.client.gui;
 
-import net.minecraft.util.text.TextFormatting;
-
 /**
  * Shared ARGB color constants for all BLPC GUI components.
  * <p>
- * Values match the Minecraft {@link TextFormatting} color palette.
+ * Values match the Minecraft color palette.
  * Format: {@code 0xAARRGGBB} (fully opaque = {@code 0xFF} alpha).
  */
 public final class GuiColors {
@@ -24,6 +22,8 @@ public final class GuiColors {
     public static final int GRAY_LIGHT = 0xFFCCCCCC;
     /** Semi-transparent white — button hover background. */
     public static final int HOVER = 0x40FFFFFF;
+    /** Semi-transparent white — section divider line. */
+    public static final int DIVIDER = 0x30FFFFFF;
 
     private GuiColors() {}
 }

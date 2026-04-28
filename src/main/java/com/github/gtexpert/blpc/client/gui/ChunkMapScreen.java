@@ -23,7 +23,6 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.client.gui.party.MainPanel;
-import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
 import com.github.gtexpert.blpc.client.map.AsyncMapRenderer;
 import com.github.gtexpert.blpc.client.map.TextureCache;
@@ -157,15 +156,13 @@ public class ChunkMapScreen extends CustomModularScreen {
     }
 
     private void openPartyScreen() {
-        PartyWidgets.resetSubPanelHandler();
         if (partyHandler != null) {
             partyHandler.deleteCachedPanel();
-        } else {
-            partyHandler = IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
-                return MainPanel.build(
-                        Minecraft.getMinecraft().player.getUniqueID());
-            }, true);
         }
+        partyHandler = IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
+            return MainPanel.build(
+                    Minecraft.getMinecraft().player.getUniqueID());
+        }, true);
         partyHandler.openPanel();
     }
 

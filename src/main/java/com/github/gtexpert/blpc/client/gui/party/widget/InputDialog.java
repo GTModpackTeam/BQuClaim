@@ -11,7 +11,6 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
-import com.github.gtexpert.blpc.client.gui.party.PanelSizes;
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
@@ -50,8 +49,8 @@ public final class InputDialog {
         private String confirmKey = "blpc.party.send";
         private String defaultValue = "";
         private Consumer<String> onSubmit = s -> {};
-        private int width = PanelSizes.DIALOG_W;
-        private int height = PanelSizes.DIALOG_H;
+        private int width = PartyWidgets.DIALOG_W;
+        private int height = PartyWidgets.DIALOG_H;
 
         Builder(String panelId) {
             this.panelId = panelId;

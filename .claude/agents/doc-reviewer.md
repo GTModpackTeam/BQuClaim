@@ -34,7 +34,7 @@ Cross-check documented architecture against actual code:
 - Network messages: verify `ModNetwork.init()` message list matches docs
 - Data persistence: verify file structure matches docs
 - Trust levels and actions: verify enums match docs
-- GUI patterns: verify color constants (`GuiColors`), shared utilities (`PartyWidgets`), and panel IDs match docs
+- GUI patterns: verify color constants (`GuiColors`), shared utilities (`PartyWidgets`), `PartyMenuBuilder`, and panel IDs match docs
 
 ### Step 3: Configuration Accuracy
 Verify `ModConfig` fields match the documented table (names, types, defaults, ranges).

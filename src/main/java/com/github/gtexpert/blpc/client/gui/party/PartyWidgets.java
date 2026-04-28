@@ -3,19 +3,18 @@ package com.github.gtexpert.blpc.client.gui.party;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetworkPlayerInfo;
 
 import org.lwjgl.input.Keyboard;
 
-import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.api.widget.Interactable;
+import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
+import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
@@ -23,19 +22,68 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
- * Shared utilities for party UI panels.
+ * Shared utilities, constants, and layout helpers for party UI panels.
  * <p>
- * Provides common operations used across multiple party panels such as
+ * Consolidates panel size constants, common layout operations (header, list),
  * player display name resolution, role color mapping, and panel navigation.
  */
 public final class PartyWidgets {
 
+    // --- Panel & dialog size constants ---
+
+    public static final int STANDARD_W = 220;
+    public static final int STANDARD_H = 180;
+    public static final int LARGE_W = 260;
+    public static final int LARGE_H = 220;
+    public static final int DIALOG_W = 220;
+    public static final int DIALOG_H = 70;
+    public static final int BTN_H = 18;
+    public static final int FACE_SIZE = 8;
+
     private PartyWidgets() {}
+
+    // --- Panel layout helpers ---
+
+    /**
+     * Adds a centered title and a close button to the given panel.
+     *
+     * @param panel the panel to add to
+     * @param title the title (IKey)
+     */
+    public static void addHeader(ModularPanel panel, IKey title) {
+        panel.child(title.color(GuiColors.WHITE).shadow(true)
+                .asWidget().alignment(Alignment.Center).left(0).right(0).top(8).height(10));
+        panel.child(ButtonWidget.panelCloseButton());
+    }
+
+    /**
+     * Adds a centered title (looked up via lang key) and a close button.
+     *
+     * @param panel    the panel to add to
+     * @param titleKey lang key for the title
+     */
+    public static void addHeader(ModularPanel panel, String titleKey) {
+        addHeader(panel, IKey.lang(titleKey));
+    }
+
+    /**
+     * Places the provided list starting at {@code top=22}.
+     *
+     * @param panel the panel to add to
+     * @param list  the list widget to position and add
+     */
+    @SuppressWarnings("rawtypes")
+    public static void addList(ModularPanel panel, ListWidget list) {
+        list.left(8).right(8).top(22).bottom(8);
+        list.crossAxisAlignment(Alignment.CrossAxis.START);
+        panel.child(list);
+    }
 
     /**
      * Resolves a player UUID to a display name.
@@ -73,42 +121,6 @@ public final class PartyWidgets {
         };
     }
 
-    /** Cached handler for exclusive sub-panel opening. */
-    private static IPanelHandler subPanelHandler;
-    /** The parent panel the handler was created for. */
-    private static ModularPanel handlerParent;
-    /** The panel to open on next handler invocation. */
-    private static ModularPanel pendingChild;
-
-    /**
-     * Opens a sub-panel as a child of the given parent panel.
-     * Closes any previously opened sub-panel first (exclusive opening).
-     * Recreates the handler if the parent panel changes.
-     */
-    public static void openSubPanel(ModularPanel parent, ModularPanel child) {
-        pendingChild = child;
-        if (subPanelHandler != null && handlerParent == parent) {
-            subPanelHandler.deleteCachedPanel();
-        } else {
-            if (subPanelHandler != null) {
-                subPanelHandler.deleteCachedPanel();
-            }
-            subPanelHandler = IPanelHandler.simple(parent, (pp, player) -> pendingChild, true);
-            handlerParent = parent;
-        }
-        subPanelHandler.openPanel();
-    }
-
-    /**
-     * Resets the sub-panel handler. Call when the parent screen is closed
-     * to avoid stale references.
-     */
-    public static void resetSubPanelHandler() {
-        subPanelHandler = null;
-        handlerParent = null;
-        pendingChild = null;
-    }
-
     /**
      * Creates a button that runs an action when clicked.
      * Button clicks are automatically logged by MUI mixin.
@@ -128,34 +140,18 @@ public final class PartyWidgets {
     }
 
     /**
-     * Reopens a panel by closing the current one and opening a fresh instance.
-     * Useful for refreshing list contents after add/remove operations.
-     *
-     * @param current      the currently open panel to close
-     * @param panelFactory factory to create the replacement panel
-     */
-    public static void reopenPanel(ModularPanel current, java.util.function.Supplier<ModularPanel> panelFactory) {
-        ModularPanel parent = current.getScreen().getMainPanel();
-        current.closeIfOpen();
-        openSubPanel(parent, panelFactory.get());
-    }
-
-    /**
-     * Registers a sync listener that auto-rebuilds the panel when server data changes.
+     * Registers a sync listener that closes the panel when server data changes.
      * The listener is automatically removed when the panel closes.
+     * <p>
+     * Panels are not reopened automatically to avoid MUI handler conflicts.
+     * The user reopens via the P button, which always creates a fresh handler.
      *
-     * @param panel     the currently open panel
-     * @param rebuilder factory that produces the replacement panel; may return {@code null} to just close
+     * @param panel the currently open panel
      */
-    public static void addAutoRefreshListener(ModularPanel panel, Supplier<ModularPanel> rebuilder) {
+    public static void addSyncCloseListener(ModularPanel panel) {
         Runnable syncListener = () -> {
             if (!panel.isOpen()) return;
-            ModularPanel newPanel = rebuilder.get();
-            if (newPanel != null) {
-                reopenPanel(panel, () -> newPanel);
-            } else {
-                panel.closeIfOpen();
-            }
+            panel.closeIfOpen();
         };
         ClientPartyCache.addSyncListener(syncListener);
         panel.onCloseAction(() -> ClientPartyCache.removeSyncListener(syncListener));
@@ -174,23 +170,6 @@ public final class PartyWidgets {
         ClientPartyCache.setLocalBQuLinked(playerId, false);
         ClientPartyCache.clear();
         ClientPartyCache.fireSyncListeners();
-    }
-
-    /**
-     * Registers a sync listener that rebuilds the panel when a specific party is updated.
-     * Convenience wrapper around {@link #addAutoRefreshListener} for the common pattern of
-     * looking up a party by ID and delegating to a panel builder function.
-     *
-     * @param panel     the currently open panel
-     * @param partyId   the party UUID to look up on each sync
-     * @param rebuilder factory that produces the replacement panel from the refreshed party
-     */
-    public static void addPartyRefreshListener(ModularPanel panel, UUID partyId,
-                                               Function<Party, ModularPanel> rebuilder) {
-        addAutoRefreshListener(panel, () -> {
-            Party refreshed = ClientPartyCache.getParty(partyId);
-            return refreshed != null ? rebuilder.apply(refreshed) : null;
-        });
     }
 
     /**
@@ -221,9 +200,38 @@ public final class PartyWidgets {
                         }));
 
         return Flow.column()
-                .widthRel(1f).heightRel(1f)
                 .child(searchBox)
                 .child(list.widthRel(1f).expanded());
+    }
+
+    /**
+     * Formats a member label as {@code "Name [Role]"}.
+     * Returns just the name if role is {@code null}.
+     */
+    public static String formatMemberLabel(String name, PartyRole role) {
+        if (role == null) return name;
+        String roleStr = IKey.lang("blpc.party.role." + role.name().toLowerCase(Locale.ROOT)).get();
+        return name + " [" + roleStr + "]";
+    }
+
+    /**
+     * Creates a standard player-row button with face icon and label.
+     * Callers chain {@code .onMousePressed()} and {@code .addTooltipLine()} as needed.
+     */
+    public static ButtonWidget<?> createPlayerRow(UUID uuid, String label, int color) {
+        var btn = new ButtonWidget<>();
+        btn.widthRel(1f).height(BTN_H).padding(0);
+        btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
+        btn.child(Flow.row()
+                .widthRel(1f).heightRel(1f)
+                .padding(4, 0, 0, 0)
+                .childPadding(4)
+                .crossAxisAlignment(Alignment.CrossAxis.CENTER)
+                .child(new PlayerFaceDrawable(uuid).asWidget()
+                        .size(FACE_SIZE, FACE_SIZE))
+                .child(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft)
+                        .asWidget().expanded()));
+        return btn;
     }
 
     /**

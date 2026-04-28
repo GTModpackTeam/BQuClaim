@@ -33,13 +33,10 @@ public class ClientPartyCache {
             Party party = Party.fromNBT(list.getCompoundTagAt(i));
             parties.put(party.getPartyId(), party);
         }
-        // Only update bquLinked if the tag is present (avoid clearing on partial updates)
-        if (data.hasKey("bquLinked")) {
-            bquLinkedPlayers.clear();
-            NBTTagList linkedList = data.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);
-            for (int i = 0; i < linkedList.tagCount(); i++) {
-                bquLinkedPlayers.add(linkedList.getCompoundTagAt(i).getUniqueId("uuid"));
-            }
+        bquLinkedPlayers.clear();
+        NBTTagList linkedList = data.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < linkedList.tagCount(); i++) {
+            bquLinkedPlayers.add(linkedList.getCompoundTagAt(i).getUniqueId("uuid"));
         }
         // Fire listeners immediately — no tick-based coalescing needed
         for (Runnable listener : new ArrayList<>(syncListeners)) {

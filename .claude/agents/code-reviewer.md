@@ -26,8 +26,9 @@ Project architecture is provided via the blpc-overview skill.
 - Party mutations use player UUID (no partyId parameter)
 
 ### Code Quality
-- No duplicate logic that should use existing templates (`ConfirmDialog`, `InputDialog`, `PlayerListPanel`)
-- `PartyWidgets` utility methods used where applicable
+- No duplicate logic that should use existing templates (`ConfirmDialog`, `InputDialog`)
+- `PartyWidgets` utility methods and size constants used where applicable
+- Menu entries in `MainPanel` use `PartyMenuBuilder` fluent API
 - Proper use of `ModLog` categories for logging
 - Trust level / trust action consistency
 

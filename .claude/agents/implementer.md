@@ -27,8 +27,9 @@ You receive tasks from the QA lead or the user. Your job is to:
 - New network messages: append to `ModNetwork.init()` (never insert)
 - Party mutations: use player UUID, no partyId parameter
 - BQu integration: only through `integration/bqu/` package
-- Use existing UI templates: `ConfirmDialog`, `InputDialog`, `PlayerListPanel`
-- Use `PartyWidgets` utility methods
+- Use existing UI templates: `ConfirmDialog`, `InputDialog`
+- Use `PartyWidgets` utility methods and size constants (formerly `PanelSizes`/`PanelBuilder`)
+- Use `PartyMenuBuilder` for adding menu entries to `MainPanel`
 - Use appropriate `ModLog.*` categories for logging
 
 ## Output Format

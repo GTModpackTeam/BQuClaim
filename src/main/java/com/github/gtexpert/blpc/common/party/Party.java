@@ -280,11 +280,6 @@ public class Party {
         return playerNames.get(uuid);
     }
 
-    /** Sets a cached display name for a player UUID. */
-    public void setPlayerName(UUID uuid, String name) {
-        playerNames.put(uuid, name);
-    }
-
     /**
      * Resolves display names for all known UUIDs (members) and party names for
      * allies/enemies. Call this server-side before serializing for client sync.

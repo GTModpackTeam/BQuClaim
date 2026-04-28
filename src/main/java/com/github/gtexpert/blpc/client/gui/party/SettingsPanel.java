@@ -28,7 +28,6 @@ import com.cleanroommc.modularui.widgets.CycleButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.PageButton;
 import com.cleanroommc.modularui.widgets.PagedWidget;
-import com.cleanroommc.modularui.widgets.TextWidget;
 import com.cleanroommc.modularui.widgets.ToggleButton;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 
@@ -56,8 +55,7 @@ import com.github.gtexpert.blpc.common.party.TrustLevel;
 public class SettingsPanel {
 
     public static final String PANEL_ID = "blpc.party.settings";
-    private static final int W = PanelSizes.LARGE_W;
-    private static final int BTN_H = PanelSizes.BTN_H;
+    private static final int BTN_H = PartyWidgets.BTN_H;
 
     private static final TrustLevel[] CYCLE_LEVELS = { TrustLevel.NONE, TrustLevel.ALLY, TrustLevel.MEMBER };
 
@@ -65,9 +63,9 @@ public class SettingsPanel {
 
     public static ModularPanel build(Party party) {
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(PanelSizes.LARGE_W, PanelSizes.LARGE_H);
+        panel.size(PartyWidgets.LARGE_W, PartyWidgets.LARGE_H);
 
-        PanelBuilder.addHeader(panel, "blpc.party.settings_title");
+        PartyWidgets.addHeader(panel, "blpc.party.settings_title");
 
         // Tab controller
         var controller = new PagedWidget.Controller();
@@ -163,7 +161,8 @@ public class SettingsPanel {
                 .widthRel(1f).height(BTN_H).padding(4, 0, 0, 0));
 
         // Divider between name/description and color/free-to-join
-        list.child(new Rectangle().color(0x30FFFFFF).asWidget().height(1).widthRel(1f).marginTop(4).marginBottom(4));
+        list.child(new Rectangle().color(GuiColors.DIVIDER).asWidget().height(1).widthRel(1f).marginTop(4)
+                .marginBottom(4));
 
         list.child(PartyWidgets.createActionButton(
                 IKey.dynamic(() -> IKey.lang("blpc.party.color").get() + ": " + formatColorHex(party.getColor()))
@@ -201,7 +200,8 @@ public class SettingsPanel {
         list.child(createFakePlayerCycleButton(party));
 
         // Divider between trust settings and explosion toggle
-        list.child(new Rectangle().color(0x30FFFFFF).asWidget().height(1).widthRel(1f).marginTop(4).marginBottom(4));
+        list.child(new Rectangle().color(GuiColors.DIVIDER).asWidget().height(1).widthRel(1f).marginTop(4)
+                .marginBottom(4));
 
         list.child(new ToggleButton()
                 .widthRel(1f).height(BTN_H).padding(4, 0, 0, 0)
@@ -316,8 +316,8 @@ public class SettingsPanel {
                         .padding(4, 0, 0, 0)
                         .childPadding(4)
                         .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                        .child(new PlayerFaceDrawable(playerUUID).asWidget().size(PanelSizes.FACE_SIZE,
-                                PanelSizes.FACE_SIZE))
+                        .child(new PlayerFaceDrawable(playerUUID).asWidget().size(PartyWidgets.FACE_SIZE,
+                                PartyWidgets.FACE_SIZE))
                         .child(IKey.str(noPartyLabel).color(GuiColors.GRAY).alignment(Alignment.CenterLeft)
                                 .asWidget().expanded());
                 widgets.add(row);
@@ -334,8 +334,8 @@ public class SettingsPanel {
                                 .padding(4, 0, 0, 0)
                                 .childPadding(4)
                                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                                .child(new PlayerFaceDrawable(playerUUID).asWidget().size(PanelSizes.FACE_SIZE,
-                                        PanelSizes.FACE_SIZE))
+                                .child(new PlayerFaceDrawable(playerUUID).asWidget().size(PartyWidgets.FACE_SIZE,
+                                        PartyWidgets.FACE_SIZE))
                                 .child(IKey.dynamicKey(() -> IKey.str(partyLabel).color(trustColor(party, pid))
                                         .alignment(Alignment.CenterLeft)).asWidget().expanded()))
                         .addTooltipLine(trustTooltip(isEnemy))
@@ -406,11 +406,6 @@ public class SettingsPanel {
     /** Returns an underlined dynamic tooltip label for the given translation key. */
     private static IKey underlineKey(String langKey) {
         return IKey.dynamic(() -> TextFormatting.UNDERLINE + IKey.lang(langKey).get());
-    }
-
-    private static TextWidget<?> sectionHeader(String langKey) {
-        return IKey.lang(langKey).color(GuiColors.GOLD).shadow(true)
-                .asWidget().height(14);
     }
 
     private static CycleButtonWidget createTrustCycleButton(Party party, TrustAction action) {

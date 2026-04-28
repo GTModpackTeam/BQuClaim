@@ -41,9 +41,9 @@ public class CreatePanel {
         UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
+        panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
-        PanelBuilder.addHeader(panel, "blpc.party.create_title");
+        PartyWidgets.addHeader(panel, "blpc.party.create_title");
 
         // Name input + Create button
         final TextFieldWidget[] fieldRef = new TextFieldWidget[1];
@@ -51,16 +51,14 @@ public class CreatePanel {
             String name = fieldRef[0].getText().trim();
             if (!name.isEmpty()) {
                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.create(name));
-                ModularPanel screenRoot = panel.getScreen().getMainPanel();
                 panel.closeIfOpen();
-                registerCreateListener(playerId, screenRoot);
             }
         };
 
         TextFieldWidget nameField = PartyWidgets.createEnterSubmitTextField(doCreate);
         fieldRef[0] = nameField;
         nameField.setMaxLength(32);
-        nameField.size(PanelSizes.STANDARD_W - 80, 14);
+        nameField.size(PartyWidgets.STANDARD_W - 80, 14);
         nameField.setText(IKey.lang(Party.DEFAULT_NAME_KEY).get());
 
         panel.child(Flow.row()
@@ -83,27 +81,9 @@ public class CreatePanel {
                 .crossAxisAlignment(Alignment.CrossAxis.START)
                 .children(entries, entry -> createPartyRow(entry, panel)));
 
-        PartyWidgets.addAutoRefreshListener(panel, () -> MainPanel.build(playerId));
+        PartyWidgets.addSyncCloseListener(panel);
 
         return panel;
-    }
-
-    /**
-     * Registers a one-shot sync listener that opens MainPanel when the
-     * server confirms party creation. The listener self-removes after firing
-     * and is independent of any open panel (survives panel close).
-     *
-     * @param playerId   the player UUID to check party membership
-     * @param screenRoot the screen's main panel, captured before the CreatePanel is closed
-     */
-    private static void registerCreateListener(UUID playerId, ModularPanel screenRoot) {
-        Runnable[] ref = new Runnable[1];
-        ref[0] = () -> {
-            ClientPartyCache.removeSyncListener(ref[0]);
-            if (ClientPartyCache.getPartyByPlayer(playerId) == null) return;
-            PartyWidgets.openSubPanel(screenRoot, MainPanel.build(playerId));
-        };
-        ClientPartyCache.addSyncListener(ref[0]);
     }
 
     private static List<PartyEntry> collectAvailableParties(UUID playerId) {
@@ -118,7 +98,7 @@ public class CreatePanel {
             if (invited || freeToJoin) {
                 String displayName = party.getName();
                 result.add(new PartyEntry(party.getPartyId(), displayName,
-                        party.getDescription(), invited, freeToJoin));
+                        party.getDescription(), invited));
             }
         }
 
@@ -135,7 +115,7 @@ public class CreatePanel {
                 entry.displayName;
 
         ButtonWidget<?> btn = new ButtonWidget<>();
-        btn.widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0);
+        btn.widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0);
         btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
         btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
@@ -173,15 +153,12 @@ public class CreatePanel {
         final String displayName;
         final String description;
         final boolean invited;
-        final boolean freeToJoin;
 
-        PartyEntry(UUID partyId, String displayName, String description,
-                   boolean invited, boolean freeToJoin) {
+        PartyEntry(UUID partyId, String displayName, String description, boolean invited) {
             this.partyId = partyId;
             this.displayName = displayName;
             this.description = description;
             this.invited = invited;
-            this.freeToJoin = freeToJoin;
         }
     }
 }

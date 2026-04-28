@@ -95,10 +95,6 @@ public class MessagePartyAction implements IMessage {
         return new MessagePartyAction(ACTION_TOGGLE_BQU_LINK, linked ? "true" : "false");
     }
 
-    public static MessagePartyAction toggleFakePlayers() {
-        return new MessagePartyAction(ACTION_TOGGLE_FAKE_PLAYERS, "");
-    }
-
     public static MessagePartyAction setExplosionProtection(boolean protect) {
         return new MessagePartyAction(ACTION_TOGGLE_EXPLOSION_PROTECTION, protect ? "true" : "false");
     }
@@ -295,22 +291,30 @@ public class MessagePartyAction implements IMessage {
                         boolean isSelf = msg.stringArg.equals(player.getName());
                         Map<UUID, PartyRole> klMembersCopy = klParty != null ?
                                 new HashMap<>(klParty.getMembers()) : Collections.emptyMap();
+                        // Resolve target UUID before kick (target may be offline)
+                        UUID klTargetUUID = null;
+                        if (isSelf) {
+                            klTargetUUID = player.getUniqueID();
+                        } else if (klParty != null) {
+                            for (var kv : klMembersCopy.entrySet()) {
+                                EntityPlayerMP onlineMember = player.getServer() != null ?
+                                        player.getServer().getPlayerList().getPlayerByUUID(kv.getKey()) : null;
+                                if (onlineMember != null && onlineMember.getName().equals(msg.stringArg)) {
+                                    klTargetUUID = kv.getKey();
+                                    break;
+                                }
+                            }
+                        }
                         success = activeProvider.kickOrLeave(player, msg.stringArg);
                         if (success) {
-                            // Clear bquLinked for the kicked/left player
-                            EntityPlayerMP klTarget = isSelf ? player :
-                                    (player.getServer() != null ?
-                                            player.getServer().getPlayerList()
-                                                    .getPlayerByUsername(msg.stringArg) :
-                                            null);
-                            if (klTarget != null) {
+                            if (klTargetUUID != null) {
                                 PartyManagerData.getInstance()
-                                        .setBQuLinked(klTarget.getUniqueID(), false);
+                                        .setBQuLinked(klTargetUUID, false);
                             }
                             if (klParty != null) {
                                 String klEvent = isSelf ? MessagePartyEventNotify.MEMBER_LEFT :
                                         MessagePartyEventNotify.KICKED;
-                                UUID klTargetId = klTarget != null ? klTarget.getUniqueID() : null;
+                                UUID klTargetId = klTargetUUID;
                                 String klTargetName = msg.stringArg;
                                 MinecraftServer klSrv = player.getServer();
                                 pendingNotifications.add(() -> {

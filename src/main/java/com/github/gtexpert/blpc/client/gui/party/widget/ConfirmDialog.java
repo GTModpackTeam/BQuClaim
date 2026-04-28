@@ -8,7 +8,7 @@ import com.cleanroommc.modularui.widgets.Dialog;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
-import com.github.gtexpert.blpc.client.gui.party.PanelSizes;
+import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
  * Reusable confirmation dialog template.
@@ -51,8 +51,8 @@ public final class ConfirmDialog {
         private String noKey = "blpc.map.no";
         private Runnable onConfirm = () -> {};
         private boolean closeParentOnConfirm = true;
-        private int width = PanelSizes.DIALOG_W;
-        private int height = PanelSizes.DIALOG_H;
+        private int width = PartyWidgets.DIALOG_W;
+        private int height = PartyWidgets.DIALOG_H;
 
         Builder(String panelId) {
             this.panelId = panelId;

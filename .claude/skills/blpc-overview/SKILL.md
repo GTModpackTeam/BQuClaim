@@ -65,7 +65,7 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 - **`common/party/`** — Party data: `Party`, `PartyRole`, `RelationType`, `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`.
 - **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
 - **`common/network/`** — Messages: `MessageClaimChunk` (C→S), `MessagePartyAction` (C→S party ops), `MessageSyncClaims`/`MessageSyncAllClaims`/`MessageSyncConfig`/`MessagePartySync`/`MessageChunkTransitNotify`/`MessagePartyEventNotify`/`MessageClaimFailed` (S→C), `PlayerLoginHandler`.
-- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, standalone widgets in `widget/` subpackage (`BLPCToast`), `MinimapHUD`, `ModKeyBindings`/`KeyInputHandler`.
+- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, standalone widgets in `widget/` subpackage (`BLPCToast`), `MinimapHUD`, `KeyInputHandler` (keybind registration + input handling).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
 ## Data Persistence
@@ -122,18 +122,17 @@ The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Addition
 
 | Panel ID | File | Purpose |
 |---|---|---|
-| `blpc.party` | `MainPanel.java` | Party menu |
+| `blpc.party` | `MainPanel.java` | Party menu (uses `PartyMenuBuilder` for fluent menu composition) |
 | `blpc.party.create` | `CreatePanel.java` | Create party |
 | `blpc.party.settings` | `SettingsPanel.java` | Protection settings, ally/enemy management |
 | `blpc.party.members` | `MembersPanel.java` | Member list |
 | `blpc.party.moderators` | `ModeratorsPanel.java` | Moderator promote/demote |
-| `blpc.party.dialog.invite` | `InviteDialog.java` | Invite player |
-| `blpc.party.dialog.disband` | `DisbandDialog.java` | Disband confirmation |
+| `blpc.party.dialog.disband` | MainPanel (inline `ConfirmDialog`) | Disband confirmation |
 | `blpc.party.dialog.transfer` | `TransferOwnerDialog.java` | Transfer ownership |
 | `blpc.party.dialog.rename` | SettingsPanel (InputDialog) | Rename party |
 | `blpc.party.dialog.description` | SettingsPanel (InputDialog) | Edit party description |
-| `blpc.party.dialog.add_ally` | SettingsPanel (Dialog) | Select ally party to add |
-| `blpc.party.dialog.add_enemy` | SettingsPanel (Dialog) | Select enemy party to add |
+
+Invite is handled inline in `MembersPanel` (direct `MessagePartyAction.invite()` call, no dialog). Ally/enemy management uses inline toggle buttons in SettingsPanel's trust party list (no separate dialog panels).
 
 ## Color Conventions
 
@@ -173,7 +172,7 @@ For Minecraft formatting codes in tooltip strings, use `TextFormatting` enum con
 2. Client sends `MessagePartyAction.toggleBQuLink()` to server.
 3. Server verifies player is ADMIN+ and has a BQu party (for link). If rejected, `syncToAll()` is still called to roll back the optimistic update.
 4. On success, updates `PartyManagerData.bquLinkedPlayers` and persists via `BLPCSaveHandler`.
-5. `syncToAll()` broadcasts to all clients. `MainPanel` rebuilds via `addAutoRefreshListener`.
+5. `syncToAll()` broadcasts to all clients. Open panels close via `addSyncCloseListener`.
 
 **Disband** (`MessagePartyAction.disband()`):
 1. Server verifies player is OWNER (checks both BLPC and BQu roles when BQu-linked).
@@ -199,67 +198,74 @@ Party panels receive real-time updates via `ClientPartyCache.loadFromNBT()` (tri
 
 `ClientPartyCache.fireSyncListeners()` can also be called directly for optimistic UI updates (e.g., after `PartyWidgets.setLocalBQuLinked()` or `clearLocalPartyData()`).
 
-**Registration pattern** — use convenience helpers in `PartyWidgets`:
+**Registration pattern** — use `PartyWidgets.addSyncCloseListener(panel)`:
 
 ```java
-// For panels that display a specific party:
-PartyWidgets.addPartyRefreshListener(panel, party.getPartyId(), PanelName::build);
-
-// For panels that don't track a specific party:
-PartyWidgets.addAutoRefreshListener(panel, () -> PanelName.build(args));
+// Registers a sync listener that closes the panel when server data changes.
+// The listener is automatically removed when the panel closes.
+PartyWidgets.addSyncCloseListener(panel);
 ```
+
+Panels are not reopened automatically to avoid MUI handler conflicts. The user reopens via the P button, which always creates a fresh handler.
 
 **Panels with sync listeners:**
 
 | Panel | Helper | Behavior on sync |
 |---|---|---|
-| `MainPanel` | `addAutoRefreshListener` | Rebuild with playerId |
-| `SettingsPanel` | `addPartyRefreshListener` | Rebuild with refreshed party; close if disbanded |
-| `MembersPanel` | `addPartyRefreshListener` | Rebuild with refreshed party; close if disbanded |
-| `ModeratorsPanel` | `addPartyRefreshListener` | Rebuild with refreshed party; close if disbanded |
-| `CreatePanel` | `addAutoRefreshListener` | Rebuild (refresh available parties list) |
-| `TransferOwnerDialog` | manual `addSyncListener` | Close dialog |
+| `MainPanel` | `addSyncCloseListener` | Close panel |
+| `SettingsPanel` | (no sync listener) | Stateful tabbed UI — no auto-close |
+| `MembersPanel` | `addSyncCloseListener` | Close panel |
+| `ModeratorsPanel` | `addSyncCloseListener` | Close panel |
+| `CreatePanel` | `addSyncCloseListener` | Close panel |
+| `TransferOwnerDialog` | `addSyncCloseListener` | Close dialog |
 
-**Panels without sync listeners**: `InviteDialog`, `DisbandDialog` — simple input/confirm dialogs
+**Panels without sync listeners**: `SettingsPanel` (uses `IPanelHandler` for dialogs), inline `ConfirmDialog`/`InputDialog` instances
 
 ## UI Reusable Templates
 
-### Dialog/Panel Templates (`client/gui/party/widget/`)
+### Dialog Templates (`client/gui/party/widget/`)
 
-- **`ConfirmDialog`** — Yes/No confirmation dialog (`Dialog<Boolean>`). Default size: 220x70. Used by: DisbandDialog, ChunkMapScreen.
-- **`InputDialog`** — Text field + submit dialog (`Dialog<Void>`). Default size: 220x70. Used by: InviteDialog, SettingsPanel (rename/description).
-- **`PlayerListPanel`** — Reusable scrollable player list with Add/Remove (`ModularPanel`). Available for future use.
-- **`PartySelectDialog`** — Party selection dialog (`Dialog<Void>`). Used by: SettingsPanel (add ally/enemy).
+- **`ConfirmDialog`** — Yes/No confirmation dialog (`Dialog<Boolean>`). Default size: `PartyWidgets.DIALOG_W x DIALOG_H` (220x70). Used by: MainPanel (disband), ChunkMapScreen.
+- **`InputDialog`** — Text field + submit dialog (`Dialog<Void>`). Default size: 220x70. Used by: SettingsPanel (invite, rename, description).
 
 All dialog templates use a consistent width of 220px. Custom sizing available via `.size(w, h)`.
 
 ### Panel Infrastructure (`client/gui/party/`)
 
-- **`PanelSizes`** — Shared size constants: `STANDARD_W/H` (220x180), `LARGE_W/H` (260x220), `DIALOG_W/H` (220x70), `SELECT_H` (120), `BTN_H` (18).
-- **`PanelBuilder`** — Common layout helpers:
+- **`PartyWidgets`** — Central utility class consolidating size constants, layout helpers, and shared utilities:
+  - Size constants: `STANDARD_W/H` (220x180), `LARGE_W/H` (260x220), `DIALOG_W/H` (220x70), `BTN_H` (18), `FACE_SIZE` (8).
   - `addHeader(panel, titleKey)` — centered title (WHITE, shadow) + close button
   - `addHeader(panel, IKey)` — IKey variant for dynamic titles
   - `addList(panel, list)` — positions list widget (top=22, padded)
+- **`PartyMenuBuilder`** — Fluent builder for composing the party main menu. GregTech-style two-phase pattern:
+  - `PartyMenuBuilder.of(panel, party, playerId)` creates context
+  - `.nav(langKey, PanelClass::build)` — navigation entry with `Function<Party, ModularPanel>` factory (method references)
+  - `.widget(widget)` — raw widget injection (toggle buttons, etc.)
+  - `.tooltip(langKey)` / `.visible(predicate)` — modifiers on the current entry
+  - `.buildInto(listWidget)` — materializes all entries into a `ListWidget`
+  - Inner class `MenuContext` provides convenience predicates: `canInvite()`, `isOwner()`, `bquAvailable()`
 
-**Allies/Enemies Management**: Handled directly in SettingsPanel via inline ListWidget. Uses `PartySelectDialog` for adding allies/enemies.
+**Allies/Enemies Management**: Handled directly in SettingsPanel via inline ListWidget. Uses party selection dialogs for adding allies/enemies.
 
 ### Shared Utilities
 
 Shared color constants in `client/gui/GuiColors`:
 - `WHITE`, `GOLD`, `GREEN`, `RED`, `GRAY`, `GRAY_LIGHT` — ARGB constants matching Minecraft TextFormatting palette
 
-Shared utilities in `client/gui/party/PartyWidgets`:
+Shared utilities in `client/gui/party/PartyWidgets` (also consolidates former `PanelSizes` and `PanelBuilder`):
+- Size constants: `STANDARD_W/H`, `LARGE_W/H`, `DIALOG_W/H`, `BTN_H`, `FACE_SIZE`
+- `addHeader(panel, titleKey)` / `addHeader(panel, IKey)` — centered title + close button
+- `addList(panel, list)` — positions list widget (top=22, padded)
 - `getDisplayName(UUID)` — resolve player UUID to display name
 - `getRoleColor(PartyRole)` — ARGB color for party role (OWNER=gold, ADMIN=green, default=white)
-- `openSubPanel(ModularPanel parent, ModularPanel child)` — open a sub-panel exclusively
-- `reopenPanel(ModularPanel current, Supplier<ModularPanel> factory)` — close and reopen a panel
-- `addAutoRefreshListener(ModularPanel panel, Supplier<ModularPanel> rebuilder)` — register sync listener with auto-cleanup on close
-- `addPartyRefreshListener(ModularPanel panel, UUID partyId, Function<Party, ModularPanel> rebuilder)` — partyId lookup + null-safe rebuild
+- `addSyncCloseListener(ModularPanel panel)` — register sync listener that closes panel on data change (auto-removed on close)
 - `setLocalBQuLinked(boolean linked)` — optimistic BQu link flag update for current player
 - `clearLocalPartyData()` — optimistic cache clear after disband
 - `createActionButton(IKey label, String actionName, Runnable action)` — button with click handler
+- `createPlayerRow(UUID uuid, String label, int color)` — standard player-row button with face icon
 - `createEnterSubmitTextField(Runnable onSubmit)` — text field that submits on Enter key press
-- `resetSubPanelHandler()` — clear cached handler state when parent screen closes
+- `formatMemberLabel(String name, PartyRole role)` — format "Name [Role]" label
+- `wrapWithSearchBox(ListWidget, List<IWidget>, List<String>)` — search-filterable list wrapper
 
 ## Commands
 
@@ -288,6 +294,8 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 |---|---|---|---|
 | `maxClaimsPerPlayer` | int (0–10000) | 1000 | Max chunks claimable per player |
 | `maxForceLoadsPerPlayer` | int (0–10000) | 64 | Max force-loaded chunks per player |
+| `additiveLimits` | boolean | true | Party claim limit = sum of each member's individual limit |
+| `allowOfflineChunkLoading` | boolean | true | Keep force-loaded chunks active when all party members are offline |
 
 **Party** (`ModConfig.party`)
 
@@ -311,7 +319,7 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 |---|---|---|---|
 | `mergeOfflineOnlineData` | boolean | true | Merge offline/online chunk data  |
 
-### Internal defaults (`ModDefaults.java` — not in cfg)
+### Internal defaults (`ModConfig.Defaults` inner class — not in cfg)
 
 | Constant | Value | Description |
 |---|---|---|

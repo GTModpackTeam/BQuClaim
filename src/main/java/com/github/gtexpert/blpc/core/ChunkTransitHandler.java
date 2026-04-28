@@ -12,7 +12,7 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-import com.github.gtexpert.blpc.common.ModDefaults;
+import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.network.MessageChunkTransitNotify;
@@ -50,7 +50,7 @@ public class ChunkTransitHandler {
         Long prev = previousChunk.put(playerId, packed);
         if (prev != null && prev == packed) {
             // Same chunk — only handle periodic area effects
-            if (ModDefaults.enableAreaEffects && player.ticksExisted % EFFECT_TICK_INTERVAL == 0) {
+            if (ModConfig.Defaults.enableAreaEffects && player.ticksExisted % EFFECT_TICK_INTERVAL == 0) {
                 applyAreaEffects(player, cx, cz);
             }
             return;
@@ -70,7 +70,7 @@ public class ChunkTransitHandler {
                 if (prevParty != null) {
                     RelationType rel = resolveRelation(prevParty, player);
                     if (rel != RelationType.NONE) {
-                        if (ModDefaults.enableTransitNotify) {
+                        if (ModConfig.Defaults.enableTransitNotify) {
                             sendNotifications(prevParty, player, rel, false);
                         }
                         if (rel == RelationType.ENEMY) {
@@ -88,10 +88,10 @@ public class ChunkTransitHandler {
             if (curParty != null) {
                 RelationType rel = resolveRelation(curParty, player);
                 if (rel != RelationType.NONE) {
-                    if (ModDefaults.enableTransitNotify) {
+                    if (ModConfig.Defaults.enableTransitNotify) {
                         sendNotifications(curParty, player, rel, true);
                     }
-                    if (rel == RelationType.ENEMY && ModDefaults.enableAreaEffects) {
+                    if (rel == RelationType.ENEMY && ModConfig.Defaults.enableAreaEffects) {
                         onEnemyEnter(curParty.getPartyId(), playerId);
                     }
                 }
@@ -99,7 +99,7 @@ public class ChunkTransitHandler {
         }
 
         // Apply effects immediately on chunk change
-        if (ModDefaults.enableAreaEffects) {
+        if (ModConfig.Defaults.enableAreaEffects) {
             applyAreaEffects(player, cx, cz);
         }
     }
@@ -160,7 +160,7 @@ public class ChunkTransitHandler {
         }
         // Remove debuffs immediately on leaving
         enemy.removePotionEffect(MobEffects.WEAKNESS);
-        if (ModDefaults.enemyMiningFatigue) {
+        if (ModConfig.Defaults.enemyMiningFatigue) {
             enemy.removePotionEffect(MobEffects.MINING_FATIGUE);
         }
     }
@@ -179,8 +179,8 @@ public class ChunkTransitHandler {
         // Enemy debuff
         if (rel == RelationType.ENEMY) {
             player.addPotionEffect(new PotionEffect(
-                    MobEffects.WEAKNESS, POTION_DURATION, ModDefaults.enemyWeaknessAmplifier, true, true));
-            if (ModDefaults.enemyMiningFatigue) {
+                    MobEffects.WEAKNESS, POTION_DURATION, ModConfig.Defaults.enemyWeaknessAmplifier, true, true));
+            if (ModConfig.Defaults.enemyMiningFatigue) {
                 player.addPotionEffect(new PotionEffect(
                         MobEffects.MINING_FATIGUE, POTION_DURATION, 0, true, true));
             }
@@ -191,7 +191,8 @@ public class ChunkTransitHandler {
             Set<UUID> invaders = activeInvasions.get(claimParty.getPartyId());
             if (invaders != null && !invaders.isEmpty()) {
                 player.addPotionEffect(new PotionEffect(
-                        MobEffects.RESISTANCE, POTION_DURATION, ModDefaults.defenderResistanceAmplifier, true, true));
+                        MobEffects.RESISTANCE, POTION_DURATION, ModConfig.Defaults.defenderResistanceAmplifier, true,
+                        true));
                 player.addPotionEffect(new PotionEffect(
                         MobEffects.STRENGTH, POTION_DURATION, 0, true, true));
             }

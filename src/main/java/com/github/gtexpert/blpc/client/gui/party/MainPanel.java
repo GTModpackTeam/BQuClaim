@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
-import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.BoolValue;
@@ -17,11 +16,11 @@ import com.cleanroommc.modularui.widgets.ToggleButton;
 
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
  * Main party menu panel (panel ID: {@value #PANEL_ID}).
@@ -44,13 +43,10 @@ public class MainPanel {
 
     public static ModularPanel build(UUID playerId) {
         Party party = ClientPartyCache.getPartyByPlayer(playerId);
-        boolean bquAvailable = PartyProviderRegistry.hasNativeScreen();
         boolean bquLinked = ClientPartyCache.isBQuLinked(playerId);
 
-        // Auto-fix: bquLinked but no party -> clear stale flag (without firing sync listeners)
         if (bquLinked && party == null) {
             ClientPartyCache.setLocalBQuLinked(playerId, false);
-            bquLinked = false;
         }
 
         if (party == null) {
@@ -58,50 +54,39 @@ public class MainPanel {
         }
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
-        panel.size(PanelSizes.STANDARD_W, PanelSizes.STANDARD_H);
+        panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
         panel.child(new ScrollingTextWidget(IKey.dynamic(party::getName))
                 .color(GuiColors.WHITE).shadow(true)
                 .alignment(Alignment.Center).left(0).right(20).top(8).height(10));
         panel.child(ButtonWidget.panelCloseButton());
 
-        PartyRole myRole = party.getRole(playerId);
-        boolean canManage = myRole != null && myRole.canInvite();
-        boolean isOwner = myRole == PartyRole.OWNER;
-
-        // Menu buttons in scrollable list (same structure as all other panels)
-        int menuTop = 26;
         @SuppressWarnings("rawtypes")
         ListWidget menuList = new ListWidget();
-        menuList.left(8).right(8).top(menuTop).bottom(26);
+        menuList.left(8).right(8).top(26).bottom(26);
         menuList.crossAxisAlignment(Alignment.CrossAxis.START);
 
-        // Settings
-        if (canManage) {
-            menuList.child(createMenuButton(IKey.lang("blpc.party.settings"), panel,
-                    () -> SettingsPanel.build(party), "blpc.party.tooltip.settings"));
-        }
+        var builder = PartyMenuBuilder.of(panel, party, playerId);
 
-        // Members
-        menuList.child(createMenuButton(IKey.lang("blpc.party.members"), panel,
-                () -> MembersPanel.build(party), "blpc.party.tooltip.members"));
+        builder.nav("blpc.party.settings", SettingsPanel::build)
+                .tooltip("blpc.party.tooltip.settings")
+                .visible(PartyMenuBuilder.MenuContext::canInvite)
+                .nav("blpc.party.members", MembersPanel::build)
+                .tooltip("blpc.party.tooltip.members")
+                .nav("blpc.party.moderators", ModeratorsPanel::build)
+                .tooltip("blpc.party.tooltip.moderators")
+                .nav("blpc.party.transfer", TransferOwnerDialog::build)
+                .tooltip("blpc.party.tooltip.transfer")
+                .visible(PartyMenuBuilder.MenuContext::isOwner);
 
-        // Moderators
-        menuList.child(createMenuButton(IKey.lang("blpc.party.moderators"), panel,
-                () -> ModeratorsPanel.build(party), "blpc.party.tooltip.moderators"));
+        var ctx = builder.context();
 
-        // Transfer Ownership
-        if (isOwner) {
-            menuList.child(createMenuButton(IKey.lang("blpc.party.transfer"), panel,
-                    () -> TransferOwnerDialog.build(panel), "blpc.party.tooltip.transfer"));
-        }
-
-        // BQu Manage Party
-        if (bquAvailable && bquLinked) {
-            menuList.child((ButtonWidget<?>) new ButtonWidget<>().widthRel(1f).height(PanelSizes.BTN_H)
+        if (ctx.bquAvailable()) {
+            builder.widget((ButtonWidget<?>) new ButtonWidget<>().widthRel(1f).height(PartyWidgets.BTN_H)
                     .padding(4, 0, 0, 0)
                     .overlay(IKey.lang("blpc.party.open_native").alignment(Alignment.CenterLeft))
                     .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
+                    .setEnabledIf(w -> ClientPartyCache.isBQuLinked(playerId))
                     .onMousePressed(btn -> {
                         panel.closeIfOpen();
                         Minecraft.getMinecraft().addScheduledTask(PartyProviderRegistry::openNativeScreen);
@@ -109,10 +94,9 @@ public class MainPanel {
                     }));
         }
 
-        // BQu Link/Unlink toggle — placed inside menuList so it gets the full width
-        if (bquAvailable && canManage) {
-            menuList.child(new ToggleButton()
-                    .widthRel(1f).height(PanelSizes.BTN_H).padding(4, 0, 0, 0)
+        if (ctx.bquAvailable() && ctx.canInvite()) {
+            builder.widget(new ToggleButton()
+                    .widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0)
                     .value(new BoolValue.Dynamic(
                             () -> ClientPartyCache.isBQuLinked(playerId),
                             val -> {
@@ -134,52 +118,35 @@ public class MainPanel {
                     })));
         }
 
+        builder.buildInto(menuList);
         panel.child(menuList);
 
-        // Bottom buttons (pinned to bottom)
-        int btnY = PanelSizes.STANDARD_H - 24;
-
-        if (isOwner) {
+        if (ctx.isOwner()) {
             IPanelHandler disbandHandler = IPanelHandler.simple(
-                    panel, (pp, player) -> DisbandDialog.build(panel), true);
+                    panel, (pp, player) -> ConfirmDialog.builder("blpc.party.dialog.disband")
+                            .title("blpc.party.disband_confirm_title")
+                            .message("blpc.party.disband_confirm_msg")
+                            .yesLabel("blpc.party.disband_yes")
+                            .noLabel("blpc.party.disband_no")
+                            .closeParent(false)
+                            .onConfirm(() -> {
+                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.disband());
+                                panel.closeIfOpen();
+                                PartyWidgets.clearLocalPartyData();
+                            })
+                            .build(panel),
+                    true);
             panel.child(PartyWidgets.createActionButton(
                     IKey.lang("blpc.party.disband"), "Open Disband dialog",
                     () -> {
                         disbandHandler.deleteCachedPanel();
                         disbandHandler.openPanel();
                     })
-                    .size(50, 16).pos(PanelSizes.STANDARD_W - 58, btnY));
+                    .size(50, 16).pos(PartyWidgets.STANDARD_W - 58, PartyWidgets.STANDARD_H - 24));
         }
 
-        // Rebuild on server sync (BQu link/unlink, disband, member changes)
-        PartyWidgets.addAutoRefreshListener(panel, () -> MainPanel.build(playerId));
+        PartyWidgets.addSyncCloseListener(panel);
 
         return panel;
-    }
-
-    private static ButtonWidget<?> createMenuButton(IKey label, ModularPanel parent,
-                                                    PanelFactory factory, String tooltipKey) {
-        // Dedicated handler per button: avoids "same panel handler already exists" conflicts
-        // when the user returns from a sub-panel and opens a different one.
-        IPanelHandler handler = IPanelHandler.simple(parent, (pp, player) -> factory.create(), true);
-        ButtonWidget<?> btn = (ButtonWidget<?>) new ButtonWidget<>().widthRel(1f).height(PanelSizes.BTN_H)
-                .padding(4, 0, 0, 0)
-                .hoverBackground(new Rectangle().color(GuiColors.HOVER))
-                .overlay(label.alignment(Alignment.CenterLeft))
-                .onMousePressed(b -> {
-                    handler.deleteCachedPanel(); // force fresh panel on each open
-                    handler.openPanel();
-                    return true;
-                });
-        if (tooltipKey != null) {
-            btn.addTooltipLine(IKey.lang(tooltipKey));
-        }
-        return btn;
-    }
-
-    @FunctionalInterface
-    interface PanelFactory {
-
-        ModularPanel create();
     }
 }

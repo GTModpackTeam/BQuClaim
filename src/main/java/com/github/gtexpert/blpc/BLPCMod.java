@@ -16,7 +16,6 @@ import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 import com.github.gtexpert.blpc.api.util.Mods;
 import com.github.gtexpert.blpc.client.gui.KeyInputHandler;
 import com.github.gtexpert.blpc.client.gui.MinimapHUD;
-import com.github.gtexpert.blpc.client.gui.ModKeyBindings;
 import com.github.gtexpert.blpc.module.ModuleManager;
 import com.github.gtexpert.blpc.module.Modules;
 
@@ -51,7 +50,7 @@ public class BLPCMod {
     public void init(FMLInitializationEvent event) {
         moduleManager.onInit(event);
         if (event.getSide().isClient()) {
-            ModKeyBindings.init();
+            KeyInputHandler.init();
             MinecraftForge.EVENT_BUS.register(new KeyInputHandler());
             MinecraftForge.EVENT_BUS.register(new MinimapHUD());
         }
