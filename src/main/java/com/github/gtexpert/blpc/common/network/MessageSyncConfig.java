@@ -1,15 +1,13 @@
 package com.github.gtexpert.blpc.common.network;
 
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-
-import com.github.gtexpert.blpc.common.ModConfig;
 
 import io.netty.buffer.ByteBuf;
 
-/** S→C: Syncs server config (max claims/force-loads) to client. */
+/**
+ * S→C: Syncs server config (max claims/force-loads) to client.
+ * Handler lives in {@code client.network.SyncConfigClientHandler}.
+ */
 public class MessageSyncConfig implements IMessage {
 
     private int maxClaims;
@@ -22,6 +20,14 @@ public class MessageSyncConfig implements IMessage {
         this.maxForce = maxForce;
     }
 
+    public int getMaxClaims() {
+        return maxClaims;
+    }
+
+    public int getMaxForce() {
+        return maxForce;
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         this.maxClaims = buf.readInt();
@@ -32,18 +38,5 @@ public class MessageSyncConfig implements IMessage {
     public void toBytes(ByteBuf buf) {
         buf.writeInt(this.maxClaims);
         buf.writeInt(this.maxForce);
-    }
-
-    public static class Handler implements IMessageHandler<MessageSyncConfig, IMessage> {
-
-        @Override
-        public IMessage onMessage(MessageSyncConfig message, MessageContext ctx) {
-            // Override client-side config values with server values
-            Minecraft.getMinecraft().addScheduledTask(() -> {
-                ModConfig.claims.maxClaimsPerPlayer = message.maxClaims;
-                ModConfig.claims.maxForceLoadsPerPlayer = message.maxForce;
-            });
-            return null;
-        }
     }
 }

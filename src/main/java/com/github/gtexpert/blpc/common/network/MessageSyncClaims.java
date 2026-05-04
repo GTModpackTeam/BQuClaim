@@ -2,20 +2,19 @@ package com.github.gtexpert.blpc.common.network;
 
 import java.util.UUID;
 
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-
-import com.github.gtexpert.blpc.common.chunk.ClientCache;
 
 import io.netty.buffer.ByteBuf;
 
-/** S→C: Updates a single chunk's ownership state. */
+/**
+ * S→C: Updates a single chunk's ownership state.
+ * Handler lives in {@code client.network.SyncClaimsClientHandler}.
+ */
 public class MessageSyncClaims implements IMessage {
 
-    private int x, z;
+    private int x;
+    private int z;
     private UUID owner;
     private String name;
     private String partyName;
@@ -30,6 +29,30 @@ public class MessageSyncClaims implements IMessage {
         this.name = name;
         this.partyName = partyName;
         this.isForceLoaded = isForceLoaded;
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public int getZ() {
+        return z;
+    }
+
+    public UUID getOwner() {
+        return owner;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getPartyName() {
+        return partyName;
+    }
+
+    public boolean isForceLoaded() {
+        return isForceLoaded;
     }
 
     @Override
@@ -57,18 +80,6 @@ public class MessageSyncClaims implements IMessage {
             ByteBufUtils.writeUTF8String(buf, name);
             ByteBufUtils.writeUTF8String(buf, partyName);
             buf.writeBoolean(isForceLoaded);
-        }
-    }
-
-    public static class Handler implements IMessageHandler<MessageSyncClaims, IMessage> {
-
-        @Override
-        public IMessage onMessage(MessageSyncClaims message, MessageContext ctx) {
-            Minecraft.getMinecraft().addScheduledTask(() -> {
-                ClientCache.update(message.x, message.z, message.owner, message.name, message.partyName,
-                        message.isForceLoaded);
-            });
-            return null;
         }
     }
 }

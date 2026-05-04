@@ -22,7 +22,9 @@ Project architecture is provided via the blpc-overview skill.
 - Module pattern compliance (`@TModule`, `IntegrationSubmodule`, etc.)
 - Panel ID naming: `blpc.<area>`, `blpc.<area>.dialog.<name>`
 - Lang key naming: `blpc.<area>.*`
-- Network messages appended (not inserted) in `ModNetwork.init()`
+- Network messages appended (not inserted): C→S in `ModNetwork.init()`; S→C in **both** `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()`, in identical order
+- Side boundary respected: S→C handlers live in `client/network/` with `@SideOnly(Side.CLIENT)`; IMessage classes in `common/network/` must not reference any client-only types in their bytecode
+- New `MessagePartyAction` actions: append `ACTION_*` constant (no renumbering), add factory + `case` arm in `PartyActionDispatcher.dispatch()` + private method
 - Party mutations use player UUID (no partyId parameter)
 
 ### Code Quality

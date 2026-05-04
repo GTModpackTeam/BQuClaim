@@ -37,7 +37,7 @@ final class BLPCCommandHelper {
 
     /**
      * Returns the provider that should handle a player-initiated mutation.
-     * Mirrors {@code MessagePartyAction.Handler}: BQu-linked players go through
+     * Mirrors {@code PartyActionDispatcher}: BQu-linked players go through
      * the BQu provider, others through the self-managed default.
      */
     static IPartyProvider activeProviderFor(EntityPlayerMP player) {

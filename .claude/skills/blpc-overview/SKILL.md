@@ -64,9 +64,57 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 
 - **`common/party/`** — Party data: `Party`, `PartyRole`, `RelationType`, `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`.
 - **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
-- **`common/network/`** — Messages: `MessageClaimChunk` (C→S), `MessagePartyAction` (C→S party ops), `MessageSyncClaims`/`MessageSyncAllClaims`/`MessageSyncConfig`/`MessagePartySync`/`MessageChunkTransitNotify`/`MessagePartyEventNotify`/`MessageClaimFailed` (S→C), `PlayerLoginHandler`.
+- **`common/network/`** — IMessage contracts only (no client-only references):
+  - C→S: `MessageClaimChunk` (with inner `Handler`), `MessagePartyAction` (POJO; handler split out — see below).
+  - S→C: `MessageSyncClaims`, `MessageSyncAllClaims`, `MessageSyncConfig`, `MessagePartySync`, `MessageChunkTransitNotify`, `MessagePartyEventNotify`, `MessageClaimFailed`. Each is a pure data container with getters; no inner `Handler`.
+  - `ModNetwork` — channel registration (side-aware). `NoOpHandler` — server-side fallback so S→C discriminators stay valid for outbound sends. `PlayerLoginHandler` — login sync.
+- **`common/network/party/`** — `PartyActionDispatcher` (server-side handler for `MessagePartyAction`; one private static method per action discriminator).
+- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per message: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ChunkTransitNotifyClientHandler`, `PartyEventNotifyClientHandler`, `ClaimFailedClientHandler`. `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
 - **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, standalone widgets in `widget/` subpackage (`BLPCToast`), `MinimapHUD`, `KeyInputHandler` (keybind registration + input handling).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
+
+## Network Layer Architecture
+
+The network layer is split along the physical side boundary so that loading a class on the wrong side is impossible by construction:
+
+| Package | Allowed types | Loaded on server? |
+|---|---|---|
+| `common/network/Message*` | IMessage POJOs only — no `@SideOnly` types in bytecode | Yes (both sides) |
+| `common/network/*Handler` | Server-side IMessageHandler implementations | Yes (both sides) |
+| `common/network/party/PartyActionDispatcher` | Server-side handler for the party god-message | Yes (both sides) |
+| `client/network/*ClientHandler` | `@SideOnly(Side.CLIENT)` IMessageHandler implementations referencing `Minecraft`, `IToast`, `BLPCToast`, etc. | **Client only** |
+| `client/network/ClientPacketHandlers` | Side-aware SPI installer; **not** `@SideOnly` | Yes (referenced from `ModNetwork`), but `installAll()` only executes on client |
+
+**Why this matters:** `SimpleNetworkWrapper.registerMessage(handlerClass, ...)` calls `handlerClass.newInstance()`, which triggers JVM class verification. Verification loads every type referenced in the handler's method bodies (e.g. `BLPCToast` → `IToast`). If any of those types is `@SideOnly(CLIENT)`, the SideTransformer rejects them on a dedicated server and the mod crashes with `NoClassDefFoundError`. By keeping `client/network/*` out of the server's class-loading path entirely, the bug class is structurally eliminated.
+
+`ClientPacketHandlers` uses class literals (`SomeHandler.class`) inside `installAll(channel, firstId)`. Class literals are resolved at execution time, not at verification time, so the server can safely reference `ClientPacketHandlers` itself without ever loading the handlers it points to.
+
+### Wire protocol IDs (stable order)
+
+| ID | Direction | Message | Handler |
+|---|---|---|---|
+| 0 | C→S | `MessageClaimChunk` | `MessageClaimChunk.Handler` |
+| 1 | C→S | `MessagePartyAction` | `PartyActionDispatcher` |
+| 2 | S→C | `MessageSyncClaims` | `SyncClaimsClientHandler` |
+| 3 | S→C | `MessageSyncAllClaims` | `SyncAllClaimsClientHandler` |
+| 4 | S→C | `MessageSyncConfig` | `SyncConfigClientHandler` |
+| 5 | S→C | `MessagePartySync` | `PartySyncClientHandler` |
+| 6 | S→C | `MessageChunkTransitNotify` | `ChunkTransitNotifyClientHandler` |
+| 7 | S→C | `MessagePartyEventNotify` | `PartyEventNotifyClientHandler` |
+| 8 | S→C | `MessageClaimFailed` | `ClaimFailedClientHandler` |
+
+### Adding a new network message
+
+- **C→S** — Define IMessage in `common/network/`, write the server handler (inner class is fine), append `INSTANCE.registerMessage(...)` in `ModNetwork.init()` before the S→C block.
+- **S→C** — Define IMessage in `common/network/` with **no `@SideOnly` types** referenced (use getters, not lambdas that capture `Minecraft`). Create the client handler in `client/network/<MessageName>ClientHandler.java` with `@SideOnly(Side.CLIENT)`. Append the message class to `ModNetwork.CLIENT_BOUND_MESSAGES` **and** the handler/message pair to `ClientPacketHandlers.installAll()` in the **same order** so server-side NoOp registration and client-side real registration share the same discriminator.
+
+### MessagePartyAction action dispatch
+
+`MessagePartyAction` multiplexes ~22 party operations through an `int action` discriminator + `String stringArg`. The server-side `PartyActionDispatcher` has one private static method per `ACTION_*` constant. Per-request state (player, args, providers, BQu link state, deferred notifications) lives in a private `ActionContext` holder passed to each method.
+
+**Authorization invariant:** `playerBQuLinked` and `activeProvider` are re-derived from `PartyManagerData.isBQuLinked` on every request — never trusted from the client. Mutating actions go through `getAdminParty()` / `getOrCreateSelfParty()` which enforce role checks server-side.
+
+**Adding a new action:** append a new `ACTION_*` constant to `MessagePartyAction` (do **not** renumber existing ones — wire-protocol stability), add a static factory method, add a `case` arm in `PartyActionDispatcher.dispatch()`, and implement the corresponding private method.
 
 ## Data Persistence
 
@@ -343,10 +391,10 @@ Players receive **toast notifications** when entering/leaving claimed chunks, an
 
 - **`common/party/RelationType`** — Enum: `MEMBER`, `ALLY`, `ENEMY`, `NONE`.
 - **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `MessageChunkTransitNotify`, and applies area effects.
-- **`common/network/MessageChunkTransitNotify`** — S→C packet. Serializes relation as `name()` string (not ordinal) for forward compatibility.
-- **`client/gui/widget/BLPCToast`** — `IToast` implementation with Builder pattern. Factory methods: `fromTransit()` (chunk entry/exit), `fromPartyEvent()` (party events), `fromClaimFailed()` (claim limit errors).
-- **`common/network/MessagePartyEventNotify`** — S→C packet for party events (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink).
-- **`common/network/MessageClaimFailed`** — S→C packet for claim/force-load limit errors.
+- **`common/network/MessageChunkTransitNotify`** — S→C packet. Serializes relation as `name()` string (not ordinal) for forward compatibility. Handler: `client/network/ChunkTransitNotifyClientHandler`.
+- **`client/gui/widget/BLPCToast`** — `IToast` implementation with Builder pattern. Factory methods: `fromTransit()` (chunk entry/exit), `fromPartyEvent()` (party events), `fromClaimFailed()` (claim limit errors). Only loaded on the physical client — never reachable from server-side bytecode.
+- **`common/network/MessagePartyEventNotify`** — S→C packet for party events (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink). Handler: `client/network/PartyEventNotifyClientHandler`.
+- **`common/network/MessageClaimFailed`** — S→C packet for claim/force-load limit errors. Handler: `client/network/ClaimFailedClientHandler`.
 
 ### Notification Messages
 

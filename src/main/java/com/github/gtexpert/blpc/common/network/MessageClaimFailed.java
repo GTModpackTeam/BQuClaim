@@ -1,19 +1,13 @@
 package com.github.gtexpert.blpc.common.network;
 
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
-
-import com.github.gtexpert.blpc.client.gui.widget.BLPCToast;
 
 import io.netty.buffer.ByteBuf;
 
 /**
  * S→C packet: notify the client that a claim or force-load attempt failed due to a limit.
+ * Handler lives in {@code client.network.ClaimFailedClientHandler}.
  */
 public class MessageClaimFailed implements IMessage {
 
@@ -29,6 +23,18 @@ public class MessageClaimFailed implements IMessage {
         this.max = max;
     }
 
+    public String getReason() {
+        return reason;
+    }
+
+    public int getCurrent() {
+        return current;
+    }
+
+    public int getMax() {
+        return max;
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         reason = ByteBufUtils.readUTF8String(buf);
@@ -41,20 +47,5 @@ public class MessageClaimFailed implements IMessage {
         ByteBufUtils.writeUTF8String(buf, reason);
         buf.writeInt(current);
         buf.writeInt(max);
-    }
-
-    @SideOnly(Side.CLIENT)
-    public static class Handler implements IMessageHandler<MessageClaimFailed, IMessage> {
-
-        @Override
-        public IMessage onMessage(MessageClaimFailed msg, MessageContext ctx) {
-            Minecraft.getMinecraft().addScheduledTask(() -> {
-                BLPCToast toast = BLPCToast.builder()
-                        .fromClaimFailed(msg.reason, msg.current, msg.max)
-                        .build();
-                Minecraft.getMinecraft().getToastGui().add(toast);
-            });
-            return null;
-        }
     }
 }

@@ -6,7 +6,6 @@ import java.util.*;
 import javax.annotation.Nullable;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.item.EnumDyeColor;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
@@ -43,7 +42,8 @@ public class Party {
     private final Set<UUID> enemies = new LinkedHashSet<>();
 
     private boolean freeToJoin = false;
-    private int color = EnumDyeColor.BLUE.getColorValue();
+    // EnumDyeColor.BLUE.colorValue — inlined because EnumDyeColor.getColorValue() is @SideOnly(CLIENT).
+    private int color = 3949738;
     private String description = "";
     /** Maximum members allowed. 0 = unlimited. */
     private int maxMembers = 0;

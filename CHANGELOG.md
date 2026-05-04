@@ -5,7 +5,39 @@ All notable changes to BetterLinkPartyClaim (BLPC) are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] - 2026-05-01
+* * *
+
+## [0.9.0]
+
+### Changed
+
+- **Network layer refactor**: split the network handlers along the side
+  boundary. `IMessage` classes stay in `common/network/` and must not
+  reference any `@SideOnly` types in their bytecode; client-bound (S→C)
+  handlers now live in `client/network/` and are gated with
+  `@SideOnly(Side.CLIENT)`. Server-side registration uses a no-op handler
+  so the dedicated server never class-loads client code.
+- **`MessagePartyAction` dispatcher extracted**: the 22 action arms moved
+  from the inner `Handler` into `common/network/party/PartyActionDispatcher`,
+  one private method per action. Wire-protocol IDs and `ACTION_*` constants
+  are unchanged.
+- **`ModNetwork` registration**: client-bound messages are listed once in
+  `CLIENT_BOUND_MESSAGES` and installed via `ClientPacketHandlers.installAll()`
+  on the client. Wire IDs (0–8) are preserved.
+
+### Fixed
+
+- **Dedicated-server crash on party creation**:
+  `NoSuchMethodError: EnumDyeColor.func_193350_e()` — `EnumDyeColor.getColorValue()`
+  is `@SideOnly(Side.CLIENT)` in vanilla 1.12.2 and is not present on the
+  dedicated server. The default party color is now stored as the inlined
+  RGB constant instead.
+
+[0.9.0]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.9.0
+
+* * *
+
+## [0.8.0]
 
 Initial release.
 
