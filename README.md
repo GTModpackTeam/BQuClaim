@@ -1,100 +1,41 @@
-# BetterLinkPartyClaim
+<p align="center"><img src="https://github.com/GTModpackTeam/BetterLinkPartyClaim/blob/main/src/main/resources/assets/blpc/logo.png" alt="Logo" width="128" height="128"></p>
+<h1 align="center">BetterLinkPartyClaim</h1>
+<h1 align="center">
+    <a href="https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim"><img src="https://img.shields.io/badge/Available%20for-MC%201.12.2%20-informational?style=for-the-badge" alt="Supported Versions"></a>
+    <a href="https://github.com/GTModpackTeam/BetterLinkPartyClaim/blob/main/LICENSE"><img src="https://img.shields.io/github/license/GTModpackTeam/BetterLinkPartyClaim?style=for-the-badge" alt="License"></a>
+    <a href="https://discord.gg/xBwHpZyZdW"><img src="https://img.shields.io/discord/945647524855812176?color=5464ec&label=Discord&style=for-the-badge" alt="Discord"></a>
+    <br>
+    <a href="https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim"><img src="https://cf.way2muchnoise.eu/1530505.svg?badge_style=for_the_badge" alt="CurseForge"></a>
+    <a href="https://modrinth.com/mod/better-link-party-claim"><img src="https://img.shields.io/modrinth/dt/better-link-party-claim?logo=modrinth&label=&suffix=%20&style=for-the-badge&color=2d2d2d&labelColor=5ca424&logoColor=1c1c1c" alt="Modrinth"></a>
+    <a href="https://github.com/GTModpackTeam/BetterLinkPartyClaim/releases"><img src="https://img.shields.io/github/downloads/GTModpackTeam/BetterLinkPartyClaim/total?sort=semver&logo=github&label=&style=for-the-badge&color=2d2d2d&labelColor=545454&logoColor=FFFFFF" alt="GitHub"></a>
+</h1>
 
-BetterLinkPartyClaim is a Minecraft Forge mod for Minecraft 1.12.2 that provides chunk claiming integrated with the BetterQuesting party system. Players can claim chunks, share access with party members, and optionally force-load claimed chunks. It includes a full-screen claim map (ModularUI) and a small minimap HUD.
+## Info
+1. BetterLinkPartyClaim(BLPC) is a chunk claiming mod integrated with the BetterQuesting party system. Players can claim chunks, share access with party members, and optionally force-load claimed chunks.
+2. Includes a full-screen claim map (ModularUI) and a small minimap HUD with async chunk rendering and texture caching.
+3. **Check with [Curseforge](https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim) or [Modrinth](https://modrinth.com/mod/better-link-party-claim) to see what changes have been made!!**
 
 ## Features
 
-- Claim and unclaim chunks via an in-game map UI.
-- Force-load claimed chunks (respecting per-player limits).
-- Party-aware permissions: members of the same BetterQuesting party are treated as allies.
-- Client-side minimap HUD showing nearby chunks and claims.
-- Network sync of claim data between server and clients.
-- Async chunk map rendering with texture caching for performance.
+### Chunk Claiming
+- Claim and unclaim chunks via an in-game map UI
+- Force-load claimed chunks (respecting per-player limits)
+- Bulk operations by dragging across chunks
 
-## Requirements
+### Party Integration
+- Members of the same BetterQuesting party are treated as allies
+- Allies are visualized on the claim map
+- Role-based tab UI for invited/joined party members
 
-- Minecraft 1.12.2
-- Minecraft Forge (recommended for 1.12.2)
-- BetterQuesting (required)
-- ModularUI (required)
-- JourneyMap (optional integration)
+### Map & HUD
+- Full-screen chunk map (default keybind: `M`)
+- Client-side minimap HUD showing nearby chunks and claims (default keybind: `N`)
+- Async chunk map rendering with texture caching for performance
 
-## Installation
+### JourneyMap Integration (optional)
+- Optional integration with JourneyMap when present
 
-Place the built mod jar into your `mods` folder for both client and server (if running a server). Build the project using Gradle as described below.
+## Credits
 
-## Building
-
-This repo uses a Gradle-based build (RetroFuturaGradle / GTNH buildscripts). Common commands:
-
-- `./gradlew build` - Full build (formats code with Spotless)
-- `./gradlew runClient` - Launch client with the mod
-- `./gradlew runServer` - Launch dedicated server
-- `./gradlew spotlessApply` - Apply formatting rules
-
-See `build.gradle` and `buildscript.properties` for build configuration.
-
-## Configuration
-
-Mod configuration is exposed via Forge `@Config` (`com.github.gtexpert.bquclaim.ModConfig`). Available options:
-
-- `maxClaimsPerPlayer` (int, default 64) — maximum number of chunks a player may claim.
-- `maxForceLoadsPerPlayer` (int, default 8) — maximum number of chunks a player may force-load.
-- `showMinimap` (boolean, default true) — toggle the minimap HUD.
-
-Changes made from the in-game config GUI are synced immediately.
-
-## Usage
-
-- Default keybindings:
-  - `M` — Open the full-screen chunk map.
-  - `N` — Toggle minimap HUD on/off.
-
-- Map controls (full-screen):
-  - Left click — Claim a chunk.
-  - Shift + Left click — Claim and force-load a chunk.
-  - Right click — Unclaim a chunk.
-  - Dragging with mouse performs bulk operations across dragged chunks.
-  - The UI also provides buttons to redraw the map, unclaim all your chunks, or unload all your force-loaded chunks.
-
-- Claim permissions: only the chunk owner (or a server operator) can unclaim or toggle force-load. Players in the same BetterQuesting party are shown as allies on the map.
-
-## Data persistence
-
-Claims are stored server-side in `ChunkManagerData` (a `WorldSavedData` implementation). Each claimed chunk records:
-
-- Chunk coordinates (x, z)
-- Owner UUID and player name
-- Force-loaded flag
-
-The code reads both `force` and legacy `is_force_loaded` flags for backwards compatibility.
-
-## Developer notes
-
-- Base package: `com.github.gtexpert.bquclaim`.
-- Network messages are implemented using `SimpleNetworkWrapper` in `ModNetwork`.
-  - `MessageClaimChunk` (client -> server) — request to claim/unclaim/toggle force.
-  - `MessageSyncClaims` / `MessageSyncAllClaims` / `MessageSyncConfig` (server -> client) — sync claim and config data.
-- Map rendering:
-  - `AsyncMapRenderer` computes a 16x16 color array for chunks off the main thread.
-  - `TextureCache` creates `DynamicTexture` instances and caches them.
-  - `ChunkMapRenderer` draws terrain + claim overlays and player icon.
-- Force loading uses Forge's `ForgeChunkManager` with `TicketManager` to persist and restore forced chunks.
-
-## Code pointers
-
-- Mod entry: `src/main/java/com/github/gtexpert/teamclaim/BetterLinkPartyClaimMod.java`
-- Claim storage: `src/main/java/com/github/gtexpert/bquclaim/chunk/ChunkManagerData.java`
-- Network: `src/main/java/com/github/gtexpert/bquclaim/network/ModNetwork.java`
-- GUI: `src/main/java/com/github/gtexpert/bquclaim/gui/` (map, widgets, HUD, keybinds)
-- Map: `src/main/java/com/github/gtexpert/bquclaim/map/` (async renderer, texture cache)
-- BetterQuesting party helper: `src/main/java/com/github/gtexpert/bquclaim/BQPartyHelper.java`
-
-## Contributing
-
-- Follow the project's formatting rules: run `./gradlew spotlessApply` before committing.
-- When adding network messages, append them in `ModNetwork.init()` to preserve discriminator ordering.
-
-## License
-
-This project is licensed under the terms in the `LICENSE` file.
+- Built on [BetterQuesting](https://www.curseforge.com/minecraft/mc-mods/better-questing) party system
+- Uses [ModularUI](https://github.com/CleanroomMC/ModularUI) for in-game UI rendering
