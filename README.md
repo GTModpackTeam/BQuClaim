@@ -11,7 +11,7 @@
 </h1>
 
 ## Info
-1. BetterLinkPartyClaim(BLPC) is a chunk claiming mod integrated with the BetterQuesting party system. Players can claim chunks, share access with party members, and optionally force-load claimed chunks.
+1. BetterLinkPartyClaim(BLPC) is a chunk claiming mod integrated with the Better Questing Unofficial party system. Players can claim chunks, share access with party members, and optionally force-load claimed chunks.
 2. Includes a full-screen claim map (ModularUI) and a small minimap HUD with async chunk rendering and texture caching.
 3. **Check with [Curseforge](https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim) or [Modrinth](https://modrinth.com/mod/better-link-party-claim) to see what changes have been made!!**
 
@@ -23,7 +23,7 @@
 - Bulk operations by dragging across chunks
 
 ### Party Integration
-- Members of the same BetterQuesting party are treated as allies
+- Members of the same Better Questing Unofficial party are treated as allies
 - Allies are visualized on the claim map
 - Role-based tab UI for invited/joined party members
 
@@ -37,5 +37,5 @@
 
 ## Credits
 
-- Built on [BetterQuesting](https://www.curseforge.com/minecraft/mc-mods/better-questing) party system
+- Built on [Better Questing Unofficial](https://www.curseforge.com/minecraft/mc-mods/better-questing-unofficial) party system
 - Uses [ModularUI](https://github.com/CleanroomMC/ModularUI) for in-game UI rendering
