@@ -15,7 +15,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.network.MessageChunkTransitNotify;
+import com.github.gtexpert.blpc.common.network.MessageClientNotify;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
@@ -102,9 +102,12 @@ public class ChunkTransitHandler {
 
     public static void onPlayerLogout(UUID playerId) {
         previousChunk.remove(playerId);
-        for (Set<UUID> invaders : activeInvasions.values()) {
+        // Drop the entry entirely when the logout empties an invader set, so
+        // activeInvasions doesn't accumulate empty Sets across long sessions.
+        activeInvasions.values().removeIf(invaders -> {
             invaders.remove(playerId);
-        }
+            return invaders.isEmpty();
+        });
     }
 
     private static RelationType resolveRelation(Party claimParty, EntityPlayerMP player) {
@@ -124,7 +127,7 @@ public class ChunkTransitHandler {
 
     private static void sendNotifications(Party claimParty, EntityPlayerMP transitPlayer,
                                           RelationType relation, boolean entered) {
-        MessageChunkTransitNotify packet = new MessageChunkTransitNotify(
+        MessageClientNotify packet = MessageClientNotify.chunkTransit(
                 transitPlayer.getName(), relation, entered);
 
         for (UUID memberId : claimParty.getMembers().keySet()) {

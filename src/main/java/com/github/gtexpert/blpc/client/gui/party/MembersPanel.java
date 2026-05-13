@@ -10,20 +10,18 @@ import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.PagedWidget;
-import com.cleanroommc.modularui.widgets.layout.Flow;
 
 import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.party.widget.LiveSearchableList;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
-import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
- * Member management panel (panel ID: {@value #PANEL_ID}).
- * <p>
- * MEMBER role: single members-only list with search (self-leave only, STANDARD size).
- * ADMIN+ role: two tabs (Members / Invite) with search per tab (LARGE size, mirrors SettingsPanel).
+ * Members list (panel ID: {@value #PANEL_ID}). MEMBER sees a single list;
+ * ADMIN+ sees Members + Invite tabs. Closes when the player loses the party
+ * or crosses the manage permission boundary (layouts differ).
  */
 public class MembersPanel {
 
@@ -33,44 +31,54 @@ public class MembersPanel {
         UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
         PartyRole myRole = party.getRole(playerId);
         boolean canManage = myRole != null && myRole.canInvite();
+        UUID partyId = party.getPartyId();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
+        PartyRole[] myRoleRef = { myRole };
+
+        LiveSearchableList<PlayerEntry> membersList = new LiveSearchableList<>(
+                entry -> createMemberRow(entry, partyId, playerId, myRoleRef[0], canManage),
+                entry -> entry.name,
+                "blpc.party.no_players_online");
+        LiveSearchableList<PlayerEntry> inviteList = canManage ? new LiveSearchableList<>(
+                entry -> createInviteRow(entry, partyId),
+                entry -> entry.name,
+                "blpc.party.no_players_online") : null;
 
         if (canManage) {
             panel.size(PartyWidgets.LARGE_W, PartyWidgets.LARGE_H);
             PartyWidgets.addHeader(panel, "blpc.party.members_title");
             PartyWidgets.addTabs(panel, new PagedWidget.Controller(),
                     new String[] { "blpc.party.tab.members", "blpc.party.tab.invite" },
-                    new IWidget[] { buildMembersPage(party, playerId, myRole, true), buildInvitePage(party) });
+                    new IWidget[] { membersList.buildContainer(), inviteList.buildContainer() });
         } else {
             panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
             PartyWidgets.addHeader(panel, "blpc.party.members_title");
-            // margin instead of left/right/top/bottom: Flow.column() pre-fills sizeRel(1f, 1f),
-            // adding START+END units would conflict with SIZE.
-            Flow content = buildMembersPage(party, playerId, myRole, false);
-            content.margin(8, 8, 22, 8);
-            panel.child(content);
+            // margin (not left/right/top/bottom): Flow.column already pre-fills sizeRel(1f, 1f).
+            panel.child(membersList.buildContainer().margin(8, 8, 22, 8));
         }
 
-        PartyWidgets.addSyncCloseListener(panel);
+        membersList.rebuild(collectMembers(party));
+        if (canManage) inviteList.rebuild(collectInvitableOnlinePlayers(party));
+
+        PartyWidgets.addSyncRefreshListener(panel, () -> {
+            Party fresh = ClientPartyCache.getParty(partyId);
+            if (fresh == null || !fresh.isMember(playerId)) {
+                PartyWidgets.closeIfTopMost(panel);
+                return;
+            }
+            PartyRole freshRole = fresh.getRole(playerId);
+            boolean freshCanManage = freshRole != null && freshRole.canInvite();
+            if (freshCanManage != canManage) {
+                PartyWidgets.closeIfTopMost(panel);
+                return;
+            }
+            myRoleRef[0] = freshRole;
+            membersList.rebuild(collectMembers(fresh));
+            if (freshCanManage) inviteList.rebuild(collectInvitableOnlinePlayers(fresh));
+        });
 
         return panel;
-    }
-
-    private static Flow buildMembersPage(Party party, UUID playerId, PartyRole myRole, boolean canManage) {
-        return PartyWidgets.buildSearchableList(
-                collectMembers(party),
-                entry -> createMemberRow(entry, party, playerId, myRole, canManage),
-                entry -> entry.name,
-                "blpc.party.no_players_online");
-    }
-
-    private static Flow buildInvitePage(Party party) {
-        return PartyWidgets.buildSearchableList(
-                collectInvitableOnlinePlayers(party),
-                entry -> createInviteRow(entry, party),
-                entry -> entry.name,
-                "blpc.party.no_players_online");
     }
 
     private static List<PlayerEntry> collectMembers(Party party) {
@@ -102,8 +110,8 @@ public class MembersPanel {
         return result;
     }
 
-    private static ButtonWidget<?> createMemberRow(PlayerEntry entry, Party party, UUID playerId,
-                                                   PartyRole myRole, boolean canManage) {
+    private static IWidget createMemberRow(PlayerEntry entry, UUID partyId, UUID playerId,
+                                           PartyRole myRole, boolean canManage) {
         int color = PartyWidgets.getRoleColor(entry.role);
         String label = PartyWidgets.formatMemberLabel(entry.name, entry.role);
         ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid, label, color);
@@ -115,27 +123,19 @@ public class MembersPanel {
                 myRole.canKick(entry.role);
         if (canSelfLeave || canKickOther) {
             String playerName = entry.name;
-            btn.onMousePressed(b -> {
-                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.kickOrLeave(playerName));
-                party.removeMember(entry.uuid);
-                ClientPartyCache.fireSyncListeners();
-                return true;
-            });
+            btn.onMousePressed(b -> PartyWidgets.sendAndApply(
+                    MessagePartyAction.kickOrLeave(playerName), partyId, p -> p.removeMember(entry.uuid)));
             btn.addTooltipLine(IKey.lang(canSelfLeave ? "blpc.party.tooltip.member_self" : "blpc.party.tooltip.kick"));
         }
 
         return btn;
     }
 
-    private static ButtonWidget<?> createInviteRow(PlayerEntry entry, Party party) {
+    private static IWidget createInviteRow(PlayerEntry entry, UUID partyId) {
         ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid, entry.name, GuiColors.GRAY_LIGHT);
         String playerName = entry.name;
-        btn.onMousePressed(b -> {
-            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.invite(playerName));
-            party.addInvite(entry.uuid, Long.MAX_VALUE);
-            ClientPartyCache.fireSyncListeners();
-            return true;
-        });
+        btn.onMousePressed(b -> PartyWidgets.sendAndApply(
+                MessagePartyAction.invite(playerName), partyId, p -> p.addInvite(entry.uuid, Long.MAX_VALUE)));
         btn.addTooltipLine(IKey.lang("blpc.party.tooltip.invite"));
         return btn;
     }

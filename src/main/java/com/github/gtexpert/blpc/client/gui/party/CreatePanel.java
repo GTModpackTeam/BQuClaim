@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import net.minecraft.client.Minecraft;
 
+import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
@@ -23,21 +25,19 @@ import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
- * Party creation panel (panel ID: {@value #PANEL_ID}).
- * <p>
- * Shown when the player has no party. Top area has a name input + Create button.
- * Below is a scrollable list of:
- * <ul>
- * <li>Parties that have invited the player (click to accept)</li>
- * <li>Free-to-join parties (click to join)</li>
- * </ul>
- * Hovering shows the party description if set.
+ * Create-or-join panel shown when the player has no party. Lists pending
+ * invites and free-to-join parties (full ones grayed). On join, transitions
+ * to {@link MainPanel} via {@code reopener} when supplied.
  */
 public class CreatePanel {
 
     public static final String PANEL_ID = "blpc.party.create";
 
     public static ModularPanel build() {
+        return build(null);
+    }
+
+    public static ModularPanel build(IPanelHandler reopener) {
         UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
@@ -50,7 +50,7 @@ public class CreatePanel {
             String name = fieldRef[0].getText().trim();
             if (!name.isEmpty()) {
                 ModNetwork.INSTANCE.sendToServer(MessagePartyAction.create(name));
-                panel.closeIfOpen();
+                transitionToMain(panel, reopener);
             }
         };
 
@@ -72,16 +72,42 @@ public class CreatePanel {
                             return true;
                         })));
 
-        List<PartyEntry> entries = collectAvailableParties(playerId);
-
-        panel.child(new ListWidget<>()
+        @SuppressWarnings("unchecked")
+        ListWidget<IWidget, ?> list = (ListWidget<IWidget, ?>) new ListWidget<>()
                 .left(8).right(8).top(44).bottom(8)
-                .crossAxisAlignment(Alignment.CrossAxis.START)
-                .children(entries, entry -> createPartyRow(entry, panel)));
+                .crossAxisAlignment(Alignment.CrossAxis.START);
+        panel.child(list);
 
-        PartyWidgets.addSyncCloseListener(panel);
+        rebuild(list, playerId, panel, reopener);
+
+        PartyWidgets.addSyncRefreshListener(panel, () -> {
+            if (ClientPartyCache.getPartyByPlayer(playerId) != null) {
+                transitionToMain(panel, reopener);
+                return;
+            }
+            rebuild(list, playerId, panel, reopener);
+        });
 
         return panel;
+    }
+
+    private static void transitionToMain(ModularPanel panel, IPanelHandler reopener) {
+        panel.closeIfOpen();
+        if (reopener != null) {
+            // Defer so close settles before the handler builds a fresh panel.
+            Minecraft.getMinecraft().addScheduledTask(() -> {
+                reopener.deleteCachedPanel();
+                reopener.openPanel();
+            });
+        }
+    }
+
+    private static void rebuild(ListWidget<IWidget, ?> list, UUID playerId, ModularPanel panel,
+                                IPanelHandler reopener) {
+        list.removeAll();
+        for (PartyEntry entry : collectAvailableParties(playerId)) {
+            list.child(createPartyRow(entry, panel, reopener));
+        }
     }
 
     private static List<PartyEntry> collectAvailableParties(UUID playerId) {
@@ -95,52 +121,60 @@ public class CreatePanel {
 
             if (invited || freeToJoin) {
                 String displayName = party.getName();
+                boolean full = !party.canAddMember();
                 result.add(new PartyEntry(party.getPartyId(), displayName,
-                        party.getDescription(), invited));
+                        party.getDescription(), invited, full));
             }
         }
 
         result.sort((a, b) -> {
             if (a.invited != b.invited) return a.invited ? -1 : 1;
+            // Available before full within each invited/non-invited bucket.
+            if (a.full != b.full) return a.full ? 1 : -1;
             return a.displayName.compareToIgnoreCase(b.displayName);
         });
         return result;
     }
 
-    private static ButtonWidget<?> createPartyRow(PartyEntry entry, ModularPanel panel) {
-        int color = entry.invited ? GuiColors.GREEN : GuiColors.GRAY_LIGHT;
-        String label = entry.invited ? entry.displayName + " [" + IKey.lang("blpc.party.invited_label").get() + "]" :
-                entry.displayName;
+    private static ButtonWidget<?> createPartyRow(PartyEntry entry, ModularPanel panel, IPanelHandler reopener) {
+        int color;
+        String label;
+        if (entry.full) {
+            color = GuiColors.GRAY;
+            label = entry.displayName + " [" + IKey.lang("blpc.toast.party_full").get() + "]";
+        } else if (entry.invited) {
+            color = GuiColors.GREEN;
+            label = entry.displayName + " [" + IKey.lang("blpc.party.invited_label").get() + "]";
+        } else {
+            color = GuiColors.GRAY_LIGHT;
+            label = entry.displayName;
+        }
 
         ButtonWidget<?> btn = new ButtonWidget<>();
         btn.widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0);
-        btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
+        if (!entry.full) {
+            btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
+        }
         btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
 
         if (!entry.description.isEmpty()) {
             btn.addTooltipLine(IKey.str(entry.description));
         }
-        if (entry.invited) {
+        if (entry.full) {
+            btn.addTooltipLine(IKey.lang("blpc.toast.party_full"));
+        } else if (entry.invited) {
             btn.addTooltipLine(IKey.lang("blpc.party.tooltip.accept_invite"));
         } else {
             btn.addTooltipLine(IKey.lang("blpc.party.tooltip.join_free"));
         }
 
+        if (entry.full) return btn;
+
         UUID partyId = entry.partyId;
-        btn.onMousePressed(b -> {
-            if (entry.invited) {
-                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.acceptInvite(partyId));
-            } else {
-                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.joinFreeParty(partyId));
-            }
-            UUID myId = Minecraft.getMinecraft().player.getUniqueID();
-            Party joinParty = ClientPartyCache.getParty(partyId);
-            if (joinParty != null) {
-                joinParty.addMember(myId, PartyRole.MEMBER);
-            }
-            ClientPartyCache.fireSyncListeners();
-            return true;
-        });
+        var action = entry.invited ? MessagePartyAction.acceptInvite(partyId) :
+                MessagePartyAction.joinFreeParty(partyId);
+        btn.onMousePressed(b -> PartyWidgets.sendAndApply(action, partyId,
+                p -> p.addMember(Minecraft.getMinecraft().player.getUniqueID(), PartyRole.MEMBER)));
 
         return btn;
     }
@@ -151,12 +185,14 @@ public class CreatePanel {
         final String displayName;
         final String description;
         final boolean invited;
+        final boolean full;
 
-        PartyEntry(UUID partyId, String displayName, String description, boolean invited) {
+        PartyEntry(UUID partyId, String displayName, String description, boolean invited, boolean full) {
             this.partyId = partyId;
             this.displayName = displayName;
             this.description = description;
             this.invited = invited;
+            this.full = full;
         }
     }
 }

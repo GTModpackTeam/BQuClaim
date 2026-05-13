@@ -178,7 +178,8 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countClaims(playerId);
                 if (used >= ModConfig.claims.maxClaimsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            new MessageClaimFailed("CLAIM_LIMIT", used, ModConfig.claims.maxClaimsPerPlayer),
+                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_CLAIM_LIMIT, used,
+                                    ModConfig.claims.maxClaimsPerPlayer),
                             player);
                     return true;
                 }
@@ -189,7 +190,8 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countClaims(playerId);
                 if (used >= ModConfig.claims.maxClaimsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            new MessageClaimFailed("CLAIM_LIMIT", used, ModConfig.claims.maxClaimsPerPlayer),
+                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_CLAIM_LIMIT, used,
+                                    ModConfig.claims.maxClaimsPerPlayer),
                             player);
                     return true;
                 }
@@ -197,7 +199,9 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countClaimsForParty(party.getPartyId());
                 int max = party.sumClaimLimit();
                 if (used >= max) {
-                    ModNetwork.INSTANCE.sendTo(new MessageClaimFailed("CLAIM_LIMIT", used, max), player);
+                    ModNetwork.INSTANCE.sendTo(
+                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_CLAIM_LIMIT, used, max),
+                            player);
                     return true;
                 }
             }
@@ -209,7 +213,7 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countForceLoads(playerId);
                 if (used >= ModConfig.claims.maxForceLoadsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            new MessageClaimFailed("FORCELOAD_LIMIT", used,
+                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_FORCELOAD_LIMIT, used,
                                     ModConfig.claims.maxForceLoadsPerPlayer),
                             player);
                     return true;
@@ -221,7 +225,7 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countForceLoads(playerId);
                 if (used >= ModConfig.claims.maxForceLoadsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            new MessageClaimFailed("FORCELOAD_LIMIT", used,
+                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_FORCELOAD_LIMIT, used,
                                     ModConfig.claims.maxForceLoadsPerPlayer),
                             player);
                     return true;
@@ -230,7 +234,9 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countForceLoadsForParty(party.getPartyId());
                 int max = party.sumForceLoadLimit();
                 if (used >= max) {
-                    ModNetwork.INSTANCE.sendTo(new MessageClaimFailed("FORCELOAD_LIMIT", used, max), player);
+                    ModNetwork.INSTANCE.sendTo(
+                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_FORCELOAD_LIMIT, used, max),
+                            player);
                     return true;
                 }
             }

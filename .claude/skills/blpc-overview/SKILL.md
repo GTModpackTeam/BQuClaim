@@ -66,11 +66,12 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 - **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
 - **`common/network/`** — IMessage contracts only (no client-only references):
   - C→S: `MessageClaimChunk` (with inner `Handler`), `MessagePartyAction` (POJO; handler split out — see below).
-  - S→C: `MessageSyncClaims`, `MessageSyncAllClaims`, `MessageSyncConfig`, `MessagePartySync`, `MessageChunkTransitNotify`, `MessagePartyEventNotify`, `MessageClaimFailed`. Each is a pure data container with getters; no inner `Handler`.
+  - S→C: `MessageSyncClaims`, `MessageSyncAllClaims`, `MessageSyncConfig`, `MessagePartySync`, `MessageClientNotify`. Each is a pure data container with getters; no inner `Handler`. `MessageClientNotify` is a discriminator-multiplexed packet that carries every transient client toast (chunk transit, party event, claim limit) through a single wire ID.
+  - `NbtMessage` — abstract base for messages whose entire payload is one `NBTTagCompound` (`data` field + getter + `readTag`/`writeTag`). `MessagePartySync` and `MessageSyncAllClaims` extend it; future NBT-payload messages should too.
   - `ModNetwork` — channel registration (side-aware). `NoOpHandler` — server-side fallback so S→C discriminators stay valid for outbound sends. `PlayerLoginHandler` — login sync.
-- **`common/network/party/`** — `PartyActionDispatcher` (server-side handler for `MessagePartyAction`; one private static method per action discriminator).
-- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per message: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ChunkTransitNotifyClientHandler`, `PartyEventNotifyClientHandler`, `ClaimFailedClientHandler`. `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
-- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, standalone widgets in `widget/` subpackage (`BLPCToast`), `MinimapHUD`, `KeyInputHandler` (keybind registration + input handling).
+- **`common/network/party/`** — `PartyActionDispatcher` (server-side handler for `MessagePartyAction`; one private static method per action discriminator; the `onAdminParty(c, Predicate<Party>)` helper wraps the ADMIN+ auth gate shared by ~8 simple settings actions).
+- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `MessageClientNotify.getKind()` to the matching `BLPCToast` builder). `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
+- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`) and `widget/` (`BLPCToast`), `MinimapHUD`, `KeyInputHandler` (keybind registration + input handling).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
 ## Network Layer Architecture
@@ -94,27 +95,49 @@ The network layer is split along the physical side boundary so that loading a cl
 | ID | Direction | Message | Handler |
 |---|---|---|---|
 | 0 | C→S | `MessageClaimChunk` | `MessageClaimChunk.Handler` |
-| 1 | C→S | `MessagePartyAction` | `PartyActionDispatcher` |
+| 1 | C→S | `MessagePartyAction` (multiplexed) | `PartyActionDispatcher` |
 | 2 | S→C | `MessageSyncClaims` | `SyncClaimsClientHandler` |
 | 3 | S→C | `MessageSyncAllClaims` | `SyncAllClaimsClientHandler` |
 | 4 | S→C | `MessageSyncConfig` | `SyncConfigClientHandler` |
 | 5 | S→C | `MessagePartySync` | `PartySyncClientHandler` |
-| 6 | S→C | `MessageChunkTransitNotify` | `ChunkTransitNotifyClientHandler` |
-| 7 | S→C | `MessagePartyEventNotify` | `PartyEventNotifyClientHandler` |
-| 8 | S→C | `MessageClaimFailed` | `ClaimFailedClientHandler` |
+| 6 | S→C | `MessageClientNotify` (multiplexed) | `ClientNotifyClientHandler` |
+
+### Discriminator-multiplexed packets (preferred for new operations)
+
+Two packets carry their own internal discriminator so adding new operations
+does not require a new top-level wire ID:
+
+- **`MessagePartyAction`** (C→S, ID 1) — `int action` + `String stringArg`. ~22 party operations.
+- **`MessageClientNotify`** (S→C, ID 6) — `int kind` + per-kind payload. Three kinds today (`KIND_CHUNK_TRANSIT`, `KIND_PARTY_EVENT`, `KIND_CLAIM_FAILED`) covering every BLPC toast.
+
+Append-only: existing constants are part of the on-wire format. Do not renumber.
 
 ### Adding a new network message
 
-- **C→S** — Define IMessage in `common/network/`, write the server handler (inner class is fine), append `INSTANCE.registerMessage(...)` in `ModNetwork.init()` before the S→C block.
-- **S→C** — Define IMessage in `common/network/` with **no `@SideOnly` types** referenced (use getters, not lambdas that capture `Minecraft`). Create the client handler in `client/network/<MessageName>ClientHandler.java` with `@SideOnly(Side.CLIENT)`. Append the message class to `ModNetwork.CLIENT_BOUND_MESSAGES` **and** the handler/message pair to `ClientPacketHandlers.installAll()` in the **same order** so server-side NoOp registration and client-side real registration share the same discriminator.
+- **New action / notification** (preferred) — append a constant to `MessagePartyAction` or `MessageClientNotify` and extend the corresponding `switch` (dispatcher / handler / `toBytes` / `fromBytes`). Neither `ModNetwork` nor `ClientPacketHandlers` changes.
+- **New top-level packet** (only for genuinely new message families) —
+  - **C→S** — Define IMessage in `common/network/`, write the server handler (inner class is fine), append `INSTANCE.registerMessage(...)` in `ModNetwork.init()` before the S→C block.
+  - **S→C** — Define IMessage in `common/network/` with **no `@SideOnly` types** referenced (use getters, not lambdas that capture `Minecraft`). Create the client handler in `client/network/<MessageName>ClientHandler.java` with `@SideOnly(Side.CLIENT)`. Append the message class to `ModNetwork.CLIENT_BOUND_MESSAGES` **and** the handler/message pair to `ClientPacketHandlers.installAll()` in the **same order** so server-side NoOp registration and client-side real registration share the same discriminator.
 
 ### MessagePartyAction action dispatch
 
 `MessagePartyAction` multiplexes ~22 party operations through an `int action` discriminator + `String stringArg`. The server-side `PartyActionDispatcher` has one private static method per `ACTION_*` constant. Per-request state (player, args, providers, BQu link state, deferred notifications) lives in a private `ActionContext` holder passed to each method.
 
-**Authorization invariant:** `playerBQuLinked` and `activeProvider` are re-derived from `PartyManagerData.isBQuLinked` on every request — never trusted from the client. Mutating actions go through `getAdminParty()` / `getOrCreateSelfParty()` which enforce role checks server-side.
+**Authorization invariant:** `playerBQuLinked` and `activeProvider` are re-derived from `PartyManagerData.isBQuLinked` on every request — never trusted from the client. Mutating actions go through `getAdminParty()` / `getOrCreateSelfParty()` which enforce role checks server-side. Simple settings actions wrap the ADMIN+ gate via `onAdminParty(c, Predicate<Party>)` — return `false` from the predicate to fail the action.
+
+**Failure → rollback:** `dispatch()` calls `provider.syncToAll()` on success; on failure it sends `provider.syncToPlayer(actor)` (a single-player sync) so the actor's optimistic UI mutation is corrected (`TOGGLE_BQU_LINK` is the exception — it broadcasts on failure too, since provider state may have drifted). `joinFreeParty` / `acceptInvite` also push an `EVENT_PARTY_FULL` or `EVENT_JOIN_FAILED` toast on their respective failure paths so a click is never silent.
 
 **Adding a new action:** append a new `ACTION_*` constant to `MessagePartyAction` (do **not** renumber existing ones — wire-protocol stability), add a static factory method, add a `case` arm in `PartyActionDispatcher.dispatch()`, and implement the corresponding private method.
+
+### MessageClientNotify kind dispatch
+
+`MessageClientNotify` multiplexes every transient client toast through an `int kind` discriminator. Top-level kinds carry their own payload fields; sub-discriminators (party event types, claim failure reasons) stay as strings for forward compatibility (newer clients/servers can ignore unknown sub-types without breaking the channel).
+
+`ClientNotifyClientHandler` switches on `kind` and delegates to the matching `BLPCToast` builder configuration (`fromTransit` / `fromPartyEvent` / `fromClaimFailed`).
+
+Party-event sub-types: `MEMBER_JOINED`, `MEMBER_LEFT`, `KICKED`, `DISBANDED`, `INVITE_RECEIVED`, `OWNER_TRANSFERRED`, `ROLE_CHANGED`, `BQU_LINKED`, `BQU_UNLINKED`, `PARTY_FULL`, `JOIN_FAILED`. The actor is excluded from their own "you joined" (`notifyPartyMembers(..., excludeId)`) and "you disbanded" toasts.
+
+**Adding a new kind:** append `KIND_*` to `MessageClientNotify`, add a static factory (e.g. `claimFailed(...)`), extend the `toBytes` / `fromBytes` `switch` with the new field layout, and add a `case` arm in `ClientNotifyClientHandler.buildToast`. No `ModNetwork` change required. New party-event sub-types only need a new `EVENT_*` constant + a `case` in `BLPCToast.Builder.fromPartyEvent` + a lang key.
 
 ## Data Persistence
 
@@ -171,7 +194,7 @@ The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Addition
 | Panel ID | File | Purpose |
 |---|---|---|
 | `blpc.party` | `MainPanel.java` | Party menu (uses `PartyMenuBuilder` for fluent menu composition) |
-| `blpc.party.create` | `CreatePanel.java` | Create party |
+| `blpc.party.create` | `CreatePanel.java` | Create-or-join (when no party): name input + pending-invite / free-to-join list |
 | `blpc.party.settings` | `SettingsPanel.java` | Protection settings, ally/enemy management |
 | `blpc.party.members` | `MembersPanel.java` | Member list |
 | `blpc.party.moderators` | `ModeratorsPanel.java` | Moderator promote/demote |
@@ -181,6 +204,10 @@ The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Addition
 | `blpc.party.dialog.description` | SettingsPanel (InputDialog) | Edit party description |
 
 Invite is handled inline in `MembersPanel` (direct `MessagePartyAction.invite()` call, no dialog). Ally/enemy management uses inline toggle buttons in SettingsPanel's trust party list (no separate dialog panels).
+
+`MainPanel.build` is called either by `MainPanel.build(playerId)` (no auto-transition) or `MainPanel.build(playerId, IPanelHandler reopener)` — `ChunkMapScreen` passes its `partyHandler` so `CreatePanel`, after a successful create/join, can re-invoke the factory and pop straight into `MainPanel` instead of just closing. Full free-to-join parties show grayed and inert in `CreatePanel` (visible but not clickable — the server would reject anyway).
+
+`MainPanel` pre-creates its 4 nav sub-panel handlers (Settings/Members/Moderators/Transfer) once per panel-open and reuses them across `rebuildMenu` calls — `IPanelHandler.simple` registers into `panel.clientSubPanels` with no removal API, so per-rebuild creation would leak. The handler closures re-read the party from cache by UUID (`PartyWidgets.livePartyRef`) so the sub-panel always opens against the current state.
 
 ## Color Conventions
 
@@ -220,100 +247,100 @@ For Minecraft formatting codes in tooltip strings, use `TextFormatting` enum con
 2. Client sends `MessagePartyAction.toggleBQuLink()` to server.
 3. Server verifies player is ADMIN+ and has a BQu party (for link). If rejected, `syncToAll()` is still called to roll back the optimistic update.
 4. On success, updates `PartyManagerData.bquLinkedPlayers` and persists via `BLPCSaveHandler`.
-5. `syncToAll()` broadcasts to all clients. Open panels close via `addSyncCloseListener`.
+5. `syncToAll()` broadcasts to all clients. Open panels stay mounted and rebuild their menus (live-update).
 
 **Disband** (`MessagePartyAction.disband()`):
 1. Server verifies player is OWNER (checks both BLPC and BQu roles when BQu-linked).
 2. Releases all chunk claims, removes party from `PartyManagerData`, clears BQu link flags.
-3. Persists and syncs.
-4. Client calls `PartyWidgets.clearLocalPartyData()` + `displayGuiScreen(null)` to close entire GUI immediately.
+3. Persists and syncs. The actor is excluded from the `DISBANDED` toast (they initiated it).
+4. Client (in the disband `ConfirmDialog`) calls `panel.closeIfOpen()` (cascades to sub-panels) + `PartyWidgets.clearLocalPartyData()`. `MainPanel`'s sync listener also closes on `getPartyByPlayer == null` for the other party members.
 
 ## MUI Widget Patterns
 
 | Widget | Usage | Notes |
 |---|---|---|
-| `CycleButtonWidget` + `IntValue.Dynamic` + `IKey.dynamic()` | Multi-state settings (trust levels) | `stateCount()` sets number of states; overlay label updates dynamically |
-| `ToggleButton` + `BoolValue.Dynamic` | Boolean settings (explosions, free-to-join) | `overlay(false, ...)` / `overlay(true, ...)` for state-dependent labels |
-| `ListWidget` | Scrollable lists (members, allies, enemies) | `children(iterable, mapper)` for data-driven population. Children should use `.widthRel(1f).height(h)` or `.height(h)` only — avoid fixed-pixel `.size(w, h)` as the ListWidget's `.left(n).right(n)` auto-stretches children. |
+| `CycleButtonWidget` + `IntValue.Dynamic` + `IKey.dynamic()` | Multi-state settings (trust levels), role MEMBER↔ADMIN cycle | `length()` sets number of states; `stateChild(i, ...)` per state; overlay/labels update dynamically |
+| `ToggleButton` + `BoolValue.Dynamic` | Boolean settings (explosions, free-to-join, BQu link) | `overlay(false, ...)` / `overlay(true, ...)` for state-dependent labels |
+| `ListWidget` + `LiveSearchableList` | Scrollable lists (members, invites, roles, allies, enemies) | For live-update panels use `LiveSearchableList<T>` (search box + parallel `rows`/`searchNames` arrays + `rebuild(Collection<T>)`). Row widgets use `.widthRel(1f).height(h)` — avoid fixed `.size(w, h)`. |
 | `Dialog<T>` | Modal confirmations (disband, map bulk actions) | `closeWith(result)` triggers the result consumer and closes; extends `ModularPanel` |
-| `Flow.col()` / `Flow.row()` | Automatic vertical/horizontal layout | `childPadding(n)` for spacing; eliminates manual `y += ROW_H` positioning |
+| `Flow.col()` / `Flow.row()` | Automatic vertical/horizontal layout | `childPadding(n)` for spacing; `PartyWidgets.faceRow(uuid, label)` for the recurring face-icon + label row |
+| `IKey.dynamic` / `*Value.Dynamic` / `setEnabledIf(w -> ...)` | Per-frame reactive state | Refresh visible values/visibility without rebuilding the widget tree — preferred over re-creating widgets |
 
 For ModularUI API details, consult the ModularUI source code at `/mnt/data/git/ModularUI`. Text input fields use `setMaxLength(32)` for user-facing name inputs (party name, player name).
 
 ## Client-Side Sync Pattern
 
-Party panels receive real-time updates via `ClientPartyCache.loadFromNBT()` (triggered by `MessagePartySync` from server). Listeners are fired **immediately** when new data arrives — no tick-based coalescing.
+Party panels receive real-time updates via `ClientPartyCache.loadFromNBT()` (triggered by `MessagePartySync` from server). Listeners are fired **immediately** when new data arrives — no tick-based coalescing. **`loadFromNBT` replaces every `Party` instance** in the cache, so a captured `Party` reference goes stale at once — read fresh via `ClientPartyCache.getParty(partyId)` or `PartyWidgets.livePartyRef(partyId, fallback)`.
 
-`ClientPartyCache.fireSyncListeners()` can also be called directly for optimistic UI updates (e.g., after `PartyWidgets.setLocalBQuLinked()` or `clearLocalPartyData()`).
+`ClientPartyCache.fireSyncListeners()` can also be called directly for optimistic UI updates (e.g., after `PartyWidgets.setLocalBQuLinked()`, `clearLocalPartyData()`, or `PartyWidgets.sendAndApply(...)`).
 
-**Registration pattern** — use `PartyWidgets.addSyncCloseListener(panel)`:
+**Live-update is the default** (Clayium-style). Panels stay mounted across server syncs; their dynamic regions (member lists, invite lists, role buttons) rebuild in place. Use `PartyWidgets.addSyncRefreshListener(panel, onSync)`:
 
 ```java
-// Registers a sync listener that closes the panel when server data changes.
-// The listener is automatically removed when the panel closes.
-PartyWidgets.addSyncCloseListener(panel);
+PartyWidgets.addSyncRefreshListener(panel, () -> {
+    Party fresh = ClientPartyCache.getParty(partyId);
+    if (fresh == null /* or other structural change */) {
+        PartyWidgets.closeIfTopMost(panel);   // structural change → close (closeIfOpen() if party-gone affects parents too)
+        return;
+    }
+    liveList.rebuild(collectRows(fresh));      // data change → repopulate
+});
 ```
 
-Panels are not reopened automatically to avoid MUI handler conflicts. The user reopens via the P button, which always creates a fresh handler.
+The callback runs on the next client tick (deferred via `addScheduledTask`) to avoid mutating the widget tree from inside a click handler that just optimistically called `fireSyncListeners()`. The listener is auto-removed on panel close.
 
-**Panels with sync listeners:**
+**`LiveSearchableList<T>`** (`client/gui/party/widget/`) wraps the search-box + list + parallel `rows`/`searchNames` + filter pattern. `buildContainer()` returns the search-box-over-list `Flow`; `rebuild(Collection<T>)` repopulates rows in place (the search box widget itself survives, preserving the active filter). Constructor: `(rowFactory, nameExtractor, emptyStateKey)` — empty key may be `null`.
 
-| Panel | Helper | Behavior on sync |
-|---|---|---|
-| `MainPanel` | `addSyncCloseListener` | Close panel |
-| `SettingsPanel` | (no sync listener) | Stateful tabbed UI — no auto-close |
-| `MembersPanel` | `addSyncCloseListener` | Close panel |
-| `ModeratorsPanel` | `addSyncCloseListener` | Close panel |
-| `CreatePanel` | `addSyncCloseListener` | Close panel |
-| `TransferOwnerDialog` | `addSyncCloseListener` | Close dialog |
+**Per-frame value bindings** (`IKey.dynamic`, `BoolValue.Dynamic`, `IntValue.Dynamic`) refresh visible state without any rebuild — use them for titles, toggle states, role colors, etc. `setEnabledIf(w -> ...)` toggles widget visibility per-frame (e.g. `MainPanel`'s disband button on ownership change). `SettingsPanel` relies entirely on these (read through `PartyWidgets.livePartyRef`) — its sync listener only closes when the party disappears.
 
-**Panels without sync listeners**: `SettingsPanel` (uses `IPanelHandler` for dialogs), inline `ConfirmDialog`/`InputDialog` instances
+**Optimistic mutation helper:** `PartyWidgets.sendAndApply(IMessage action, UUID partyId, Consumer<Party> optimistic)` sends the action, applies the mutation to the live cache instance, fires sync listeners, returns `true` — use directly as an `onMousePressed` body.
+
+**Panels with sync listeners (live-update via `addSyncRefreshListener`):**
+
+| Panel | Behavior on sync |
+|---|---|
+| `MainPanel` | Party gone → `panel.closeIfOpen()` (cascades to sub-panels); else `rebuildMenu` |
+| `MembersPanel` | Party gone / not a member / manage-permission flipped → `closeIfTopMost`; else rebuild member + invite `LiveSearchableList`s |
+| `ModeratorsPanel` | Party gone / not a member → `closeIfTopMost`; else refresh `isOwner` ref + rebuild row list |
+| `CreatePanel` | Now in a party → `transitionToMain` (close + reopener.openPanel); else rebuild invite/free-to-join list |
+| `TransferOwnerDialog` | Party gone / no longer OWNER → `closeIfTopMost`; else rebuild member list |
+| `SettingsPanel` | Party gone → `closeIfTopMost`; otherwise no rebuild — `livePartyRef` keeps values current |
+
+**Panels without sync listeners**: inline `ConfirmDialog` / `InputDialog` instances.
 
 ## UI Reusable Templates
 
-### Dialog Templates (`client/gui/party/widget/`)
+### Reusable widgets (`client/gui/party/widget/`)
 
-- **`ConfirmDialog`** — Yes/No confirmation dialog (`Dialog<Boolean>`). Default size: `PartyWidgets.DIALOG_W x DIALOG_H` (220x70). Used by: MainPanel (disband), ChunkMapScreen.
-- **`InputDialog`** — Text field + submit dialog (`Dialog<Void>`). Default size: 220x70. Used by: SettingsPanel (invite, rename, description).
+- **`ConfirmDialog`** — Yes/No confirmation (`Dialog<Boolean>`). Default 220×70. Used by: `MainPanel` (disband), `ChunkMapScreen`.
+- **`InputDialog`** — Text field + submit (`Dialog<Void>`). Default 220×70. Used by: `SettingsPanel` (rename, description).
+- **`LiveSearchableList<T>`** — search box + list + parallel filter arrays; `buildContainer()` + `rebuild(Collection<T>)`. Used by: `MembersPanel`, `ModeratorsPanel`.
 
-All dialog templates use a consistent width of 220px. Custom sizing available via `.size(w, h)`.
+Dialogs use a consistent 220px width; custom sizing via `.size(w, h)`.
 
-### Panel Infrastructure (`client/gui/party/`)
+### `PartyMenuBuilder` (`client/gui/party/`)
 
-- **`PartyWidgets`** — Central utility class consolidating size constants, layout helpers, and shared utilities:
-  - Size constants: `STANDARD_W/H` (220x180), `LARGE_W/H` (260x220), `DIALOG_W/H` (220x70), `BTN_H` (18), `FACE_SIZE` (8).
-  - `addHeader(panel, titleKey)` — centered title (WHITE, shadow) + close button
-  - `addHeader(panel, IKey)` — IKey variant for dynamic titles
-  - `addList(panel, list)` — positions list widget (top=22, padded)
-- **`PartyMenuBuilder`** — Fluent builder for composing the party main menu. GregTech-style two-phase pattern:
-  - `PartyMenuBuilder.of(panel, party, playerId)` creates context
-  - `.nav(langKey, PanelClass::build)` — navigation entry with `Function<Party, ModularPanel>` factory (method references)
-  - `.widget(widget)` — raw widget injection (toggle buttons, etc.)
-  - `.tooltip(langKey)` / `.visible(predicate)` — modifiers on the current entry
-  - `.buildInto(listWidget)` — materializes all entries into a `ListWidget`
-  - Inner class `MenuContext` provides convenience predicates: `canInvite()`, `isOwner()`, `bquAvailable()`
+Fluent builder for the party main menu. Accumulate entries, then `buildInto(ListWidget)`:
+- `PartyMenuBuilder.of(panel, party, playerId)` — create with a `MenuContext` snapshot
+- `.navHandler(langKey, IPanelHandler)` — nav entry that opens a **pre-created** handler (preferred when the menu is rebuilt across syncs — avoids `clientSubPanels` leak)
+- `.nav(langKey, Function<Party, ModularPanel>)` — nav entry that builds a fresh sub-panel via the factory on each click (legacy/standalone path)
+- `.widget(IWidget)` — raw widget injection (toggle buttons, etc.)
+- `.tooltip(langKey)` / `.visible(Predicate<MenuContext>)` — modifiers on the current entry; `.visible(...)` skips the entry when the predicate is false (used in place of `if` blocks for conditional widgets)
+- `.buildInto(ListWidget)` — materializes all entries
+- `MenuContext` exposes `canInvite()`, `isOwner()`, `bquAvailable()` (and package-private `party()` / `panel()`)
 
-**Allies/Enemies Management**: Handled directly in SettingsPanel via inline ListWidget. Uses party selection dialogs for adding allies/enemies.
+**Allies/Enemies Management**: handled directly in `SettingsPanel` via inline trust lists (no separate dialog panels).
 
 ### Shared Utilities
 
-Shared color constants in `client/gui/GuiColors`:
-- `WHITE`, `GOLD`, `GREEN`, `RED`, `GRAY`, `GRAY_LIGHT` — ARGB constants matching Minecraft TextFormatting palette
+Color constants in `client/gui/GuiColors`: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRAY`, `GRAY_LIGHT`, `HOVER`, `DIVIDER` — ARGB.
 
-Shared utilities in `client/gui/party/PartyWidgets` (also consolidates former `PanelSizes` and `PanelBuilder`):
-- Size constants: `STANDARD_W/H`, `LARGE_W/H`, `DIALOG_W/H`, `BTN_H`, `FACE_SIZE`
-- `addHeader(panel, titleKey)` / `addHeader(panel, IKey)` — centered title + close button
-- `addList(panel, list)` — positions list widget (top=22, padded)
-- `getDisplayName(UUID)` — resolve player UUID to display name
-- `getRoleColor(PartyRole)` — ARGB color for party role (OWNER=gold, ADMIN=green, default=white)
-- `addSyncCloseListener(ModularPanel panel)` — register sync listener that closes panel on data change (auto-removed on close)
-- `setLocalBQuLinked(boolean linked)` — optimistic BQu link flag update for current player
-- `clearLocalPartyData()` — optimistic cache clear after disband
-- `createActionButton(IKey label, String actionName, Runnable action)` — button with click handler
-- `createPlayerRow(UUID uuid, String label, int color)` — standard player-row button with face icon
-- `createEnterSubmitTextField(Runnable onSubmit)` — text field that submits on Enter key press
-- `formatMemberLabel(String name, PartyRole role)` — format "Name [Role]" label
-- `wrapWithSearchBox(ListWidget, List<IWidget>, List<String>)` — search-filterable list wrapper
+`client/gui/party/PartyWidgets` (consolidates former `PanelSizes` / `PanelBuilder`):
+- **Size constants** — `STANDARD_W/H` (220×180), `LARGE_W/H` (260×220), `DIALOG_W/H` (220×70), `BTN_H` (18), `FACE_SIZE` (8), `TAB_H` (16)
+- **Layout** — `addHeader(panel, titleKey | IKey)`, `addList(panel, list)`, `addTabs(panel, controller, labelKeys, pages)` / `buildInnerTabs(labelKeys, pages)`, `wrapWithSearchBox(list, widgets, searchNames)` / `finalizeSearchableList(list, widgets, searchNames, emptyKey)`, `emptyStateRow(langKey)`, `faceRow(uuid, IKey)`
+- **Widgets** — `createPlayerRow(uuid, label, color)`, `dialogButton(IKey label, IPanelHandler)`, `createEnterSubmitTextField(onSubmit)`
+- **Data/format** — `getDisplayName(UUID)`, `getRoleColor(PartyRole)`, `formatMemberLabel(name, role)`
+- **Live-update plumbing** — `addSyncRefreshListener(panel, onSync)`, `closeIfTopMost(panel)`, `livePartyRef(partyId, fallback) → Supplier<Party>`, `sendAndApply(IMessage, partyId, Consumer<Party>) → boolean`, `setLocalBQuLinked(boolean)`, `clearLocalPartyData()`
 
 ## Commands
 
@@ -390,11 +417,9 @@ Players receive **toast notifications** when entering/leaving claimed chunks, an
 ### Classes
 
 - **`common/party/RelationType`** — Enum: `MEMBER`, `ALLY`, `ENEMY`, `NONE`.
-- **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `MessageChunkTransitNotify`, and applies area effects.
-- **`common/network/MessageChunkTransitNotify`** — S→C packet. Serializes relation as `name()` string (not ordinal) for forward compatibility. Handler: `client/network/ChunkTransitNotifyClientHandler`.
+- **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `MessageClientNotify.chunkTransit(...)`, and applies area effects.
+- **`common/network/MessageClientNotify`** — multiplexed S→C packet for every client toast. `KIND_CHUNK_TRANSIT` carries player name + relation (`name()` string for forward compatibility) + entered flag. `KIND_PARTY_EVENT` carries event type string (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink) + player name + extra info. `KIND_CLAIM_FAILED` carries reason + current/max counts. Handler: `client/network/ClientNotifyClientHandler`.
 - **`client/gui/widget/BLPCToast`** — `IToast` implementation with Builder pattern. Factory methods: `fromTransit()` (chunk entry/exit), `fromPartyEvent()` (party events), `fromClaimFailed()` (claim limit errors). Only loaded on the physical client — never reachable from server-side bytecode.
-- **`common/network/MessagePartyEventNotify`** — S→C packet for party events (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink). Handler: `client/network/PartyEventNotifyClientHandler`.
-- **`common/network/MessageClaimFailed`** — S→C packet for claim/force-load limit errors. Handler: `client/network/ClaimFailedClientHandler`.
 
 ### Notification Messages
 

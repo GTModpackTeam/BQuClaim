@@ -203,6 +203,7 @@ blpc.toast.role_changed=あなたのロールが%sに変更されました
 blpc.toast.bqu_linked=BQuパーティ管理と連携しました
 blpc.toast.bqu_unlinked=BQu連携を解除しました
 blpc.toast.party_full=パーティが満員です
+blpc.toast.join_failed=パーティに参加できませんでした
 
 # クレーム失敗通知
 blpc.toast.claim_limit=確保上限に達しました (%d/%d)

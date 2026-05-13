@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.BoolValue;
@@ -21,27 +22,22 @@ import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
- * Main party menu panel (panel ID: {@value #PANEL_ID}).
- * <p>
- * Entry point for all party management. Conditionally shows buttons
- * based on the player's role and BQu link status:
- * <ul>
- * <li>Settings (includes allies/enemies management) - ADMIN+ only</li>
- * <li>Members, Moderators - always shown</li>
- * <li>Transfer Ownership - OWNER only</li>
- * <li>Open BQu Party Screen - shown when BQu-linked</li>
- * <li>Link/Unlink BQu toggle - ADMIN+ only, shown when BQu available</li>
- * <li>Disband - OWNER only, bottom-pinned</li>
- * </ul>
- * If the player has no party, delegates to {@link CreatePanel}.
+ * Party main menu (panel ID: {@value #PANEL_ID}). Falls back to
+ * {@link CreatePanel} when the player has no party.
  */
 public class MainPanel {
 
     public static final String PANEL_ID = "blpc.party";
 
     public static ModularPanel build(UUID playerId) {
+        return build(playerId, null);
+    }
+
+    /** {@code reopener} (nullable) re-invokes the parent factory after a join. */
+    public static ModularPanel build(UUID playerId, IPanelHandler reopener) {
         Party party = ClientPartyCache.getPartyByPlayer(playerId);
         boolean bquLinked = ClientPartyCache.isBQuLinked(playerId);
 
@@ -50,13 +46,18 @@ public class MainPanel {
         }
 
         if (party == null) {
-            return CreatePanel.build();
+            return CreatePanel.build(reopener);
         }
+
+        UUID partyId = party.getPartyId();
 
         ModularPanel panel = new ModularPanel(PANEL_ID);
         panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
-        panel.child(new ScrollingTextWidget(IKey.dynamic(party::getName))
+        panel.child(new ScrollingTextWidget(IKey.dynamic(() -> {
+            Party p = ClientPartyCache.getParty(partyId);
+            return p != null ? p.getName() : "";
+        }))
                 .color(GuiColors.WHITE).shadow(true)
                 .alignment(Alignment.Center).left(0).right(20).top(8).height(10));
         panel.child(ButtonWidget.panelCloseButton());
@@ -65,88 +66,128 @@ public class MainPanel {
         ListWidget menuList = new ListWidget();
         menuList.left(8).right(8).top(26).bottom(26);
         menuList.crossAxisAlignment(Alignment.CrossAxis.START);
+        panel.child(menuList);
+
+        // Cache nav handlers for the panel's lifetime — IPanelHandler.simple registers
+        // into panel.clientSubPanels with no removal API, so per-rebuild creation leaks.
+        var partyRef = PartyWidgets.livePartyRef(partyId, party);
+        NavHandlers nav = new NavHandlers(
+                IPanelHandler.simple(panel, (pp, p) -> SettingsPanel.build(partyRef.get()), true),
+                IPanelHandler.simple(panel, (pp, p) -> MembersPanel.build(partyRef.get()), true),
+                IPanelHandler.simple(panel, (pp, p) -> ModeratorsPanel.build(partyRef.get()), true),
+                IPanelHandler.simple(panel, (pp, p) -> TransferOwnerDialog.build(partyRef.get()), true));
+
+        rebuildMenu(menuList, panel, partyId, playerId, nav);
+
+        IPanelHandler disbandHandler = IPanelHandler.simple(
+                panel, (pp, player) -> ConfirmDialog.builder("blpc.party.dialog.disband")
+                        .title("blpc.party.disband_confirm_title")
+                        .message("blpc.party.disband_confirm_msg")
+                        .yesLabel("blpc.party.disband_yes")
+                        .noLabel("blpc.party.disband_no")
+                        .closeParent(false)
+                        .onConfirm(() -> {
+                            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.disband());
+                            panel.closeIfOpen();
+                            PartyWidgets.clearLocalPartyData();
+                        })
+                        .build(panel),
+                true);
+        panel.child(PartyWidgets.dialogButton(IKey.lang("blpc.party.disband"), disbandHandler)
+                .size(50, 16).pos(PartyWidgets.STANDARD_W - 58, PartyWidgets.STANDARD_H - 24)
+                .setEnabledIf(w -> isOwner(partyId, playerId)));
+
+        PartyWidgets.addSyncRefreshListener(panel, () -> {
+            // Party gone: cascade-close sub-panels too.
+            if (ClientPartyCache.getPartyByPlayer(playerId) == null) {
+                panel.closeIfOpen();
+                return;
+            }
+            rebuildMenu(menuList, panel, partyId, playerId, nav);
+        });
+
+        return panel;
+    }
+
+    private static boolean isOwner(UUID partyId, UUID playerId) {
+        Party p = ClientPartyCache.getParty(partyId);
+        return p != null && p.getRole(playerId) == PartyRole.OWNER;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static void rebuildMenu(ListWidget menuList, ModularPanel panel, UUID partyId,
+                                    UUID playerId, NavHandlers nav) {
+        menuList.removeAll();
+
+        Party party = ClientPartyCache.getParty(partyId);
+        if (party == null) return;
 
         var builder = PartyMenuBuilder.of(panel, party, playerId);
 
-        builder.nav("blpc.party.settings", SettingsPanel::build)
+        builder.navHandler("blpc.party.settings", nav.settings)
                 .tooltip("blpc.party.tooltip.settings")
                 .visible(PartyMenuBuilder.MenuContext::canInvite)
-                .nav("blpc.party.members", MembersPanel::build)
+                .navHandler("blpc.party.members", nav.members)
                 .tooltip("blpc.party.tooltip.members")
-                .nav("blpc.party.moderators", ModeratorsPanel::build)
+                .navHandler("blpc.party.moderators", nav.moderators)
                 .tooltip("blpc.party.tooltip.moderators")
-                .nav("blpc.party.transfer", TransferOwnerDialog::build)
+                .navHandler("blpc.party.transfer", nav.transfer)
                 .tooltip("blpc.party.tooltip.transfer")
-                .visible(PartyMenuBuilder.MenuContext::isOwner);
+                .visible(PartyMenuBuilder.MenuContext::isOwner)
+                .widget(buildOpenNativeButton(panel, playerId))
+                .visible(PartyMenuBuilder.MenuContext::bquAvailable)
+                .widget(buildBquToggle(playerId))
+                .visible(c -> c.bquAvailable() && c.canInvite())
+                .buildInto(menuList);
+    }
 
-        var ctx = builder.context();
+    private static IWidget buildOpenNativeButton(ModularPanel panel, UUID playerId) {
+        return new ButtonWidget<>().widthRel(1f).height(PartyWidgets.BTN_H)
+                .padding(4, 0, 0, 0)
+                .overlay(IKey.lang("blpc.party.open_native").alignment(Alignment.CenterLeft))
+                .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
+                .setEnabledIf(w -> ClientPartyCache.isBQuLinked(playerId))
+                .onMousePressed(btn -> {
+                    panel.closeIfOpen();
+                    Minecraft.getMinecraft().addScheduledTask(PartyProviderRegistry::openNativeScreen);
+                    return true;
+                });
+    }
 
-        if (ctx.bquAvailable()) {
-            builder.widget((ButtonWidget<?>) new ButtonWidget<>().widthRel(1f).height(PartyWidgets.BTN_H)
-                    .padding(4, 0, 0, 0)
-                    .overlay(IKey.lang("blpc.party.open_native").alignment(Alignment.CenterLeft))
-                    .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
-                    .setEnabledIf(w -> ClientPartyCache.isBQuLinked(playerId))
-                    .onMousePressed(btn -> {
-                        panel.closeIfOpen();
-                        Minecraft.getMinecraft().addScheduledTask(PartyProviderRegistry::openNativeScreen);
-                        return true;
-                    }));
+    private static IWidget buildBquToggle(UUID playerId) {
+        return new ToggleButton()
+                .widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0)
+                .value(new BoolValue.Dynamic(
+                        () -> ClientPartyCache.isBQuLinked(playerId),
+                        val -> {
+                            PartyWidgets.setLocalBQuLinked(val);
+                            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(val));
+                        }))
+                .overlay(false, IKey.lang("blpc.party.link_bqu").alignment(Alignment.CenterLeft))
+                .overlay(true, IKey.lang("blpc.party.unlink_bqu").alignment(Alignment.CenterLeft))
+                .addTooltipLine(IKey.lang("blpc.party.tooltip.link_bqu"))
+                .addTooltipLine(IKey.dynamicKey(() -> {
+                    Party myParty = ClientPartyCache.getPartyByPlayer(playerId);
+                    if (myParty == null) {
+                        return IKey.lang("blpc.party.tooltip.bqu_no_party").color(GuiColors.RED);
+                    }
+                    String ownerName = myParty.getOwner() != null ?
+                            PartyWidgets.getDisplayName(myParty.getOwner()) : "?";
+                    return IKey.str(IKey.lang("blpc.party.tooltip.bqu_party_info").get() + ": " +
+                            myParty.getName() + " (" + ownerName + ")").color(GuiColors.GRAY);
+                }));
+    }
+
+    private static final class NavHandlers {
+
+        final IPanelHandler settings, members, moderators, transfer;
+
+        NavHandlers(IPanelHandler settings, IPanelHandler members,
+                    IPanelHandler moderators, IPanelHandler transfer) {
+            this.settings = settings;
+            this.members = members;
+            this.moderators = moderators;
+            this.transfer = transfer;
         }
-
-        if (ctx.bquAvailable() && ctx.canInvite()) {
-            builder.widget(new ToggleButton()
-                    .widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0)
-                    .value(new BoolValue.Dynamic(
-                            () -> ClientPartyCache.isBQuLinked(playerId),
-                            val -> {
-                                PartyWidgets.setLocalBQuLinked(val);
-                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(val));
-                            }))
-                    .overlay(false, IKey.lang("blpc.party.link_bqu").alignment(Alignment.CenterLeft))
-                    .overlay(true, IKey.lang("blpc.party.unlink_bqu").alignment(Alignment.CenterLeft))
-                    .addTooltipLine(IKey.lang("blpc.party.tooltip.link_bqu"))
-                    .addTooltipLine(IKey.dynamicKey(() -> {
-                        Party myParty = ClientPartyCache.getPartyByPlayer(playerId);
-                        if (myParty == null) {
-                            return IKey.lang("blpc.party.tooltip.bqu_no_party").color(GuiColors.RED);
-                        }
-                        String ownerName = myParty.getOwner() != null ?
-                                PartyWidgets.getDisplayName(myParty.getOwner()) : "?";
-                        return IKey.str(IKey.lang("blpc.party.tooltip.bqu_party_info").get() + ": " +
-                                myParty.getName() + " (" + ownerName + ")").color(GuiColors.GRAY);
-                    })));
-        }
-
-        builder.buildInto(menuList);
-        panel.child(menuList);
-
-        if (ctx.isOwner()) {
-            IPanelHandler disbandHandler = IPanelHandler.simple(
-                    panel, (pp, player) -> ConfirmDialog.builder("blpc.party.dialog.disband")
-                            .title("blpc.party.disband_confirm_title")
-                            .message("blpc.party.disband_confirm_msg")
-                            .yesLabel("blpc.party.disband_yes")
-                            .noLabel("blpc.party.disband_no")
-                            .closeParent(false)
-                            .onConfirm(() -> {
-                                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.disband());
-                                panel.closeIfOpen();
-                                PartyWidgets.clearLocalPartyData();
-                            })
-                            .build(panel),
-                    true);
-            panel.child(PartyWidgets.createActionButton(
-                    IKey.lang("blpc.party.disband"), "Open Disband dialog",
-                    () -> {
-                        disbandHandler.deleteCachedPanel();
-                        disbandHandler.openPanel();
-                    })
-                    .size(50, 16).pos(PartyWidgets.STANDARD_W - 58, PartyWidgets.STANDARD_H - 24));
-        }
-
-        PartyWidgets.addSyncCloseListener(panel);
-
-        return panel;
     }
 }

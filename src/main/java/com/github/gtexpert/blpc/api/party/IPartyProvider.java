@@ -8,6 +8,9 @@ import javax.annotation.Nullable;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 
+import com.github.gtexpert.blpc.common.network.MessagePartySync;
+import com.github.gtexpert.blpc.common.network.ModNetwork;
+
 /**
  * Service Provider Interface for party management.
  * <p>
@@ -69,6 +72,16 @@ public interface IPartyProvider {
 
     /** Syncs party data to all connected clients after mutations. */
     void syncToAll();
+
+    /**
+     * Sends the current authoritative party snapshot to a single player.
+     * Used to roll back optimistic client mutations when an action is rejected
+     * server-side — broadcasting via {@link #syncToAll} would be wasteful when
+     * only the actor's local cache is divergent.
+     */
+    default void syncToPlayer(EntityPlayerMP player) {
+        ModNetwork.INSTANCE.sendTo(new MessagePartySync(serializeForClient()), player);
+    }
 
     /** Returns NBT data representing all parties for client-side cache. */
     NBTTagCompound serializeForClient();

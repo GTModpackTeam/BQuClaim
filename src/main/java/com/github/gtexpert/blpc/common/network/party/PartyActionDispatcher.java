@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
@@ -18,8 +19,8 @@ import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
+import com.github.gtexpert.blpc.common.network.MessageClientNotify;
 import com.github.gtexpert.blpc.common.network.MessagePartyAction;
-import com.github.gtexpert.blpc.common.network.MessagePartyEventNotify;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
 import com.github.gtexpert.blpc.common.party.Party;
@@ -85,16 +86,21 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             default -> false;
         };
 
-        // BQu link toggle always pushes a sync even when the toggle short-circuited,
-        // because the provider state may have shifted underneath us.
-        if (success || msg.getAction() == MessagePartyAction.ACTION_TOGGLE_BQU_LINK) {
-            c.provider.syncToAll();
-        }
         if (success) {
+            c.provider.syncToAll();
             BLPCSaveHandler.INSTANCE.markDirty();
             for (Runnable notification : c.pendingNotifications) {
                 notification.run();
             }
+        } else if (msg.getAction() == MessagePartyAction.ACTION_TOGGLE_BQU_LINK) {
+            // BQu link toggle on failure may indicate provider drift — broadcast.
+            c.provider.syncToAll();
+        } else {
+            // Roll back the actor's optimistic client mutation. Without this,
+            // failures like joinFreeParty(party-full), acceptInvite(expired),
+            // or kickOrLeave(role-mismatch) leave the client cache divergent
+            // until some other action triggers a broadcast sync.
+            c.provider.syncToPlayer(player);
         }
     }
 
@@ -108,10 +114,9 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
     }
 
     private static boolean disbandParty(ActionContext c) {
-        getOrCreateSelfParty(c.player, c.provider);
-        PartyManagerData pm = PartyManagerData.getInstance();
-        Party party = pm.getPartyByPlayer(c.player.getUniqueID());
+        Party party = getOrCreateSelfParty(c.player, c.provider);
         if (party == null) return false;
+        PartyManagerData pm = PartyManagerData.getInstance();
 
         PartyRole role = party.getRole(c.player.getUniqueID());
         boolean isOwnerOrOp = (role == PartyRole.OWNER) || c.player.canUseCommand(2, "");
@@ -135,11 +140,13 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             pm.setBQuLinked(memberId, false);
         }
         MinecraftServer srv = c.player.getServer();
+        UUID actorId = c.player.getUniqueID();
         c.pendingNotifications.add(() -> {
             for (UUID memberId : members) {
+                if (memberId.equals(actorId)) continue;
                 EntityPlayerMP member = srv != null ? srv.getPlayerList().getPlayerByUUID(memberId) : null;
                 if (member != null) {
-                    notifyPlayer(member, MessagePartyEventNotify.DISBANDED, "", "");
+                    notifyPlayer(member, MessageClientNotify.EVENT_DISBANDED, "", "");
                 }
             }
         });
@@ -156,7 +163,7 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
     private static boolean invitePlayer(ActionContext c) {
         Party inviterParty = PartyManagerData.getInstance().getPartyByPlayer(c.player.getUniqueID());
         if (inviterParty != null && !inviterParty.canAddMember()) {
-            notifyPlayer(c.player, MessagePartyEventNotify.PARTY_FULL, "", "");
+            notifyPlayer(c.player, MessageClientNotify.EVENT_PARTY_FULL, "", "");
             return false;
         }
         if (!c.activeProvider.invitePlayer(c.player, c.stringArg)) return false;
@@ -169,7 +176,7 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
                 String partyName = party != null ? party.getName() : c.provider.getPartyName(c.player.getUniqueID());
                 String resolvedPartyName = partyName != null ? partyName : "";
                 String inviterName = c.player.getName();
-                c.pendingNotifications.add(() -> notifyPlayer(target, MessagePartyEventNotify.INVITE_RECEIVED,
+                c.pendingNotifications.add(() -> notifyPlayer(target, MessageClientNotify.EVENT_INVITE_RECEIVED,
                         inviterName, resolvedPartyName));
             }
         }
@@ -184,18 +191,28 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             return false;
         }
         Party targetParty = PartyManagerData.getInstance().getParty(partyId);
-        if (targetParty != null && !targetParty.canAddMember()) {
-            notifyPlayer(c.player, MessagePartyEventNotify.PARTY_FULL, "", "");
+        if (targetParty == null) {
+            // Party was disbanded after the invite was sent.
+            notifyPlayer(c.player, MessageClientNotify.EVENT_JOIN_FAILED, "", "");
             return false;
         }
-        if (!c.activeProvider.acceptInvite(c.player, partyId)) return false;
+        if (!targetParty.canAddMember()) {
+            notifyPlayer(c.player, MessageClientNotify.EVENT_PARTY_FULL, "", "");
+            return false;
+        }
+        if (!c.activeProvider.acceptInvite(c.player, partyId)) {
+            // Invite expired, revoked, or otherwise rejected by the provider.
+            notifyPlayer(c.player, MessageClientNotify.EVENT_JOIN_FAILED, "", "");
+            return false;
+        }
 
         Party joinedParty = PartyManagerData.getInstance().getPartyByPlayer(c.player.getUniqueID());
         if (joinedParty != null) {
+            UUID joinerId = c.player.getUniqueID();
             String joinerName = c.player.getName();
             MinecraftServer srv = c.player.getServer();
-            c.pendingNotifications.add(() -> notifyPartyMembers(joinedParty, MessagePartyEventNotify.MEMBER_JOINED,
-                    joinerName, "", srv));
+            c.pendingNotifications.add(() -> notifyPartyMembers(joinedParty, MessageClientNotify.EVENT_MEMBER_JOINED,
+                    joinerName, "", srv, joinerId));
         }
         return true;
     }
@@ -224,7 +241,7 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             PartyManagerData.getInstance().setBQuLinked(targetUUID, false);
         }
         if (party != null) {
-            String event = isSelf ? MessagePartyEventNotify.MEMBER_LEFT : MessagePartyEventNotify.KICKED;
+            String event = isSelf ? MessageClientNotify.EVENT_MEMBER_LEFT : MessageClientNotify.EVENT_KICKED;
             UUID finalTarget = targetUUID;
             String targetName = c.stringArg;
             MinecraftServer srv = c.player.getServer();
@@ -252,7 +269,7 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             if (target != null) {
                 String targetName = parts[0];
                 String newRole = parts[1];
-                c.pendingNotifications.add(() -> notifyPlayer(target, MessagePartyEventNotify.ROLE_CHANGED,
+                c.pendingNotifications.add(() -> notifyPlayer(target, MessageClientNotify.EVENT_ROLE_CHANGED,
                         targetName, newRole));
             }
         }
@@ -279,7 +296,7 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
         }
         Party party = pm.getPartyByPlayer(c.player.getUniqueID());
         if (party != null) {
-            String event = linked ? MessagePartyEventNotify.BQU_LINKED : MessagePartyEventNotify.BQU_UNLINKED;
+            String event = linked ? MessageClientNotify.EVENT_BQU_LINKED : MessageClientNotify.EVENT_BQU_UNLINKED;
             MinecraftServer srv = c.player.getServer();
             c.pendingNotifications.add(() -> notifyPartyMembers(party, event, "", "", srv));
         }
@@ -306,29 +323,29 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
     }
 
     private static boolean toggleExplosionProtection(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        party.setProtectExplosions("true".equals(c.stringArg));
-        return true;
+        return onAdminParty(c, p -> {
+            p.setProtectExplosions("true".equals(c.stringArg));
+            return true;
+        });
     }
 
     private static boolean updateRelation(ActionContext c, int action) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        UUID targetPartyId;
-        try {
-            targetPartyId = UUID.fromString(c.stringArg);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-        if (targetPartyId.equals(party.getPartyId())) return false;
-        switch (action) {
-            case MessagePartyAction.ACTION_ADD_ALLY -> party.addAlly(targetPartyId);
-            case MessagePartyAction.ACTION_REMOVE_ALLY -> party.removeAlly(targetPartyId);
-            case MessagePartyAction.ACTION_ADD_ENEMY -> party.addEnemy(targetPartyId);
-            case MessagePartyAction.ACTION_REMOVE_ENEMY -> party.removeEnemy(targetPartyId);
-        }
-        return true;
+        return onAdminParty(c, party -> {
+            UUID targetPartyId;
+            try {
+                targetPartyId = UUID.fromString(c.stringArg);
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+            if (targetPartyId.equals(party.getPartyId())) return false;
+            switch (action) {
+                case MessagePartyAction.ACTION_ADD_ALLY -> party.addAlly(targetPartyId);
+                case MessagePartyAction.ACTION_REMOVE_ALLY -> party.removeAlly(targetPartyId);
+                case MessagePartyAction.ACTION_ADD_ENEMY -> party.addEnemy(targetPartyId);
+                case MessagePartyAction.ACTION_REMOVE_ENEMY -> party.removeEnemy(targetPartyId);
+            }
+            return true;
+        });
     }
 
     private static boolean transferOwnership(ActionContext c) {
@@ -347,70 +364,69 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
         String senderName = c.player.getName();
         EntityPlayerMP sender = c.player;
         c.pendingNotifications.add(() -> {
-            notifyPlayer(target, MessagePartyEventNotify.OWNER_TRANSFERRED, newOwnerName, "");
-            notifyPlayer(sender, MessagePartyEventNotify.ROLE_CHANGED, senderName, "ADMIN");
+            notifyPlayer(target, MessageClientNotify.EVENT_OWNER_TRANSFERRED, newOwnerName, "");
+            notifyPlayer(sender, MessageClientNotify.EVENT_ROLE_CHANGED, senderName, "ADMIN");
         });
         return true;
     }
 
     private static boolean setTrustLevel(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        String[] parts = c.stringArg.split(":", 2);
-        if (parts.length != 2) return false;
-        TrustAction ta = TrustAction.fromNbtKey(parts[0]);
-        TrustLevel tl = TrustLevel.fromName(parts[1]);
-        if (ta == null || tl.ordinal() > TrustLevel.MEMBER.ordinal()) return false;
-        party.setTrustLevel(ta, tl);
-        return true;
+        return onAdminParty(c, party -> {
+            String[] parts = c.stringArg.split(":", 2);
+            if (parts.length != 2) return false;
+            TrustAction ta = TrustAction.fromNbtKey(parts[0]);
+            TrustLevel tl = TrustLevel.fromName(parts[1]);
+            if (ta == null || tl.ordinal() > TrustLevel.MEMBER.ordinal()) return false;
+            party.setTrustLevel(ta, tl);
+            return true;
+        });
     }
 
     private static boolean setFakePlayerTrust(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        TrustLevel level = TrustLevel.fromName(c.stringArg);
-        if (level.ordinal() > TrustLevel.MEMBER.ordinal()) return false;
-        party.setFakePlayerTrustLevel(level);
-        return true;
+        return onAdminParty(c, party -> {
+            TrustLevel level = TrustLevel.fromName(c.stringArg);
+            if (level.ordinal() > TrustLevel.MEMBER.ordinal()) return false;
+            party.setFakePlayerTrustLevel(level);
+            return true;
+        });
     }
 
     private static boolean setFreeToJoin(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        party.setFreeToJoin("true".equals(c.stringArg));
-        return true;
+        return onAdminParty(c, p -> {
+            p.setFreeToJoin("true".equals(c.stringArg));
+            return true;
+        });
     }
 
     private static boolean setColor(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        try {
-            party.setColor(Integer.parseInt(c.stringArg));
-            return true;
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
+        return onAdminParty(c, p -> {
+            try {
+                p.setColor(Integer.parseInt(c.stringArg));
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        });
     }
 
     private static boolean setDescription(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        String desc = c.stringArg.trim();
-        if (desc.length() > 256) desc = desc.substring(0, 256);
-        party.setDescription(desc);
-        return true;
+        return onAdminParty(c, p -> {
+            String desc = c.stringArg.trim();
+            if (desc.length() > 256) desc = desc.substring(0, 256);
+            p.setDescription(desc);
+            return true;
+        });
     }
 
     private static boolean setMaxMembers(ActionContext c) {
-        Party party = getAdminParty(c.player, c.activeProvider);
-        if (party == null) return false;
-        try {
-            int max = Integer.parseInt(c.stringArg);
-            party.setMaxMembers(Math.min(100, Math.max(0, max)));
-            return true;
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
+        return onAdminParty(c, p -> {
+            try {
+                p.setMaxMembers(Math.min(100, Math.max(0, Integer.parseInt(c.stringArg))));
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        });
     }
 
     private static boolean joinFreeParty(ActionContext c) {
@@ -421,18 +437,28 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             return false;
         }
         PartyManagerData pm = PartyManagerData.getInstance();
-        if (pm.getPartyByPlayer(c.player.getUniqueID()) != null) return false;
-        Party party = pm.getParty(joinId);
-        if (party == null || !party.isFreeToJoin()) return false;
-        if (!party.canAddMember()) {
-            notifyPlayer(c.player, MessagePartyEventNotify.PARTY_FULL, "", "");
+        if (pm.getPartyByPlayer(c.player.getUniqueID()) != null) {
+            // Already in a party — likely a stale CreatePanel click; cache rollback
+            // via syncToPlayer in dispatch() handles the visual recovery.
             return false;
         }
-        party.addMember(c.player.getUniqueID(), PartyRole.MEMBER);
+        Party party = pm.getParty(joinId);
+        if (party == null || !party.isFreeToJoin()) {
+            // Party was deleted or stopped accepting free joins after the client
+            // cached it. Surface a generic failure toast so the click is not silent.
+            notifyPlayer(c.player, MessageClientNotify.EVENT_JOIN_FAILED, "", "");
+            return false;
+        }
+        if (!party.canAddMember()) {
+            notifyPlayer(c.player, MessageClientNotify.EVENT_PARTY_FULL, "", "");
+            return false;
+        }
+        UUID joinerId = c.player.getUniqueID();
+        party.addMember(joinerId, PartyRole.MEMBER);
         String joinerName = c.player.getName();
         MinecraftServer srv = c.player.getServer();
-        c.pendingNotifications.add(() -> notifyPartyMembers(party, MessagePartyEventNotify.MEMBER_JOINED,
-                joinerName, "", srv));
+        c.pendingNotifications.add(() -> notifyPartyMembers(party, MessageClientNotify.EVENT_MEMBER_JOINED,
+                joinerName, "", srv, joinerId));
         return true;
     }
 
@@ -458,18 +484,35 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
         return party;
     }
 
+    /** Runs {@code action} against the actor's party iff they are ADMIN+ there. */
+    private static boolean onAdminParty(ActionContext c, Predicate<Party> action) {
+        Party party = getAdminParty(c.player, c.activeProvider);
+        return party != null && action.test(party);
+    }
+
     private static void notifyPartyMembers(Party party, String eventType, String playerName, String extra,
                                            MinecraftServer server) {
+        notifyPartyMembers(party, eventType, playerName, extra, server, null);
+    }
+
+    /**
+     * Like {@link #notifyPartyMembers(Party, String, String, String, MinecraftServer)}
+     * but skips a single member UUID. Used to exclude the actor from their own
+     * "you joined" / similar toasts.
+     */
+    private static void notifyPartyMembers(Party party, String eventType, String playerName, String extra,
+                                           MinecraftServer server, UUID excludeId) {
         if (server == null) return;
-        MessagePartyEventNotify packet = new MessagePartyEventNotify(eventType, playerName, extra);
+        MessageClientNotify packet = MessageClientNotify.partyEvent(eventType, playerName, extra);
         for (UUID memberId : party.getMembers().keySet()) {
+            if (excludeId != null && memberId.equals(excludeId)) continue;
             EntityPlayerMP member = server.getPlayerList().getPlayerByUUID(memberId);
             if (member != null) ModNetwork.INSTANCE.sendTo(packet, member);
         }
     }
 
     private static void notifyPlayer(EntityPlayerMP player, String eventType, String playerName, String extra) {
-        ModNetwork.INSTANCE.sendTo(new MessagePartyEventNotify(eventType, playerName, extra), player);
+        ModNetwork.INSTANCE.sendTo(MessageClientNotify.partyEvent(eventType, playerName, extra), player);
     }
 
     /** Per-request state bundle, scoped to a single {@link #dispatch}. */

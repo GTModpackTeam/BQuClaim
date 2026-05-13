@@ -19,7 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
-import com.github.gtexpert.blpc.common.network.MessagePartyEventNotify;
+import com.github.gtexpert.blpc.common.network.MessageClientNotify;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
@@ -66,7 +66,7 @@ public class KickCommand extends CommandBase {
         EntityPlayerMP target = server.getPlayerList().getPlayerByUUID(targetUUID);
         if (target != null) {
             ModNetwork.INSTANCE.sendTo(
-                    new MessagePartyEventNotify(MessagePartyEventNotify.KICKED, targetName, ""),
+                    MessageClientNotify.partyEvent(MessageClientNotify.EVENT_KICKED, targetName, ""),
                     target);
         }
         sender.sendMessage(

@@ -19,6 +19,12 @@ import com.github.gtexpert.blpc.common.network.party.PartyActionDispatcher;
  * {@code client.network.*} and are registered through {@link ClientPacketHandlers} on
  * the physical client only — on a dedicated server they are replaced with
  * {@link NoOpHandler} so the same discriminators remain valid for outbound sends.
+ * <p>
+ * <b>Discriminator multiplexing:</b> {@link MessagePartyAction} (C→S) and
+ * {@link MessageClientNotify} (S→C) each carry their own internal discriminator
+ * ({@code action} / {@code kind}). New party operations and client notifications
+ * are added by appending a constant to those classes — neither this file nor
+ * {@link ClientPacketHandlers} needs to change.
  */
 public class ModNetwork {
 
@@ -30,8 +36,7 @@ public class ModNetwork {
     @SuppressWarnings("unchecked")
     private static Class<? extends IMessage>[] clientBoundMessages() {
         return new Class[] { MessageSyncClaims.class, MessageSyncAllClaims.class, MessageSyncConfig.class,
-                MessagePartySync.class, MessageChunkTransitNotify.class, MessagePartyEventNotify.class,
-                MessageClaimFailed.class };
+                MessagePartySync.class, MessageClientNotify.class };
     }
 
     public static void init() {

@@ -162,6 +162,11 @@ public class BLPCToast implements IToast {
                     this.titleArgs = new Object[] {};
                     this.color = GuiColors.RED;
                 }
+                case "JOIN_FAILED" -> {
+                    this.titleKey = "blpc.toast.join_failed";
+                    this.titleArgs = new Object[] {};
+                    this.color = GuiColors.RED;
+                }
                 default -> this.titleKey = "";
             }
             return this;

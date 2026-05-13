@@ -160,8 +160,11 @@ public class ChunkMapScreen extends CustomModularScreen {
             partyHandler.deleteCachedPanel();
         }
         partyHandler = IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
+            // Pass the handler back into MainPanel.build so that CreatePanel can
+            // re-invoke it after a successful join — the factory re-runs and
+            // returns MainPanel automatically.
             return MainPanel.build(
-                    Minecraft.getMinecraft().player.getUniqueID());
+                    Minecraft.getMinecraft().player.getUniqueID(), partyHandler);
         }, true);
         partyHandler.openPanel();
     }

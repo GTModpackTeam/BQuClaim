@@ -22,15 +22,17 @@ Project architecture is provided via the blpc-overview skill.
 - Module pattern compliance (`@TModule`, `IntegrationSubmodule`, etc.)
 - Panel ID naming: `blpc.<area>`, `blpc.<area>.dialog.<name>`
 - Lang key naming: `blpc.<area>.*`
-- Network messages appended (not inserted): C→S in `ModNetwork.init()`; S→C in **both** `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()`, in identical order
+- New ops/notifications use discriminators, not new wire IDs: append `ACTION_*` to `MessagePartyAction` (factory + `case` in `PartyActionDispatcher.dispatch()` + private method, no renumbering) or `KIND_*`/`EVENT_*` to `MessageClientNotify` (+ `toBytes`/`fromBytes` arm + `BLPCToast` case). A new top-level wire ID is only for a genuinely new message family — then it must be appended to **both** `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()` in identical order (never inserted)
+- NBT-payload S→C messages extend `NbtMessage`
 - Side boundary respected: S→C handlers live in `client/network/` with `@SideOnly(Side.CLIENT)`; IMessage classes in `common/network/` must not reference any client-only types in their bytecode
-- New `MessagePartyAction` actions: append `ACTION_*` constant (no renumbering), add factory + `case` arm in `PartyActionDispatcher.dispatch()` + private method
+- Dispatcher actions fail-soft: on `false`, `dispatch()` rolls back via `syncToPlayer(actor)` (or `syncToAll()` for BQu-link); simple admin settings actions go through `onAdminParty(c, ...)`
 - Party mutations use player UUID (no partyId parameter)
 
 ### Code Quality
-- No duplicate logic that should use existing templates (`ConfirmDialog`, `InputDialog`)
+- No duplicate logic that should use existing templates/helpers (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`, `PartyWidgets.faceRow` / `dialogButton` / `sendAndApply` / `finalizeSearchableList`)
 - `PartyWidgets` utility methods and size constants used where applicable
-- Menu entries in `MainPanel` use `PartyMenuBuilder` fluent API
+- Live-update panels: read fresh `Party` via `livePartyRef` / `getParty(partyId)` (never hold a captured `Party` across syncs); rebuild via `addSyncRefreshListener`; reuse `IPanelHandler`s across `rebuildMenu`
+- Menu entries in `MainPanel` use `PartyMenuBuilder` fluent API (`.navHandler`/`.visible` chain, not `if` blocks)
 - Proper use of `ModLog` categories for logging
 - Trust level / trust action consistency
 

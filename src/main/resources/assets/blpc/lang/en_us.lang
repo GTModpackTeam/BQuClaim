@@ -203,6 +203,7 @@ blpc.toast.role_changed=Your role changed to %s
 blpc.toast.bqu_linked=Linked to BQu Party Manager
 blpc.toast.bqu_unlinked=Unlinked from BQu
 blpc.toast.party_full=Party is full
+blpc.toast.join_failed=Could not join the party
 
 # Claim Failed Notifications
 blpc.toast.claim_limit=Claim limit reached (%d/%d)

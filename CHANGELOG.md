@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.10.0]
+
+> **Wire-protocol break.** The server-to-client notification packets were
+> merged into one (see *Changed* below). Client and server must run the same
+> version — a mixed pair will not communicate notifications correctly.
+
+### Changed
+
+- **S→C notification packets unified**: `MessageChunkTransitNotify`,
+  `MessagePartyEventNotify`, and `MessageClaimFailed` are now a single
+  discriminator-multiplexed packet, `MessageClientNotify` (`int kind` +
+  per-kind payload). Wire IDs 6–8 collapsed into ID 6; new toast types are
+  added by appending a `KIND_*`/`EVENT_*` constant instead of a new wire ID.
+- **Live-update party UI**: the party panels (main menu, members, moderators,
+  settings, create/join, transfer ownership) now stay open and refresh in
+  place when server data changes, instead of closing on every sync. The view
+  closes only on a structural change — the party disappearing, a permission
+  boundary flipping, or ownership being lost.
+- **Free-to-join / invite flow**:
+  - Clicking a party in the create/join screen now opens the party menu
+    directly once the join succeeds, instead of just dismissing the screen.
+  - Full free-to-join parties are listed but shown grayed and non-clickable
+    rather than hidden, so a previously-available party doesn't silently vanish.
+- **Documentation**: `CLAUDE.md`, the architecture skill, and the code-review
+  agent updated to describe the discriminator-multiplexed packets, the
+  live-update widget patterns, and the shared `PartyWidgets` helpers.
+
+### Fixed
+
+- **Stale party data in open panels**: after a disband, ownership transfer, or
+  kick performed by another player, an open party panel could keep showing the
+  old state (and, for the main menu, leave a stale "open sub-panel" button
+  behind). Panels now refresh or close correctly on every sync.
+- **Stale values in the Settings panel**: every server sync replaces the
+  cached party object, so the panel could display an out-of-date name, color,
+  member count, or toggle state. All Settings widgets now read the live party.
+- **Silent join failures**: trying to join a party that was disbanded, is no
+  longer free-to-join, or whose invite expired now shows a "Could not join the
+  party" toast instead of doing nothing visible. (Capacity failures already
+  showed "Party is full".)
+- **Self-notification toasts**: the player who joins a party no longer receives
+  a "you joined" toast for themselves, and the player who disbands a party no
+  longer receives a "party disbanded" toast.
+- **Optimistic-UI desync on rejected actions**: when the server rejects a party
+  action (e.g. a stale click), the rejecting player's client now receives a
+  corrective sync so the UI no longer shows a change that didn't take effect.
+- **Moderators panel after promotion**: a viewer who is promoted to OWNER while
+  the panel is open now gets the role-cycle controls without having to reopen.
+- **Memory leaks**: orphaned sub-panel handlers were accumulating each time the
+  main menu rebuilt (they are now created once and reused), and empty
+  invader-tracking sets were left behind on player logout.
+
+[0.10.0]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.10.0
+
+* * *
+
 ## [0.9.0]
 
 ### Changed
