@@ -114,22 +114,19 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
     }
 
     private static boolean disbandParty(ActionContext c) {
-        Party party = getOrCreateSelfParty(c.player, c.provider);
-        if (party == null) return false;
+        UUID playerId = c.player.getUniqueID();
         PartyManagerData pm = PartyManagerData.getInstance();
+        Party party = pm.getPartyByPlayer(playerId);
+        if (party == null) return false;
 
-        PartyRole role = party.getRole(c.player.getUniqueID());
+        PartyRole role = party.getRole(playerId);
         boolean isOwnerOrOp = (role == PartyRole.OWNER) || c.player.canUseCommand(2, "");
-        // BQu Link 状態では BQu 側のロールも確認する
         if (!isOwnerOrOp && c.playerBQuLinked) {
-            String providerRole = c.provider.getRole(c.player.getUniqueID());
+            String providerRole = c.provider.getRole(playerId);
             isOwnerOrOp = PartyRole.fromName(providerRole) == PartyRole.OWNER;
         }
         if (!isOwnerOrOp) return false;
 
-        // Authorization verified — disband directly to bypass the internal role check in
-        // DefaultPartyProvider.disbandParty(), which would reject non-OWNER self-managed
-        // roles even when BQu-linked as OWNER.
         List<UUID> members = new ArrayList<>(party.getMemberUUIDs());
         ChunkManagerData chunks = ChunkManagerData.getInstance();
         for (UUID memberId : members) {
@@ -140,10 +137,9 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             pm.setBQuLinked(memberId, false);
         }
         MinecraftServer srv = c.player.getServer();
-        UUID actorId = c.player.getUniqueID();
         c.pendingNotifications.add(() -> {
             for (UUID memberId : members) {
-                if (memberId.equals(actorId)) continue;
+                if (memberId.equals(playerId)) continue;
                 EntityPlayerMP member = srv != null ? srv.getPlayerList().getPlayerByUUID(memberId) : null;
                 if (member != null) {
                     notifyPlayer(member, MessageClientNotify.EVENT_DISBANDED, "", "");
@@ -287,11 +283,16 @@ public final class PartyActionDispatcher implements IMessageHandler<MessageParty
             }
         }
         if (linked) {
-            if (!c.provider.hasNativeParty(c.player.getUniqueID())) return false;
-            pm.setBQuLinked(c.player.getUniqueID(), true);
+            if (currentParty == null) return false;
+            if (!c.provider.ensureNativePartyWithMembers(c.player, currentParty)) return false;
+            for (UUID memberId : c.provider.getPartyMembers(c.player.getUniqueID())) {
+                pm.setBQuLinked(memberId, true);
+            }
         } else {
             if (!pm.isBQuLinked(c.player.getUniqueID())) return false;
-            pm.setBQuLinked(c.player.getUniqueID(), false);
+            for (UUID memberId : c.provider.getPartyMembers(c.player.getUniqueID())) {
+                pm.setBQuLinked(memberId, false);
+            }
             getOrCreateSelfParty(c.player, c.provider);
         }
         Party party = pm.getPartyByPlayer(c.player.getUniqueID());

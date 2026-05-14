@@ -70,6 +70,17 @@ public interface IPartyProvider {
         return getPartyName(playerUUID) != null;
     }
 
+    /**
+     * Ensures a native party exists for the owner with the same members as the
+     * given BLPC party. Creates the native party if absent, adds missing
+     * members, and maps roles. Returns {@code true} if the native party is
+     * ready for linking after this call.
+     */
+    default boolean ensureNativePartyWithMembers(EntityPlayerMP owner,
+                                                 com.github.gtexpert.blpc.common.party.Party blpcParty) {
+        return hasNativeParty(owner.getUniqueID());
+    }
+
     /** Syncs party data to all connected clients after mutations. */
     void syncToAll();
 

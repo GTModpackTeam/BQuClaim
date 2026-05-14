@@ -49,6 +49,18 @@ public final class PartyWidgets {
 
     private PartyWidgets() {}
 
+    /**
+     * Per-instance unique panel name suffix. MUI's {@code PanelManager.panelHandlerMap}
+     * keys on {@link ModularPanel#getName()} and never removes entries; a fresh
+     * {@code IPanelHandler.simple(...)} that opens the same panel name silently
+     * redirects to the stale first handler ("Using existing panel handler!" in
+     * MUI log). Appending a monotonic suffix to every rebuilt panel/dialog name
+     * makes each instance unique so the lookup hits the current handler.
+     */
+    public static String uniquePanelId(String base) {
+        return base + "#" + System.nanoTime();
+    }
+
     /** Centered title + close button at the top of the panel. */
     public static void addHeader(ModularPanel panel, IKey title) {
         panel.child(title.color(GuiColors.WHITE).shadow(true)

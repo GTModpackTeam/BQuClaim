@@ -33,7 +33,7 @@ public class MembersPanel {
         boolean canManage = myRole != null && myRole.canInvite();
         UUID partyId = party.getPartyId();
 
-        ModularPanel panel = new ModularPanel(PANEL_ID);
+        ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         PartyRole[] myRoleRef = { myRole };
 
         LiveSearchableList<PlayerEntry> membersList = new LiveSearchableList<>(

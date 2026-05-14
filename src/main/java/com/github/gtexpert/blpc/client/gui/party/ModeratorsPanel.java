@@ -32,7 +32,7 @@ public class ModeratorsPanel {
         UUID partyId = party.getPartyId();
         boolean[] isOwnerRef = { party.getRole(playerId) == PartyRole.OWNER };
 
-        ModularPanel panel = new ModularPanel(PANEL_ID);
+        ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
         PartyWidgets.addHeader(panel, "blpc.party.moderators_title");
 

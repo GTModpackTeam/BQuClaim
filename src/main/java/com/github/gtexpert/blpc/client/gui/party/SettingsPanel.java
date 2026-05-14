@@ -50,7 +50,7 @@ public class SettingsPanel {
     private static final TrustLevel[] CYCLE_LEVELS = { TrustLevel.NONE, TrustLevel.ALLY, TrustLevel.MEMBER };
 
     public static ModularPanel build(Party initialParty) {
-        ModularPanel panel = new ModularPanel(PANEL_ID);
+        ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         panel.size(PartyWidgets.LARGE_W, PartyWidgets.LARGE_H);
 
         UUID partyId = initialParty.getPartyId();
@@ -87,7 +87,7 @@ public class SettingsPanel {
 
         // Pre-create handlers to avoid "same panel handler already exists" on repeated clicks.
         IPanelHandler renameHandler = IPanelHandler.simple(panel, (pp, player) -> InputDialog
-                .builder("blpc.party.dialog.rename")
+                .builder(PartyWidgets.uniquePanelId("blpc.party.dialog.rename"))
                 .title("blpc.party.name_field")
                 .defaultValue(partyRef.get().getName())
                 .confirmLabel("blpc.map.yes")
@@ -98,7 +98,7 @@ public class SettingsPanel {
                 .build(), true);
 
         IPanelHandler descHandler = IPanelHandler.simple(panel, (pp, player) -> InputDialog
-                .builder("blpc.party.dialog.description")
+                .builder(PartyWidgets.uniquePanelId("blpc.party.dialog.description"))
                 .title("blpc.party.description_field")
                 .defaultValue(partyRef.get().getDescription())
                 .confirmLabel("blpc.map.yes")

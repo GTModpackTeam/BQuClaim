@@ -23,11 +23,11 @@ public class TransferOwnerDialog {
 
     public static ModularPanel build(Party party) {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
-        if (party == null) return new ModularPanel(PANEL_ID);
+        if (party == null) return new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
 
         UUID partyId = party.getPartyId();
 
-        ModularPanel panel = new ModularPanel(PANEL_ID);
+        ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
         PartyWidgets.addHeader(panel, "blpc.party.transfer_title");
 

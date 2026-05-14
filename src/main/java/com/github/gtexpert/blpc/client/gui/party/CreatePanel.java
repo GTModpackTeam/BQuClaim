@@ -40,7 +40,7 @@ public class CreatePanel {
     public static ModularPanel build(IPanelHandler reopener) {
         UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
 
-        ModularPanel panel = new ModularPanel(PANEL_ID);
+        ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
         PartyWidgets.addHeader(panel, "blpc.party.create_title");

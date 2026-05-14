@@ -19,6 +19,7 @@ public class BLPCMixinLoader implements ILateMixinLoader {
 
     public static final Map<String, Boolean> modMixinsConfig = new ImmutableMap.Builder<String, Boolean>()
             .put(Mods.Names.BETTER_QUESTING, true)
+            .put(Mods.Names.MODULAR_UI, true)
             .build();
 
     @Override

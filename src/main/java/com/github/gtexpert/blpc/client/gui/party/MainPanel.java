@@ -51,7 +51,7 @@ public class MainPanel {
 
         UUID partyId = party.getPartyId();
 
-        ModularPanel panel = new ModularPanel(PANEL_ID);
+        ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
 
         panel.child(new ScrollingTextWidget(IKey.dynamic(() -> {
@@ -80,7 +80,7 @@ public class MainPanel {
         rebuildMenu(menuList, panel, partyId, playerId, nav);
 
         IPanelHandler disbandHandler = IPanelHandler.simple(
-                panel, (pp, player) -> ConfirmDialog.builder("blpc.party.dialog.disband")
+                panel, (pp, player) -> ConfirmDialog.builder(PartyWidgets.uniquePanelId("blpc.party.dialog.disband"))
                         .title("blpc.party.disband_confirm_title")
                         .message("blpc.party.disband_confirm_msg")
                         .yesLabel("blpc.party.disband_yes")
@@ -98,7 +98,6 @@ public class MainPanel {
                 .setEnabledIf(w -> isOwner(partyId, playerId)));
 
         PartyWidgets.addSyncRefreshListener(panel, () -> {
-            // Party gone: cascade-close sub-panels too.
             if (ClientPartyCache.getPartyByPlayer(playerId) == null) {
                 panel.closeIfOpen();
                 return;

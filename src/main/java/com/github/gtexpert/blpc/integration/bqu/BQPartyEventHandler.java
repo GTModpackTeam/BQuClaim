@@ -35,7 +35,27 @@ public class BQPartyEventHandler {
         for (DBEntry<IParty> entry : PartyManager.INSTANCE.getEntries()) {
             IParty bqParty = entry.getValue();
             if (bqParty.getMembers().isEmpty()) continue;
-            Party party = new Party(Party.uuidFromIntId(entry.getID()),
+
+            boolean hasLinkedMember = false;
+            for (UUID memberId : bqParty.getMembers()) {
+                if (ClientPartyCache.isBQuLinked(memberId)) {
+                    hasLinkedMember = true;
+                    break;
+                }
+            }
+            if (!hasLinkedMember) continue;
+
+            UUID partyUuid = null;
+            for (UUID memberId : bqParty.getMembers()) {
+                Party existing = ClientPartyCache.getPartyByPlayer(memberId);
+                if (existing != null) {
+                    partyUuid = existing.getPartyId();
+                    break;
+                }
+            }
+            if (partyUuid == null) partyUuid = Party.uuidFromIntId(entry.getID());
+
+            Party party = new Party(partyUuid,
                     bqParty.getProperties().getProperty(NativeProps.NAME),
                     0L);
             for (UUID memberId : bqParty.getMembers()) {
@@ -43,8 +63,7 @@ public class BQPartyEventHandler {
                 party.addMember(memberId, BQPartyProvider.mapRole(status));
                 bquMembers.add(memberId);
             }
-            // Preserve BLPC settings from existing cache
-            Party cachedParty = ClientPartyCache.getParty(Party.uuidFromIntId(entry.getID()));
+            Party cachedParty = ClientPartyCache.getParty(partyUuid);
             if (cachedParty != null) {
                 party.setDescription(cachedParty.getDescription());
                 party.setColor(cachedParty.getColor());

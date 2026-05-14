@@ -90,6 +90,35 @@ public class BQPartyProvider implements IPartyProvider {
     }
 
     @Override
+    public boolean ensureNativePartyWithMembers(EntityPlayerMP owner, Party blpcParty) {
+        UUID ownerId = QuestingAPI.getQuestingUUID(owner);
+        var entry = PartyManager.INSTANCE.getParty(ownerId);
+
+        if (entry == null) {
+            int partyId = PartyManager.INSTANCE.nextID();
+            IParty bqParty = PartyManager.INSTANCE.createNew(partyId);
+            bqParty.getProperties().setProperty(NativeProps.NAME, blpcParty.getName());
+            bqParty.setStatus(ownerId, EnumPartyStatus.OWNER);
+            for (var member : blpcParty.getMembers().entrySet()) {
+                if (member.getKey().equals(ownerId)) continue;
+                bqParty.setStatus(member.getKey(), mapToBQuRole(member.getValue()));
+            }
+            NetPartySync.sendSync(null, new int[] { partyId });
+            return true;
+        }
+
+        IParty bqParty = entry.getValue();
+        for (var member : blpcParty.getMembers().entrySet()) {
+            UUID memberId = member.getKey();
+            if (bqParty.getStatus(memberId) == null) {
+                bqParty.setStatus(memberId, mapToBQuRole(member.getValue()));
+            }
+        }
+        NetPartySync.quickSync(entry.getID());
+        return true;
+    }
+
+    @Override
     public boolean createParty(EntityPlayerMP player, String name) {
         UUID playerId = QuestingAPI.getQuestingUUID(player);
         if (PartyManager.INSTANCE.getParty(playerId) != null) return false;
@@ -283,31 +312,41 @@ public class BQPartyProvider implements IPartyProvider {
             IParty bqParty = entry.getValue();
             if (bqParty == null) continue;
             if (bqParty.getMembers().isEmpty()) continue;
-            Party party = new Party(Party.uuidFromIntId(entry.getID()),
-                    bqParty.getProperties().getProperty(NativeProps.NAME),
-                    0L);
+
             boolean hasLinkedMember = false;
             for (UUID memberId : bqParty.getMembers()) {
-                if (!pmData.isBQuLinked(memberId)) continue;
-                EnumPartyStatus status = bqParty.getStatus(memberId);
-                party.addMember(memberId, mapRole(status));
-                bquMembers.add(memberId);
-                hasLinkedMember = true;
+                if (pmData.isBQuLinked(memberId)) {
+                    hasLinkedMember = true;
+                    break;
+                }
             }
             if (!hasLinkedMember) continue;
+
+            UUID blpcPartyId = null;
             Party ownerSelfParty = null;
             Party fallbackSelfParty = null;
-            for (UUID memberId : party.getMemberUUIDs()) {
+            for (UUID memberId : bqParty.getMembers()) {
                 Party selfParty = pmData.getPartyByPlayer(memberId);
                 if (selfParty != null) {
-                    if (party.getRole(memberId) == PartyRole.OWNER) {
+                    if (blpcPartyId == null) blpcPartyId = selfParty.getPartyId();
+                    EnumPartyStatus status = bqParty.getStatus(memberId);
+                    if (status == EnumPartyStatus.OWNER) {
                         ownerSelfParty = selfParty;
-                        break;
-                    }
-                    if (fallbackSelfParty == null) {
+                        blpcPartyId = selfParty.getPartyId();
+                    } else if (fallbackSelfParty == null) {
                         fallbackSelfParty = selfParty;
                     }
                 }
+            }
+            if (blpcPartyId == null) blpcPartyId = Party.uuidFromIntId(entry.getID());
+
+            Party party = new Party(blpcPartyId,
+                    bqParty.getProperties().getProperty(NativeProps.NAME),
+                    0L);
+            for (UUID memberId : bqParty.getMembers()) {
+                EnumPartyStatus status = bqParty.getStatus(memberId);
+                party.addMember(memberId, mapRole(status));
+                bquMembers.add(memberId);
             }
             Party sourceSelfParty = ownerSelfParty != null ? ownerSelfParty : fallbackSelfParty;
             if (sourceSelfParty != null) {
@@ -349,6 +388,14 @@ public class BQPartyProvider implements IPartyProvider {
                 data.setBQuLinked(playerId, false);
             }
         }
+    }
+
+    static EnumPartyStatus mapToBQuRole(PartyRole role) {
+        return switch (role) {
+            case OWNER -> EnumPartyStatus.OWNER;
+            case ADMIN -> EnumPartyStatus.ADMIN;
+            case MEMBER -> EnumPartyStatus.MEMBER;
+        };
     }
 
     static PartyRole mapRole(EnumPartyStatus status) {
