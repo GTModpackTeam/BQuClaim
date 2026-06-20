@@ -5,6 +5,8 @@ import net.minecraftforge.server.command.CommandTreeBase;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.github.gtexpert.blpc.common.command.admin.AdminCommand;
+
 public class BLPCCommand extends CommandTreeBase {
 
     public BLPCCommand() {

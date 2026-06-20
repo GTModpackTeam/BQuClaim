@@ -10,20 +10,19 @@ import com.cleanroommc.modularui.drawable.GuiDraw;
 import com.cleanroommc.modularui.utils.Color;
 import com.cleanroommc.modularui.utils.Platform;
 
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
 
 public class ChunkMapRenderer {
 
+    /** Minecraft blocks per chunk edge — the unit for all map pixel math. */
+    public static final int CHUNK_BLOCKS = 16;
+
     private static final ResourceLocation MAP_ICONS = new ResourceLocation("textures/map/map_icons.png");
 
-    private static final int COLOR_OWN = 0x5500FF00;
-    private static final int COLOR_PARTY = 0x5500FFFF;
-    private static final int COLOR_OTHER = 0x55FF0000;
-    private static final int COLOR_BORDER = 0xFFFFFFFF;
-    private static final int COLOR_HATCHING = 0xAAFF0000;
     private static final int HATCHING_SPACING = 4;
 
     private static final int ICON_TEX_SIZE = 8;
@@ -64,7 +63,7 @@ public class ChunkMapRenderer {
                 if (showForceLoad) {
                     ClaimedChunkData d = ClientCache.get(rx, rz);
                     if (d != null && d.isForceLoaded) {
-                        drawHatching(dx, dy, chunkSize, chunkSize, COLOR_HATCHING);
+                        drawHatching(dx, dy, chunkSize, chunkSize, BLPCColors.claimHatching());
                     }
                 }
             }
@@ -84,10 +83,10 @@ public class ChunkMapRenderer {
         if (colors != null) {
             TextureCache.ChunkTexture tex = TextureCache.getOrCreate(chunkX, chunkZ, colors);
             Platform.setupDrawTex(tex.resourceLocation);
-            GuiDraw.drawTexture(dx, dy, 0, 0, size, size, 16, 16);
+            GuiDraw.drawTexture(dx, dy, 0, 0, size, size, CHUNK_BLOCKS, CHUNK_BLOCKS);
         } else {
             AsyncMapRenderer.requestChunk(world, chunkX, chunkZ);
-            GuiDraw.drawRect(dx, dy, size, size, 0xFF222222);
+            GuiDraw.drawRect(dx, dy, size, size, BLPCColors.mapUnloaded());
         }
     }
 
@@ -98,13 +97,13 @@ public class ChunkMapRenderer {
 
         int color;
         if (d.ownerUUID.equals(playerUUID)) {
-            color = COLOR_OWN;
+            color = BLPCColors.claimOwn();
         } else {
             Party playerParty = ClientPartyCache.getPartyByPlayer(playerUUID);
             Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
             boolean sameParty = playerParty != null && ownerParty != null &&
                     playerParty.getPartyId().equals(ownerParty.getPartyId());
-            color = sameParty ? COLOR_PARTY : COLOR_OTHER;
+            color = sameParty ? BLPCColors.claimParty() : BLPCColors.claimOther();
         }
 
         GuiDraw.drawRect(dx, dy, size, size, color);
@@ -128,14 +127,15 @@ public class ChunkMapRenderer {
     }
 
     private static void drawClaimBorder(int chunkX, int chunkZ, float dx, float dy, int size, UUID owner) {
+        int border = BLPCColors.claimBorder();
         if (!isSameOwner(chunkX, chunkZ - 1, owner))
-            GuiDraw.drawRect(dx, dy, size, 1, COLOR_BORDER);
+            GuiDraw.drawRect(dx, dy, size, 1, border);
         if (!isSameOwner(chunkX, chunkZ + 1, owner))
-            GuiDraw.drawRect(dx, dy + size - 1, size, 1, COLOR_BORDER);
+            GuiDraw.drawRect(dx, dy + size - 1, size, 1, border);
         if (!isSameOwner(chunkX - 1, chunkZ, owner))
-            GuiDraw.drawRect(dx, dy, 1, size, COLOR_BORDER);
+            GuiDraw.drawRect(dx, dy, 1, size, border);
         if (!isSameOwner(chunkX + 1, chunkZ, owner))
-            GuiDraw.drawRect(dx + size - 1, dy, 1, size, COLOR_BORDER);
+            GuiDraw.drawRect(dx + size - 1, dy, 1, size, border);
     }
 
     private static boolean isSameOwner(int chunkX, int chunkZ, UUID owner) {

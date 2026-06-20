@@ -1,7 +1,8 @@
-package com.github.gtexpert.blpc.common.party;
+package com.github.gtexpert.blpc.api.party;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
@@ -11,17 +12,18 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 
-import com.github.gtexpert.blpc.common.ModConfig;
-import com.github.gtexpert.blpc.common.ModLog;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Represents a party with members, roles, trust settings, and invitations.
  * <p>
- * Persisted to {@code world/betterlink/pc/parties/<id>.dat} via
- * {@link com.github.gtexpert.blpc.common.BLPCSaveHandler}.
+ * Persisted to {@code world/betterlink/pc/parties/<id>.dat} by the save handler.
  * Invitations are persisted to NBT but reconstructed with no expiry on load.
  */
 public class Party {
+
+    private static final Logger LOG = LogManager.getLogger("blpc/Party");
 
     public static final String DEFAULT_NAME_KEY = "blpc.party.default_name";
 
@@ -158,18 +160,15 @@ public class Party {
 
     /**
      * Resolves a player's effective trust level in this party.
-     * Allies and enemies are now keyed by party UUID, not player UUID.
      *
-     * @return the trust level, or {@code null} if the player's party is an enemy (absolute deny).
+     * @param playerUUID    the player to check
+     * @param playerPartyId the player's own party UUID, or {@code null} if unpartnered
+     * @return the trust level, or {@code null} if the player's party is an enemy (absolute deny)
      */
     @Nullable
-    public TrustLevel getEffectiveTrustLevel(UUID playerUUID) {
+    public TrustLevel getEffectiveTrustLevel(UUID playerUUID, @Nullable UUID playerPartyId) {
         PartyRole role = members.get(playerUUID);
         if (role != null) return role.toTrustLevel();
-
-        // For non-members, resolve their party UUID and check allies/enemies
-        Party playerParty = PartyManagerData.getInstance().getPartyByPlayer(playerUUID);
-        UUID playerPartyId = playerParty != null ? playerParty.getPartyId() : null;
 
         if (playerPartyId != null && enemies.contains(playerPartyId)) return null;
         if (playerPartyId != null && allies.contains(playerPartyId)) return TrustLevel.ALLY;
@@ -242,22 +241,18 @@ public class Party {
         this.maxMembers = Math.max(0, maxMembers);
     }
 
-    /** Returns {@code true} if a new member can join (unlimited or below cap). */
     public boolean canAddMember() {
         return maxMembers == 0 || members.size() < maxMembers;
     }
 
-    /**
-     * Copies all protection and relation settings from {@code source} into this party.
-     * Used by {@link com.github.gtexpert.blpc.integration.bqu.BQPartyProvider} when
-     * building the client-sync view from the owner's self-managed party.
-     */
-    public int sumClaimLimit() {
-        return members.size() * ModConfig.claims.maxClaimsPerPlayer;
+    /** Returns {@code memberCount * perPlayerLimit}. Pass {@code ModConfig.claims.maxClaimsPerPlayer}. */
+    public int sumClaimLimit(int perPlayerLimit) {
+        return members.size() * perPlayerLimit;
     }
 
-    public int sumForceLoadLimit() {
-        return members.size() * ModConfig.claims.maxForceLoadsPerPlayer;
+    /** Returns {@code memberCount * perPlayerLimit}. Pass {@code ModConfig.claims.maxForceLoadsPerPlayer}. */
+    public int sumForceLoadLimit(int perPlayerLimit) {
+        return members.size() * perPlayerLimit;
     }
 
     public int countOnlineMembers(MinecraftServer server) {
@@ -269,6 +264,11 @@ public class Party {
         return count;
     }
 
+    /**
+     * Copies all protection and relation settings from {@code source} into this party.
+     * Used by {@code BQPartyProvider} when building the client-sync view from the
+     * owner's self-managed party.
+     */
     public void copySettingsFrom(Party source) {
         this.description = source.description;
         this.color = source.color;
@@ -287,7 +287,7 @@ public class Party {
 
     /**
      * Returns the cached display name for a player, or {@code null} if unknown.
-     * Populated by {@link #resolvePlayerNames()} on the server before sync.
+     * Populated by {@link #resolvePlayerNames(Function)} on the server before sync.
      */
     @Nullable
     public String getPlayerName(UUID uuid) {
@@ -297,21 +297,24 @@ public class Party {
     /**
      * Resolves display names for all known UUIDs (members) and party names for
      * allies/enemies. Call this server-side before serializing for client sync.
+     *
+     * @param partyLookup function to resolve a party UUID to a {@link Party}, or {@code null}
      */
-    public void resolvePlayerNames() {
+    public void resolvePlayerNames(Function<UUID, Party> partyLookup) {
         playerNames.clear();
         for (UUID uuid : members.keySet()) {
             resolveOne(uuid);
         }
-        resolvePartyNames(allies, allyPartyNames);
-        resolvePartyNames(enemies, enemyPartyNames);
+        resolvePartyNames(allies, allyPartyNames, partyLookup);
+        resolvePartyNames(enemies, enemyPartyNames, partyLookup);
     }
 
-    private void resolvePartyNames(Set<UUID> ids, Map<UUID, String> target) {
+    private void resolvePartyNames(Set<UUID> ids, Map<UUID, String> target,
+                                   Function<UUID, Party> partyLookup) {
         target.clear();
-        for (UUID partyId : ids) {
-            Party p = PartyManagerData.getInstance().getParty(partyId);
-            if (p != null) target.put(partyId, p.getName());
+        for (UUID pId : ids) {
+            Party p = partyLookup.apply(pId);
+            if (p != null) target.put(pId, p.getName());
         }
     }
 
@@ -445,14 +448,23 @@ public class Party {
         return tag;
     }
 
+    @Nullable
     public static Party fromNBT(NBTTagCompound tag) {
+        if (tag == null) {
+            LOG.error("Party NBT tag is null, skipping corrupt entry");
+            return null;
+        }
         UUID id = tag.getUniqueId("partyId");
+        if (id.getMostSignificantBits() == 0 && id.getLeastSignificantBits() == 0) {
+            LOG.error("Party NBT missing 'partyId' key, skipping corrupt entry");
+            return null;
+        }
         String name = tag.getString("name");
         long created = tag.getLong("created");
 
         if (name.isEmpty()) {
             name = "Party " + id.toString().substring(0, 8);
-            ModLog.IO.warn("Party {} has empty name, using default", id);
+            LOG.warn("Party {} has empty name, using default", id);
         }
 
         Party party = new Party(id, name, created);
@@ -508,7 +520,8 @@ public class Party {
 
         // Sync-only: client-side invites have no expiry timestamp.
         if (tag.hasKey("pendingInvites")) {
-            for (UUID uuid : uuidSetFromNBT(tag.getTagList("pendingInvites", Constants.NBT.TAG_COMPOUND))) {
+            for (UUID uuid : uuidSetFromNBT(
+                    tag.getTagList("pendingInvites", Constants.NBT.TAG_COMPOUND))) {
                 party.addInvite(uuid, Long.MAX_VALUE);
             }
         }

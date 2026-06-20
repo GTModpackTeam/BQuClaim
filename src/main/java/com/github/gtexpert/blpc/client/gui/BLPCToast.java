@@ -1,13 +1,14 @@
-package com.github.gtexpert.blpc.client.gui.widget;
+package com.github.gtexpert.blpc.client.gui;
 
 import net.minecraft.client.gui.toasts.GuiToast;
 import net.minecraft.client.gui.toasts.IToast;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.resources.I18n;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.api.party.RelationType;
 import com.github.gtexpert.blpc.common.ModConfig;
-import com.github.gtexpert.blpc.common.party.RelationType;
 
 /**
  * Generic reusable toast notification for BLPC events.
@@ -23,6 +24,7 @@ import com.github.gtexpert.blpc.common.party.RelationType;
  * }
  * </pre>
  */
+@SideOnly(Side.CLIENT)
 public class BLPCToast implements IToast {
 
     private final String title;

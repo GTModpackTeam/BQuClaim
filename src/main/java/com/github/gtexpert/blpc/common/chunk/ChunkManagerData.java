@@ -10,9 +10,9 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 
-import com.github.gtexpert.blpc.common.network.MessageSyncClaims;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.network.message.SyncClaims;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 /**
@@ -120,7 +120,14 @@ public class ChunkManagerData {
                 }
             }
             setClaim(claim.x, claim.z, null, "", "", false);
-            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(claim.x, claim.z, null, "", "", false));
+            ModNetwork.INSTANCE.sendToAll(new SyncClaims(claim.x, claim.z, null, "", "", false));
+        }
+    }
+
+    /** Releases all claims for every UUID in the collection. Convenience wrapper over {@link #releaseAllClaims}. */
+    public void releaseAllMemberClaims(Collection<UUID> memberIds, World world) {
+        for (UUID memberId : memberIds) {
+            releaseAllClaims(memberId, world);
         }
     }
 

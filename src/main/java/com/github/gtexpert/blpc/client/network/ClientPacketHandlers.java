@@ -3,11 +3,11 @@ package com.github.gtexpert.blpc.client.network;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.relauncher.Side;
 
-import com.github.gtexpert.blpc.common.network.MessageClientNotify;
-import com.github.gtexpert.blpc.common.network.MessagePartySync;
-import com.github.gtexpert.blpc.common.network.MessageSyncAllClaims;
-import com.github.gtexpert.blpc.common.network.MessageSyncClaims;
-import com.github.gtexpert.blpc.common.network.MessageSyncConfig;
+import com.github.gtexpert.blpc.common.network.message.ClientNotify;
+import com.github.gtexpert.blpc.common.network.message.PartySync;
+import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncConfig;
 
 /**
  * Side-aware installer for all S→C client handlers.
@@ -33,15 +33,15 @@ public final class ClientPacketHandlers {
      */
     public static void installAll(SimpleNetworkWrapper channel, int firstId) {
         int id = firstId;
-        channel.registerMessage(SyncClaimsClientHandler.class, MessageSyncClaims.class,
+        channel.registerMessage(SyncClaimsClientHandler.class, SyncClaims.class,
                 id++, Side.CLIENT);
-        channel.registerMessage(SyncAllClaimsClientHandler.class, MessageSyncAllClaims.class,
+        channel.registerMessage(SyncAllClaimsClientHandler.class, SyncAllClaims.class,
                 id++, Side.CLIENT);
-        channel.registerMessage(SyncConfigClientHandler.class, MessageSyncConfig.class,
+        channel.registerMessage(SyncConfigClientHandler.class, SyncConfig.class,
                 id++, Side.CLIENT);
-        channel.registerMessage(PartySyncClientHandler.class, MessagePartySync.class,
+        channel.registerMessage(PartySyncClientHandler.class, PartySync.class,
                 id++, Side.CLIENT);
-        channel.registerMessage(ClientNotifyClientHandler.class, MessageClientNotify.class,
+        channel.registerMessage(ClientNotifyClientHandler.class, ClientNotify.class,
                 id++, Side.CLIENT);
     }
 }

@@ -25,13 +25,13 @@ import net.minecraftforge.event.world.ExplosionEvent;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.TrustAction;
+import com.github.gtexpert.blpc.api.party.TrustLevel;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.TrustAction;
-import com.github.gtexpert.blpc.common.party.TrustLevel;
 
 /**
  * Central Forge event handler for chunk protection.
@@ -106,7 +106,9 @@ public class ChunkProtectionHandler {
 
         if (party == null) return false;
 
-        TrustLevel effectiveLevel = party.getEffectiveTrustLevel(player.getUniqueID());
+        var playerParty = PartyManagerData.getInstance().getPartyByPlayer(player.getUniqueID());
+        var playerPartyId = playerParty != null ? playerParty.getPartyId() : null;
+        TrustLevel effectiveLevel = party.getEffectiveTrustLevel(player.getUniqueID(), playerPartyId);
         if (effectiveLevel == null) return false; // Enemy: null encodes "no trust"
         return effectiveLevel.isAtLeast(party.getTrustLevel(action));
     }

@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.party;
+package com.github.gtexpert.blpc.api.party;
 
 /**
  * Represents a player's trust level within a party's claimed chunks.

@@ -19,7 +19,7 @@ public enum Mods {
     }
 
     private final String ID;
-    protected Boolean modLoaded;
+    private Boolean modLoaded;
 
     Mods(String ID) {
         this.ID = ID;

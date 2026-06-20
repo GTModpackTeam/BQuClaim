@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.network;
+package com.github.gtexpert.blpc.common.network.message;
 
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
@@ -8,14 +8,14 @@ import io.netty.buffer.ByteBuf;
  * S→C: Syncs server config (max claims/force-loads) to client.
  * Handler lives in {@code client.network.SyncConfigClientHandler}.
  */
-public class MessageSyncConfig implements IMessage {
+public class SyncConfig implements IMessage {
 
     private int maxClaims;
     private int maxForce;
 
-    public MessageSyncConfig() {}
+    public SyncConfig() {}
 
-    public MessageSyncConfig(int maxClaims, int maxForce) {
+    public SyncConfig(int maxClaims, int maxForce) {
         this.maxClaims = maxClaims;
         this.maxForce = maxForce;
     }

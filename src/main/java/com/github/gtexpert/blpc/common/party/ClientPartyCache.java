@@ -8,8 +8,11 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
 
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.common.ModLog;
+
 /**
- * Client-side party data cache. Populated via {@code MessagePartySync}.
+ * Client-side party data cache. Populated via {@code PartySync}.
  * Also tracks BQu linking flags per player for UI decisions.
  */
 public class ClientPartyCache {
@@ -30,8 +33,13 @@ public class ClientPartyCache {
         parties.clear();
         NBTTagList list = data.getTagList("parties", Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < list.tagCount(); i++) {
-            Party party = Party.fromNBT(list.getCompoundTagAt(i));
-            parties.put(party.getPartyId(), party);
+            try {
+                Party party = Party.fromNBT(list.getCompoundTagAt(i));
+                if (party == null) continue;
+                parties.put(party.getPartyId(), party);
+            } catch (Exception e) {
+                ModLog.SYNC.error("Failed to parse party entry at index {}, skipping", i, e);
+            }
         }
         bquLinkedPlayers.clear();
         NBTTagList linkedList = data.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND);

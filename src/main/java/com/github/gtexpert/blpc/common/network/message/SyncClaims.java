@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.network;
+package com.github.gtexpert.blpc.common.network.message;
 
 import java.util.UUID;
 
@@ -11,7 +11,7 @@ import io.netty.buffer.ByteBuf;
  * S→C: Updates a single chunk's ownership state.
  * Handler lives in {@code client.network.SyncClaimsClientHandler}.
  */
-public class MessageSyncClaims implements IMessage {
+public class SyncClaims implements IMessage {
 
     private int x;
     private int z;
@@ -20,9 +20,9 @@ public class MessageSyncClaims implements IMessage {
     private String partyName;
     private boolean isForceLoaded;
 
-    public MessageSyncClaims() {}
+    public SyncClaims() {}
 
-    public MessageSyncClaims(int x, int z, UUID owner, String name, String partyName, boolean isForceLoaded) {
+    public SyncClaims(int x, int z, UUID owner, String name, String partyName, boolean isForceLoaded) {
         this.x = x;
         this.z = z;
         this.owner = owner;

@@ -10,21 +10,22 @@ import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.client.map.AsyncMapRenderer;
 import com.github.gtexpert.blpc.client.map.ChunkMapRenderer;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
-import com.github.gtexpert.blpc.common.network.MessageClaimChunk;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.network.message.ClaimChunk;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
 
 public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactable {
 
+    /** Visible chunk grid diameter (odd, player-centered). The minimap HUD uses a wider grid. */
     public static final int GRID = 15;
     private static final int RADIUS = GRID / 2;
     private static final int GRID_LINE_COLOR = GuiColors.DIVIDER;
-    private static final int BORDER_COLOR = GuiColors.WHITE;
+    private static final int BORDER_COLOR = BLPCColors.mapBorder();
 
     private int selectedRX = Integer.MIN_VALUE;
     private int selectedRZ = Integer.MIN_VALUE;
@@ -37,7 +38,7 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
             if (d == null) return;
             Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
             if (ownerParty != null) {
-                int color = 0xFF000000 | (ownerParty.getColor() & 0xFFFFFF);
+                int color = BLPCColors.partyArgb(ownerParty.getColor());
                 tooltip.addLine(IKey.str(ownerParty.getName()).color(color));
             } else {
                 tooltip.addLine(IKey.str(d.ownerName));
@@ -96,8 +97,9 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
     }
 
     private void drawPlayerIcon(Minecraft mc, int ox, int oy, int cs) {
-        float relX = (float) (mc.player.posX % 16) / 16.0f * cs;
-        float relZ = (float) (mc.player.posZ % 16) / 16.0f * cs;
+        int blocks = ChunkMapRenderer.CHUNK_BLOCKS;
+        float relX = (float) (mc.player.posX % blocks) / blocks * cs;
+        float relZ = (float) (mc.player.posZ % blocks) / blocks * cs;
         if (relX < 0) relX += cs;
         if (relZ < 0) relZ += cs;
         float iconCX = ox + RADIUS * cs + relX;
@@ -145,10 +147,10 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
         if (rx == lastDragX && rz == lastDragZ) return;
 
         if (mouseButton == 0) {
-            int mode = Interactable.hasShiftDown() ? MessageClaimChunk.MODE_TOGGLE_FORCE : MessageClaimChunk.MODE_CLAIM;
-            ModNetwork.INSTANCE.sendToServer(new MessageClaimChunk(rx, rz, mode));
+            int mode = Interactable.hasShiftDown() ? ClaimChunk.MODE_TOGGLE_FORCE : ClaimChunk.MODE_CLAIM;
+            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, mode));
         } else if (mouseButton == 1) {
-            ModNetwork.INSTANCE.sendToServer(new MessageClaimChunk(rx, rz, MessageClaimChunk.MODE_UNCLAIM));
+            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, ClaimChunk.MODE_UNCLAIM));
         }
 
         if (mouseButton == 0 || mouseButton == 1) {

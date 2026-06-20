@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.command;
+package com.github.gtexpert.blpc.common.command.admin;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,12 +16,13 @@ import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
-import com.github.gtexpert.blpc.common.network.MessageClientNotify;
+import com.github.gtexpert.blpc.common.command.BLPCCommandHelper;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 public class DisbandCommand extends CommandBase {
@@ -49,13 +50,10 @@ public class DisbandCommand extends CommandBase {
 
         String partyName = party.getName();
         List<UUID> members = new ArrayList<>(party.getMemberUUIDs());
-        ChunkManagerData chunks = ChunkManagerData.getInstance();
-        for (UUID memberId : members) {
-            chunks.releaseAllClaims(memberId, sender.getEntityWorld());
-        }
 
         PartyManagerData pm = PartyManagerData.getInstance();
         pm.removeParty(party.getPartyId());
+        ChunkManagerData.getInstance().releaseAllMemberClaims(members, sender.getEntityWorld());
         for (UUID memberId : members) {
             pm.setBQuLinked(memberId, false);
         }
@@ -66,7 +64,7 @@ public class DisbandCommand extends CommandBase {
             EntityPlayerMP member = server.getPlayerList().getPlayerByUUID(memberId);
             if (member != null) {
                 ModNetwork.INSTANCE.sendTo(
-                        MessageClientNotify.partyEvent(MessageClientNotify.EVENT_DISBANDED, "", ""),
+                        ClientNotify.partyEvent(ClientNotify.EVENT_DISBANDED, "", ""),
                         member);
             }
         }

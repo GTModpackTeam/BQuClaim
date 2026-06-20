@@ -9,15 +9,29 @@ import javax.annotation.Nullable;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Registry for the active {@link IPartyProvider}.
  * <p>
- * {@code CoreModule} registers {@code DefaultPartyProvider} by default.
- * {@code BQuModule} replaces it with {@code BQPartyProvider} when BetterQuesting is present.
+ * {@code CoreModule} registers {@code DefaultPartyProvider} at {@link #PRIORITY_DEFAULT}.
+ * {@code BQuModule} replaces it with {@code BQPartyProvider} at {@link #PRIORITY_HIGH} when
+ * BetterQuesting is present. Addons that need to override the provider should use
+ * {@link #PRIORITY_HIGH}; addons that want a fallback-only provider should use
+ * {@link #PRIORITY_LOW}.
+ * <p>
+ * A lower-priority registration is silently ignored after a higher-priority one is set.
+ * Registrations at equal priority log a warning and win (last-write-wins at tie).
  * <p>
  * Also provides an optional native screen opener for BQu's party management UI.
  */
 public class PartyProviderRegistry {
+
+    /** Standard priorities for {@link #register(IPartyProvider, int)}. */
+    public static final int PRIORITY_LOW = -100;
+    public static final int PRIORITY_DEFAULT = 0;
+    public static final int PRIORITY_HIGH = 100;
 
     private static final IPartyProvider NO_OP = new IPartyProvider() {
 
@@ -87,12 +101,48 @@ public class PartyProviderRegistry {
         }
     };
 
+    private static final Logger LOG = LogManager.getLogger("blpc/PartyProviderRegistry");
+
     private static volatile IPartyProvider provider = NO_OP;
+    private static volatile int registeredPriority = Integer.MIN_VALUE;
     private static volatile Runnable nativePartyScreenOpener;
 
-    /** Registers the active party provider, replacing the previous one. */
-    public static void register(IPartyProvider teamProvider) {
-        provider = teamProvider;
+    /**
+     * Registers the active party provider at {@link #PRIORITY_DEFAULT}.
+     * Calls {@link #register(IPartyProvider, int)} — see that method for priority semantics.
+     */
+    public static void register(IPartyProvider newProvider) {
+        register(newProvider, PRIORITY_DEFAULT);
+    }
+
+    /**
+     * Registers a party provider at the given priority.
+     * <ul>
+     * <li>Higher priority wins over a registered lower-priority provider.</li>
+     * <li>Equal priority logs a warning and accepts the new provider (last-write-wins).</li>
+     * <li>Lower priority than the currently registered one is silently ignored.</li>
+     * </ul>
+     */
+    public static synchronized void register(IPartyProvider newProvider, int priority) {
+        if (newProvider == null) {
+            LOG.warn("Ignoring null party provider registration (priority {})", priority);
+            return;
+        }
+        if (provider != NO_OP && priority < registeredPriority) {
+            LOG.warn(
+                    "Ignoring {} (priority {}) — {} is already registered at higher priority {}",
+                    newProvider.getClass().getSimpleName(), priority,
+                    provider.getClass().getSimpleName(), registeredPriority);
+            return;
+        }
+        if (provider != NO_OP && priority == registeredPriority) {
+            LOG.warn(
+                    "{} (priority {}) is replacing {} at the same priority — check registration order",
+                    newProvider.getClass().getSimpleName(), priority,
+                    provider.getClass().getSimpleName());
+        }
+        provider = newProvider;
+        registeredPriority = priority;
     }
 
     /** Registers a runnable that opens the native party management screen (e.g. BQu's party UI). */

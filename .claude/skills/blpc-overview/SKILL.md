@@ -37,7 +37,7 @@ Annotation-driven module framework (same pattern as GTMoreTools/GTWoodProcessing
 
 - **`api/modules/`** — `IModule`, `TModule` (annotation), `IModuleContainer`, `ModuleContainer`, `ModuleStage`, `IModuleManager`.
 - **`module/`** — `ModuleManager` (ASM scanning, dependency resolution, config-driven enable/disable), `Modules` (container + module ID constants), `BaseModule`.
-- **`core/CoreModule`** — `@TModule(coreModule=true)`. Registers network packets, ForgeChunkManager callback, and default `PartyProviderRegistry`.
+- **`core/CoreModule`** — `@TModule(coreModule=true)`. Registers network packets, ForgeChunkManager callback, and `DefaultPartyProvider` via `PartyProviderRegistry.register(..., PRIORITY_DEFAULT)`.
 - **`integration/IntegrationModule`** — Parent gate for all integration submodules.
 - **`integration/IntegrationSubmodule`** — Abstract base for mod-specific integrations.
 
@@ -47,10 +47,10 @@ Modules are discovered at FML Construction via `@TModule` annotation scanning. T
 
 Party management is abstracted via `IPartyProvider`, allowing transparent switching between self-managed parties and BQu's party system:
 
-- **`api/party/IPartyProvider`** — Full interface with query methods (`areInSameParty`, `getPartyName`, `getPartyMembers`, `getRole`) and mutation methods (`createParty`, `disbandParty`, `renameParty`, `invitePlayer`, `acceptInvite`, `kickOrLeave`, `changeRole`, `syncToAll`). Most mutation methods identify the party via the acting player's UUID. Exception: `acceptInvite(player, partyId)` requires an explicit partyId since it targets a different party.
-- **`api/party/PartyProviderRegistry`** — Holds the active provider.
-- **`common/party/DefaultPartyProvider`** — Self-managed implementation backed by `PartyManagerData`. Registered by `CoreModule`.
-- **`integration/bqu/BQPartyProvider`** — BQu implementation that directly operates on BQu's `PartyManager`, `PartyInvitations`, and `NetPartySync`, with fallback to `DefaultPartyProvider` for players not in a BQu party. When BQu is present, this **replaces** the default provider — no data duplication.
+- **`api/party/IPartyProvider`** — Full interface with query methods (`areInSameParty`, `getPartyName`, `getPartyMembers`, `getRole`; plus `default` query methods `findByName`, `allPartyNames`, `pendingInvitesFor`) and mutation methods (`createParty`, `disbandParty`, `renameParty`, `invitePlayer`, `acceptInvite`, `kickOrLeave`, `changeRole`, `syncToAll`). Most mutation methods identify the party via the acting player's UUID. Exception: `acceptInvite(player, partyId)` requires an explicit partyId since it targets a different party. Addons should query via `api/util/PartyQueryUtil` rather than the raw interface.
+- **`api/party/PartyProviderRegistry`** — Priority-based registry for the active provider. Constants: `PRIORITY_LOW=-100`, `PRIORITY_DEFAULT=0`, `PRIORITY_HIGH=100`. Higher priority wins; equal priority logs a warning and accepts the new provider (last-write-wins at tie); lower priority is silently ignored. Use `register(provider, priority)`.
+- **`common/party/DefaultPartyProvider`** — Self-managed implementation backed by `PartyManagerData`. Registered by `CoreModule` at `PRIORITY_DEFAULT`.
+- **`integration/bqu/BQPartyProvider`** — BQu implementation that directly operates on BQu's `PartyManager`, `PartyInvitations`, and `NetPartySync`, with fallback to `DefaultPartyProvider` for players not in a BQu party. Registered by `BQuModule` at `PRIORITY_HIGH`, replacing the default provider when BQu is present — no data duplication.
 
 **Design principle (Approach A):** When BQu is present, BLPC integrates INTO BQu's party system. BLPC's UI sends operations that `BQPartyProvider` translates into BQu API calls. BQu's quest sharing works unchanged.
 
@@ -62,7 +62,10 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 
 ## Package Layout
 
-- **`common/party/`** — Party data: `Party`, `PartyRole`, `RelationType`, `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`.
+**Start here:** `api/BLPCAPI` is the central access point and discoverability index (GregTech `GregTechAPI` analog) — one façade documenting every subsystem and addon extension point (`partyProvider()`, `moduleManager()`, `MODID`). Read it first.
+
+- **`api/`** — Public, addon-facing surface. `BLPCAPI` (façade/index), `modules/` (module framework SPI), `party/` (party backend SPI + domain types — `IPartyProvider`, `PartyProviderRegistry` with priority registration; **domain types**: `Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`), `event/` (`ChunkModifiedEvent`; `PartyEvent` — Pre/Post lifecycle hierarchy: cancelable `Pre.Created`/`Pre.Disbanded` veto mutations before they occur; informational `Post.Created`/`Post.Disbanded`/`Post.MemberJoined`/`Post.MemberLeft`/`Post.RoleChanged` fire after success), `util/` (`Mods`, `ModUtility`, `PartyQueryUtil` — addon-safe query façade delegating to the active `IPartyProvider`).
+- **`common/party/`** — Party infrastructure: `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`. Domain types (`Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`) live in `api/party/`.
 - **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
 - **`common/network/`** — IMessage contracts only (no client-only references):
   - C→S: `MessageClaimChunk` (with inner `Handler`), `MessagePartyAction` (POJO; handler split out — see below).
@@ -71,7 +74,9 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
   - `ModNetwork` — channel registration (side-aware). `NoOpHandler` — server-side fallback so S→C discriminators stay valid for outbound sends. `PlayerLoginHandler` — login sync.
 - **`common/network/party/`** — `PartyActionDispatcher` (server-side handler for `MessagePartyAction`; one private static method per action discriminator; the `onAdminParty(c, Predicate<Party>)` helper wraps the ADMIN+ auth gate shared by ~8 simple settings actions).
 - **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `MessageClientNotify.getKind()` to the matching `BLPCToast` builder). `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
-- **`client/gui/`** — ModularUI: `ChunkMapScreen`/`ChunkMapWidget`, party panels in `party/` subpackage, reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`) and `widget/` (`BLPCToast`), `MinimapHUD`, `KeyInputHandler` (keybind registration + input handling).
+- **`client/gui/`** — ModularUI screens only. `Screens` = the single catalog of every GUI + its open/build entry points (`openMap()`, `partyMain(...)`; RecipeMaps analog); `BLPCGuiTextures` = shared reusable `IDrawable`s (`DIVIDER`, `MAP_BACKGROUND`, `MAP_BORDER`) + `ICON_*` constants that reuse ModularUI's built-in `GuiTextures` icon atlas (`CLOSE`/`REFRESH`/`REMOVE` — no custom art; chunk-map tool buttons use these). Drawables are shared instances (a `Rectangle` only reads its fields at draw time) — never inline `new Rectangle().color(...)` in screen code, add it here. `BLPCColors` = semantic party/map palette, `GuiColors` = fixed vanilla-context ARGB; `BLPCToast` = vanilla toast notification; `ChunkMapScreen`/`ChunkMapWidget`; `PlayerFaceDrawable`; party panels in `party/` subpackage; reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`). Map pixel math derives from `ChunkMapRenderer.CHUNK_BLOCKS` (16 blocks/chunk — the single source for the recurring `% 16` / `/ 16` calculations).
+- **`client/hud/`** — `MinimapHUD` (in-game `RenderGameOverlayEvent` overlay; not a ModularUI screen).
+- **`client/input/`** — `KeyInputHandler` (keybind registration; routes key presses to `Screens`).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
 ## Network Layer Architecture
@@ -211,20 +216,23 @@ Invite is handled inline in `MembersPanel` (direct `MessagePartyAction.invite()`
 
 ## Color Conventions
 
-All GUI colors are defined as ARGB constants in `client/gui/GuiColors`:
+**No ModularUI theme system.** BLPC ships a single **light** look; all colors are fixed Java values. There are two holders, split by surface:
 
-| Constant | Value | Matches | Usage |
+- `client/gui/BLPCColors` — **semantic** party-panel + chunk-map colors. The `int` values are the **single source of truth** (`private static final`); consumers read them only through accessor methods so changing one value here propagates everywhere. Text/role: `text()` (`0xFF000000`), `buttonText()` (`0xFFFFFFFF`, white text on gray buttons) + `buttonTextShadow()` (`true`), `owner()` (`0xFFA66A00`), `admin()` (`0xFF1B7A1B`), `warning()` (`0xFFC00000`), `subtext()` (`0xFF555555`), `inactive()` (`0xFF888888`), `divider()` (`0x40000000`), plus `textShadow()` (`false`, panel-background titles). Map/HUD: `mapBackground()`, `mapBorder()`, `minimapBackground()`, `mapUnloaded()` (loading-tile fill), claim overlays `claimOwn()`/`claimParty()`/`claimOther()`/`claimHatching()`/`claimBorder()` (read by `ChunkMapRenderer`), and the `partyArgb(int rgb)` helper (opaque ARGB from a party's stored RGB — replaces the inlined `0xFF000000 | (rgb & 0xFFFFFF)`). Party panels, `ChunkMapScreen`, `ChunkMapWidget`, `ChunkMapRenderer`, and `MinimapHUD` all read these. `@SideOnly(CLIENT)`.
+- `client/gui/GuiColors` — **fixed vanilla-context** ARGB constants, used where the surface is always MC's own dark background: tooltips, toasts (`BLPCToast`), chunk-map counters, and the chunk-map grid (`MinimapHUD`, `ChunkMapWidget`).
+
+| `GuiColors` constant | Value | Matches | Usage |
 |---|---|---|---|
-| `WHITE` | `0xFFFFFFFF` | `TextFormatting.WHITE` (§f) | Titles, default text |
-| `GOLD` | `0xFFFFAA00` | `TextFormatting.GOLD` (§6) | OWNER role, section headers |
-| `GREEN` | `0xFF55FF55` | `TextFormatting.GREEN` (§a) | ADMIN role, active items |
-| `RED` | `0xFFFF5555` | `TextFormatting.RED` (§c) | Warnings, limit exceeded |
-| `GRAY` | `0xFFAAAAAA` | `TextFormatting.GRAY` (§7) | Sub-text, messages |
-| `GRAY_LIGHT` | `0xFFCCCCCC` | — | Inactive items, non-members |
+| `WHITE` | `0xFFFFFFFF` | `TextFormatting.WHITE` (§f) | Map counters, toast default, map border |
+| `GOLD` | `0xFFFFAA00` | `TextFormatting.GOLD` (§6) | Ally/invite toasts |
+| `GREEN` | `0xFF55FF55` | `TextFormatting.GREEN` (§a) | Member/join toasts |
+| `RED` | `0xFFFF5555` | `TextFormatting.RED` (§c) | Enemy/fail toasts, counter over-limit |
+| `GRAY` | `0xFFAAAAAA` | `TextFormatting.GRAY` (§7) | Toast sub-text, tooltips |
+| `DIVIDER` | `0x30FFFFFF` | — | Chunk-map grid lines |
 
-`GuiColors` is at the `client/gui` package level — shared by all GUI components (party panels, chunk map, minimap). Party-specific role color logic is in `PartyWidgets.getRoleColor(PartyRole)`.
+Party text colors route through `BLPCColors` (black on the light panels) so they read against ModularUI's default button. Buttons use ModularUI's default theme — no per-widget background override. **Never inline `0x…` color literals** in widget code; the only exception is dynamic per-party `getColor()` ARGB composition (`ChunkMapWidget`, `SettingsPanel` ColorPicker). Party-specific role color logic is in `PartyWidgets.getRoleColor(PartyRole)`. Color changes are visual — verify with `runClient`.
 
-For Minecraft formatting codes in tooltip strings, use `TextFormatting` enum constants (e.g. `TextFormatting.GREEN + "text"`) instead of raw `\u00a7X` escape sequences.
+For Minecraft formatting codes in tooltip strings, use `TextFormatting` enum constants (e.g. `TextFormatting.GREEN + "text"`) instead of raw `§X` escape sequences.
 
 ## ModLog Categories
 
@@ -267,6 +275,12 @@ For Minecraft formatting codes in tooltip strings, use `TextFormatting` enum con
 | `IKey.dynamic` / `*Value.Dynamic` / `setEnabledIf(w -> ...)` | Per-frame reactive state | Refresh visible values/visibility without rebuilding the widget tree — preferred over re-creating widgets |
 
 For ModularUI API details, consult the ModularUI source code at `/mnt/data/git/ModularUI`. Text input fields use `setMaxLength(32)` for user-facing name inputs (party name, player name).
+
+**`PartyWidgets` is the single styling/factory source for party UI** — change it once, every panel follows. Don't hand-build a row button or hard-code its geometry; route through the helpers:
+- **Dimensions** (constants): `BTN_H`, `TAB_H`, `FACE_SIZE`, `ROW_INDENT` (left text indent), `INPUT_H`, `SUBMIT_BTN_W`, `CONFIRM_BTN_W`/`CONFIRM_BTN_H`, `CONTENT_TOP`. Never inline the magic numbers.
+- **Labels**: `buttonLabel(key)` (white+shadow), `buttonLabelLeft(key)` (+ left align), `rowLabel(key, color)` (keep a role color, add shadow+align). Never repeat the `.color().shadow().alignment()` triple inline.
+- **Widgets/layout**: `dialogButton`, `toggleButton`, `createPlayerRow`, `faceRow`, `divider()`, `dialogHeader(titleKey, messageKey)`, `addHeader`, `addTabs`, `addList` / `fillBelowHeader`, `newPageList`.
+- **Shared logic**: `MemberEntry` (row data for member/player lists), `byRoleThenName()` (sort), `formatCycleOptionLine(prefix, name, selected)`, `underlineKey`/`defaultTooltip` (tooltip lines). These replaced the per-panel copies in `MembersPanel`/`ModeratorsPanel`/`SettingsPanel`.
 
 ## Client-Side Sync Pattern
 
@@ -323,7 +337,7 @@ Dialogs use a consistent 220px width; custom sizing via `.size(w, h)`.
 Fluent builder for the party main menu. Accumulate entries, then `buildInto(ListWidget)`:
 - `PartyMenuBuilder.of(panel, party, playerId)` — create with a `MenuContext` snapshot
 - `.navHandler(langKey, IPanelHandler)` — nav entry that opens a **pre-created** handler (preferred when the menu is rebuilt across syncs — avoids `clientSubPanels` leak)
-- `.nav(langKey, Function<Party, ModularPanel>)` — nav entry that builds a fresh sub-panel via the factory on each click (legacy/standalone path)
+- `.nav(langKey, Function<Party, ModularPanel>)` — nav entry that builds a fresh sub-panel via the factory on each click (alternative for static or single-use panels; prefer `.navHandler` when the menu is rebuilt across syncs to avoid `clientSubPanels` leak)
 - `.widget(IWidget)` — raw widget injection (toggle buttons, etc.)
 - `.tooltip(langKey)` / `.visible(Predicate<MenuContext>)` — modifiers on the current entry; `.visible(...)` skips the entry when the predicate is false (used in place of `if` blocks for conditional widgets)
 - `.buildInto(ListWidget)` — materializes all entries
@@ -335,7 +349,7 @@ Fluent builder for the party main menu. Accumulate entries, then `buildInto(List
 
 Color constants in `client/gui/GuiColors`: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRAY`, `GRAY_LIGHT`, `HOVER`, `DIVIDER` — ARGB.
 
-`client/gui/party/PartyWidgets` (consolidates former `PanelSizes` / `PanelBuilder`):
+`client/gui/party/PartyWidgets`:
 - **Size constants** — `STANDARD_W/H` (220×180), `LARGE_W/H` (260×220), `DIALOG_W/H` (220×70), `BTN_H` (18), `FACE_SIZE` (8), `TAB_H` (16)
 - **Layout** — `addHeader(panel, titleKey | IKey)`, `addList(panel, list)`, `addTabs(panel, controller, labelKeys, pages)` / `buildInnerTabs(labelKeys, pages)`, `wrapWithSearchBox(list, widgets, searchNames)` / `finalizeSearchableList(list, widgets, searchNames, emptyKey)`, `emptyStateRow(langKey)`, `faceRow(uuid, IKey)`
 - **Widgets** — `createPlayerRow(uuid, label, color)`, `dialogButton(IKey label, IPanelHandler)`, `createEnterSubmitTextField(onSubmit)`
@@ -344,7 +358,32 @@ Color constants in `client/gui/GuiColors`: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRA
 
 ## Commands
 
-`/blpc move-owner <partyId> <newOwner>` — Op-only (permission level 3) command to transfer party ownership. Registered in `CoreModule` via `FMLServerStartingEvent`. Lang key: `command.blpc.move_owner.success`.
+`/blpc` root tree (`BLPCCommand extends CommandTreeBase`, permission level 0) registered by `CoreModule.serverStarting()`.
+
+**Player subcommands** (`common/command/`):
+
+| Subcommand | Purpose |
+|---|---|
+| `list` | List all parties |
+| `info <party>` | Show party details |
+| `me` | Show your own party info |
+| `here` | Show claim owner of current chunk |
+| `claims` | Show your claim count |
+| `invites` | List pending invites |
+| `accept <party>` | Accept a party invite |
+| `decline <party>` | Decline a party invite |
+| `leave` | Leave your current party |
+| `admin` | Admin subcommand tree (see below) |
+
+**Admin subcommands** (`common/command/admin/AdminCommand`, permission level 3):
+
+| Subcommand | Purpose |
+|---|---|
+| `admin move-owner <party> <player>` | Transfer party ownership |
+| `admin kick <party> <player>` | Force-kick a player from a party |
+| `admin disband <party>` | Force-disband a party |
+
+Query helpers shared by all commands: `api/util/PartyQueryUtil` (`findByName`, `allPartyNames`, `pendingInvitesFor`, `resolveName`). The internal helper `common/command/BLPCCommandHelper` adds `activeProviderFor` (BQu routing logic) and delegates all queries to `PartyQueryUtil`.
 
 ## Mixins
 
@@ -416,7 +455,7 @@ Players receive **toast notifications** when entering/leaving claimed chunks, an
 
 ### Classes
 
-- **`common/party/RelationType`** — Enum: `MEMBER`, `ALLY`, `ENEMY`, `NONE`.
+- **`api/party/RelationType`** — Enum: `MEMBER`, `ALLY`, `ENEMY`, `NONE`.
 - **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `MessageClientNotify.chunkTransit(...)`, and applies area effects.
 - **`common/network/MessageClientNotify`** — multiplexed S→C packet for every client toast. `KIND_CHUNK_TRANSIT` carries player name + relation (`name()` string for forward compatibility) + entered flag. `KIND_PARTY_EVENT` carries event type string (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink) + player name + extra info. `KIND_CLAIM_FAILED` carries reason + current/max counts. Handler: `client/network/ClientNotifyClientHandler`.
 - **`client/gui/widget/BLPCToast`** — `IToast` implementation with Builder pattern. Factory methods: `fromTransit()` (chunk entry/exit), `fromPartyEvent()` (party events), `fromClaimFailed()` (claim limit errors). Only loaded on the physical client — never reachable from server-side bytecode.

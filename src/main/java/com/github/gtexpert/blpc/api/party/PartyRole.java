@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.party;
+package com.github.gtexpert.blpc.api.party;
 
 /**
  * Party member roles with ascending privilege: MEMBER < ADMIN < OWNER.

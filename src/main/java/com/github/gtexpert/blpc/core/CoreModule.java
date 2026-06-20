@@ -22,7 +22,9 @@ import com.github.gtexpert.blpc.BLPCMod;
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.modules.IModule;
 import com.github.gtexpert.blpc.api.modules.TModule;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.ModLog;
@@ -30,9 +32,7 @@ import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.command.BLPCCommand;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 import com.github.gtexpert.blpc.module.Modules;
 
 /**
@@ -42,8 +42,7 @@ import com.github.gtexpert.blpc.module.Modules;
  * <ul>
  * <li>Register network packets via {@link ModNetwork#init()}.</li>
  * <li>Wire up {@link TicketManager} for forced chunk loading.</li>
- * <li>Install {@link DefaultPartyProvider} as the baseline party provider
- * (later replaced by {@code BQuModule} when BetterQuesting is present).</li>
+ * <li>Install {@link DefaultPartyProvider} as the baseline party provider.</li>
  * <li>Load and save world data through {@link BLPCSaveHandler}.</li>
  * <li>Auto-create the configured server party on {@code serverStarting}.</li>
  * <li>Register protection / transit / event handlers.</li>
@@ -70,7 +69,7 @@ public class CoreModule implements IModule {
     @Override
     public void preInit(FMLPreInitializationEvent event) {
         ForgeChunkManager.setForcedChunkLoadingCallback(BLPCMod.INSTANCE, new TicketManager());
-        PartyProviderRegistry.register(new DefaultPartyProvider());
+        PartyProviderRegistry.register(new DefaultPartyProvider(), PartyProviderRegistry.PRIORITY_DEFAULT);
         if (FMLCommonHandler.instance().getSide() == Side.CLIENT) {
             MinecraftForge.EVENT_BUS.register(new CoreEventHandler.ClientHandler());
         }

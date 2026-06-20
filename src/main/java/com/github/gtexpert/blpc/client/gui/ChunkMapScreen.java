@@ -10,8 +10,8 @@ import java.util.function.IntSupplier;
 import net.minecraft.client.Minecraft;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
+import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
-import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.CustomModularScreen;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
@@ -22,24 +22,26 @@ import com.cleanroommc.modularui.widgets.TextWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 
 import com.github.gtexpert.blpc.Tags;
-import com.github.gtexpert.blpc.client.gui.party.MainPanel;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
 import com.github.gtexpert.blpc.client.map.AsyncMapRenderer;
 import com.github.gtexpert.blpc.client.map.TextureCache;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
-import com.github.gtexpert.blpc.common.network.MessageClaimChunk;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.network.message.ClaimChunk;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
 
 public class ChunkMapScreen extends CustomModularScreen {
 
     private static final int BTN_SIZE = 16;
     private static final int BTN_GAP = 2;
+    // Max map draw area; ChunkMapWidget derives its per-chunk pixel size from this and its GRID.
     private static final int MAP_PX = 195;
-    private static final int DIALOG_BORDER = GuiColors.WHITE;
+    private static final int COUNTER_RIGHT = 4;
+    private static final int COUNTER_BOTTOM_CLAIMED = 16;
+    private static final int COUNTER_BOTTOM_LOADED = 4;
 
     private ChunkMapWidget mapWidget;
     private IPanelHandler confirmHandler;
@@ -62,46 +64,47 @@ public class ChunkMapScreen extends CustomModularScreen {
                 .child(mapWidget.size(MAP_PX, MAP_PX)
                         .leftRel(0.5f, leftOff, 0f)
                         .verticalCenter()
-                        .background(new Rectangle().color(0xE0101010))
-                        .overlay(new Rectangle().color(DIALOG_BORDER).hollow(1)))
+                        .background(BLPCGuiTextures.MAP_BACKGROUND)
+                        .overlay(BLPCGuiTextures.MAP_BORDER))
                 .child(createToolButtons()
                         .leftRel(0.5f, leftOff + MAP_PX, 0f)
                         .verticalCenter())
                 .child(createCounterText("blpc.map.claimed_chunks",
-                        this::countMyClaims, this::maxClaims, 16))
+                        this::countMyClaims, this::maxClaims, COUNTER_BOTTOM_CLAIMED))
                 .child(createCounterText("blpc.map.loaded_chunks",
-                        this::countMyForceLoads, this::maxForceLoads, 4));
+                        this::countMyForceLoads, this::maxForceLoads, COUNTER_BOTTOM_LOADED));
     }
 
     private TextWidget<?> createCounterText(String langKey,
                                             IntSupplier counter, IntSupplier max, int bottom) {
         return new TextWidget<>(IKey.lang(langKey, () -> new Object[] { counter.getAsInt(), max.getAsInt() }))
                 .color(() -> counter.getAsInt() >= max.getAsInt() ? GuiColors.RED : GuiColors.WHITE)
-                .shadow(true).right(4).bottom(bottom);
+                .shadow(true).right(COUNTER_RIGHT).bottom(bottom);
     }
 
     private ParentWidget<?> createToolButtons() {
-        int totalH = BTN_SIZE * 5 + BTN_GAP * 4;
+        int n = 5;
+        int totalH = BTN_SIZE * n + BTN_GAP * (n - 1);
         return Flow.col()
                 .size(BTN_SIZE, totalH)
                 .childPadding(BTN_GAP)
-                .child(createToolButton("X", mb -> close(), "blpc.map.close"))
-                .child(createToolButton("P", mb -> openPartyScreen(), "blpc.map.party"))
-                .child(createToolButton("R", mb -> {
+                .child(createToolButton(BLPCGuiTextures.ICON_CLOSE, mb -> close(), "blpc.map.close"))
+                .child(createToolButton(IKey.str("P"), mb -> openPartyScreen(), "blpc.map.party"))
+                .child(createToolButton(BLPCGuiTextures.ICON_REFRESH, mb -> {
                     AsyncMapRenderer.clearCache();
                     TextureCache.clear();
                 }, "blpc.map.redraw"))
-                .child(createToolButton("C", mb -> openConfirmDialog(1),
+                .child(createToolButton(BLPCGuiTextures.ICON_REMOVE, mb -> openConfirmDialog(1),
                         "blpc.map.unclaim_all", "blpc.map.help_claim", "blpc.map.help_unclaim"))
-                .child(createToolButton("L", mb -> openConfirmDialog(2),
+                .child(createToolButton(IKey.str("L"), mb -> openConfirmDialog(2),
                         "blpc.map.unload_all", "blpc.map.help_force", "blpc.map.help_drag"));
     }
 
-    private ButtonWidget<?> createToolButton(String label, Consumer<Integer> action,
+    private ButtonWidget<?> createToolButton(IDrawable overlay, Consumer<Integer> action,
                                              String... tooltipKeys) {
         ButtonWidget<?> btn = new ButtonWidget<>();
         btn.size(BTN_SIZE, BTN_SIZE)
-                .overlay(IKey.str(label))
+                .overlay(overlay)
                 .onMousePressed(mb -> {
                     if (mb == 0) {
                         action.accept(mb);
@@ -145,11 +148,11 @@ public class ChunkMapScreen extends CustomModularScreen {
 
     private void executeBulkAction(int action) {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
-        int mode = (action == 1) ? MessageClaimChunk.MODE_UNCLAIM : MessageClaimChunk.MODE_TOGGLE_FORCE;
+        int mode = (action == 1) ? ClaimChunk.MODE_UNCLAIM : ClaimChunk.MODE_TOGGLE_FORCE;
         for (ClaimedChunkData d : ClientCache.getAll()) {
             if (d.ownerUUID.equals(myId)) {
                 if (action == 1 || d.isForceLoaded) {
-                    ModNetwork.INSTANCE.sendToServer(new MessageClaimChunk(d.x, d.z, mode));
+                    ModNetwork.INSTANCE.sendToServer(new ClaimChunk(d.x, d.z, mode));
                 }
             }
         }
@@ -160,10 +163,10 @@ public class ChunkMapScreen extends CustomModularScreen {
             partyHandler.deleteCachedPanel();
         }
         partyHandler = IPanelHandler.simple(getMainPanel(), (parentPanel, player) -> {
-            // Pass the handler back into MainPanel.build so that CreatePanel can
+            // Pass the handler back into the party factory so that CreatePanel can
             // re-invoke it after a successful join — the factory re-runs and
             // returns MainPanel automatically.
-            return MainPanel.build(
+            return Screens.partyMain(
                     Minecraft.getMinecraft().player.getUniqueID(), partyHandler);
         }, true);
         partyHandler.openPanel();
@@ -189,7 +192,7 @@ public class ChunkMapScreen extends CustomModularScreen {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
         Party party = ClientPartyCache.getPartyByPlayer(myId);
         if (party != null && ModConfig.claims.additiveLimits) {
-            return party.sumClaimLimit();
+            return party.sumClaimLimit(ModConfig.claims.maxClaimsPerPlayer);
         }
         return ModConfig.claims.maxClaimsPerPlayer;
     }
@@ -198,7 +201,7 @@ public class ChunkMapScreen extends CustomModularScreen {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
         Party party = ClientPartyCache.getPartyByPlayer(myId);
         if (party != null && ModConfig.claims.additiveLimits) {
-            return party.sumForceLoadLimit();
+            return party.sumForceLoadLimit(ModConfig.claims.maxForceLoadsPerPlayer);
         }
         return ModConfig.claims.maxForceLoadsPerPlayer;
     }

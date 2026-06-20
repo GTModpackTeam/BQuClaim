@@ -8,14 +8,14 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.github.gtexpert.blpc.common.ModConfig;
-import com.github.gtexpert.blpc.common.network.MessageSyncConfig;
+import com.github.gtexpert.blpc.common.network.message.SyncConfig;
 
 /** Client-side handler that overrides client config with server-authoritative values. */
 @SideOnly(Side.CLIENT)
-public final class SyncConfigClientHandler implements IMessageHandler<MessageSyncConfig, IMessage> {
+public final class SyncConfigClientHandler implements IMessageHandler<SyncConfig, IMessage> {
 
     @Override
-    public IMessage onMessage(MessageSyncConfig msg, MessageContext ctx) {
+    public IMessage onMessage(SyncConfig msg, MessageContext ctx) {
         final int maxClaims = msg.getMaxClaims();
         final int maxForce = msg.getMaxForce();
         Minecraft.getMinecraft().addScheduledTask(() -> {

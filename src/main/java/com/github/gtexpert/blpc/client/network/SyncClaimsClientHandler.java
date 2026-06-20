@@ -8,14 +8,14 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
-import com.github.gtexpert.blpc.common.network.MessageSyncClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncClaims;
 
 /** Client-side handler for single-chunk ownership sync. */
 @SideOnly(Side.CLIENT)
-public final class SyncClaimsClientHandler implements IMessageHandler<MessageSyncClaims, IMessage> {
+public final class SyncClaimsClientHandler implements IMessageHandler<SyncClaims, IMessage> {
 
     @Override
-    public IMessage onMessage(MessageSyncClaims msg, MessageContext ctx) {
+    public IMessage onMessage(SyncClaims msg, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> ClientCache.update(
                 msg.getX(), msg.getZ(), msg.getOwner(), msg.getName(),
                 msg.getPartyName(), msg.isForceLoaded()));

@@ -11,12 +11,13 @@ import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.PagedWidget;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
+import com.github.gtexpert.blpc.client.gui.party.PartyWidgets.MemberEntry;
 import com.github.gtexpert.blpc.client.gui.party.widget.LiveSearchableList;
-import com.github.gtexpert.blpc.common.network.MessagePartyAction;
+import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
  * Members list (panel ID: {@value #PANEL_ID}). MEMBER sees a single list;
@@ -36,11 +37,11 @@ public class MembersPanel {
         ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
         PartyRole[] myRoleRef = { myRole };
 
-        LiveSearchableList<PlayerEntry> membersList = new LiveSearchableList<>(
+        LiveSearchableList<MemberEntry> membersList = new LiveSearchableList<>(
                 entry -> createMemberRow(entry, partyId, playerId, myRoleRef[0], canManage),
                 entry -> entry.name,
                 "blpc.party.no_players_online");
-        LiveSearchableList<PlayerEntry> inviteList = canManage ? new LiveSearchableList<>(
+        LiveSearchableList<MemberEntry> inviteList = canManage ? new LiveSearchableList<>(
                 entry -> createInviteRow(entry, partyId),
                 entry -> entry.name,
                 "blpc.party.no_players_online") : null;
@@ -55,7 +56,7 @@ public class MembersPanel {
             panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
             PartyWidgets.addHeader(panel, "blpc.party.members_title");
             // margin (not left/right/top/bottom): Flow.column already pre-fills sizeRel(1f, 1f).
-            panel.child(membersList.buildContainer().margin(8, 8, 22, 8));
+            panel.child(PartyWidgets.fillBelowHeader(membersList.buildContainer()));
         }
 
         membersList.rebuild(collectMembers(party));
@@ -81,36 +82,31 @@ public class MembersPanel {
         return panel;
     }
 
-    private static List<PlayerEntry> collectMembers(Party party) {
-        List<PlayerEntry> result = new ArrayList<>();
+    private static List<MemberEntry> collectMembers(Party party) {
+        List<MemberEntry> result = new ArrayList<>();
         for (Map.Entry<UUID, PartyRole> entry : party.getMembers().entrySet()) {
             UUID uuid = entry.getKey();
             String name = PartyWidgets.getDisplayName(uuid);
-            result.add(new PlayerEntry(uuid, name, entry.getValue()));
+            result.add(new MemberEntry(uuid, name, entry.getValue()));
         }
-        // OWNER first, then ADMIN, then MEMBER; alphabetical within role.
-        result.sort((a, b) -> {
-            int cmp = b.role.ordinal() - a.role.ordinal();
-            if (cmp != 0) return cmp;
-            return a.name.compareToIgnoreCase(b.name);
-        });
+        result.sort(PartyWidgets.byRoleThenName());
         return result;
     }
 
-    private static List<PlayerEntry> collectInvitableOnlinePlayers(Party party) {
-        List<PlayerEntry> result = new ArrayList<>();
+    private static List<MemberEntry> collectInvitableOnlinePlayers(Party party) {
+        List<MemberEntry> result = new ArrayList<>();
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.getConnection() == null) return result;
         for (NetworkPlayerInfo info : mc.getConnection().getPlayerInfoMap()) {
             UUID uuid = info.getGameProfile().getId();
             if (party.isMember(uuid) || party.hasInvite(uuid)) continue;
-            result.add(new PlayerEntry(uuid, info.getGameProfile().getName(), null));
+            result.add(new MemberEntry(uuid, info.getGameProfile().getName(), null));
         }
         result.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
         return result;
     }
 
-    private static IWidget createMemberRow(PlayerEntry entry, UUID partyId, UUID playerId,
+    private static IWidget createMemberRow(MemberEntry entry, UUID partyId, UUID playerId,
                                            PartyRole myRole, boolean canManage) {
         int color = PartyWidgets.getRoleColor(entry.role);
         String label = PartyWidgets.formatMemberLabel(entry.name, entry.role);
@@ -124,32 +120,19 @@ public class MembersPanel {
         if (canSelfLeave || canKickOther) {
             String playerName = entry.name;
             btn.onMousePressed(b -> PartyWidgets.sendAndApply(
-                    MessagePartyAction.kickOrLeave(playerName), partyId, p -> p.removeMember(entry.uuid)));
+                    PartyAction.kickOrLeave(playerName), partyId, p -> p.removeMember(entry.uuid)));
             btn.addTooltipLine(IKey.lang(canSelfLeave ? "blpc.party.tooltip.member_self" : "blpc.party.tooltip.kick"));
         }
 
         return btn;
     }
 
-    private static IWidget createInviteRow(PlayerEntry entry, UUID partyId) {
-        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid, entry.name, GuiColors.GRAY_LIGHT);
+    private static IWidget createInviteRow(MemberEntry entry, UUID partyId) {
+        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid, entry.name, BLPCColors.inactive());
         String playerName = entry.name;
         btn.onMousePressed(b -> PartyWidgets.sendAndApply(
-                MessagePartyAction.invite(playerName), partyId, p -> p.addInvite(entry.uuid, Long.MAX_VALUE)));
+                PartyAction.invite(playerName), partyId, p -> p.addInvite(entry.uuid, Long.MAX_VALUE)));
         btn.addTooltipLine(IKey.lang("blpc.party.tooltip.invite"));
         return btn;
-    }
-
-    private static class PlayerEntry {
-
-        final UUID uuid;
-        final String name;
-        final PartyRole role;
-
-        PlayerEntry(UUID uuid, String name, PartyRole role) {
-            this.uuid = uuid;
-            this.name = name;
-            this.role = role;
-        }
     }
 }

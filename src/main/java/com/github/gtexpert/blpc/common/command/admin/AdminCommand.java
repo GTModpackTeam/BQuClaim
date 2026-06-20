@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.command;
+package com.github.gtexpert.blpc.common.command.admin;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraftforge.server.command.CommandTreeBase;

@@ -13,16 +13,16 @@ import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.ScrollingTextWidget;
-import com.cleanroommc.modularui.widgets.ToggleButton;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
-import com.github.gtexpert.blpc.common.network.MessagePartyAction;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
  * Party main menu (panel ID: {@value #PANEL_ID}). Falls back to
@@ -58,7 +58,7 @@ public class MainPanel {
             Party p = ClientPartyCache.getParty(partyId);
             return p != null ? p.getName() : "";
         }))
-                .color(GuiColors.WHITE).shadow(true)
+                .color(BLPCColors.text()).shadow(BLPCColors.textShadow())
                 .alignment(Alignment.Center).left(0).right(20).top(8).height(10));
         panel.child(ButtonWidget.panelCloseButton());
 
@@ -87,7 +87,7 @@ public class MainPanel {
                         .noLabel("blpc.party.disband_no")
                         .closeParent(false)
                         .onConfirm(() -> {
-                            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.disband());
+                            ModNetwork.INSTANCE.sendToServer(PartyAction.disband());
                             panel.closeIfOpen();
                             PartyWidgets.clearLocalPartyData();
                         })
@@ -142,8 +142,8 @@ public class MainPanel {
 
     private static IWidget buildOpenNativeButton(ModularPanel panel, UUID playerId) {
         return new ButtonWidget<>().widthRel(1f).height(PartyWidgets.BTN_H)
-                .padding(4, 0, 0, 0)
-                .overlay(IKey.lang("blpc.party.open_native").alignment(Alignment.CenterLeft))
+                .padding(PartyWidgets.ROW_INDENT, 0, 0, 0)
+                .overlay(PartyWidgets.buttonLabelLeft(IKey.lang("blpc.party.open_native")))
                 .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
                 .setEnabledIf(w -> ClientPartyCache.isBQuLinked(playerId))
                 .onMousePressed(btn -> {
@@ -154,16 +154,14 @@ public class MainPanel {
     }
 
     private static IWidget buildBquToggle(UUID playerId) {
-        return new ToggleButton()
-                .widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0)
-                .value(new BoolValue.Dynamic(
+        return PartyWidgets.toggleButton(
+                new BoolValue.Dynamic(
                         () -> ClientPartyCache.isBQuLinked(playerId),
                         val -> {
                             PartyWidgets.setLocalBQuLinked(val);
-                            ModNetwork.INSTANCE.sendToServer(MessagePartyAction.toggleBQuLink(val));
-                        }))
-                .overlay(false, IKey.lang("blpc.party.link_bqu").alignment(Alignment.CenterLeft))
-                .overlay(true, IKey.lang("blpc.party.unlink_bqu").alignment(Alignment.CenterLeft))
+                            ModNetwork.INSTANCE.sendToServer(PartyAction.toggleBQuLink(val));
+                        }),
+                "blpc.party.link_bqu", "blpc.party.unlink_bqu")
                 .addTooltipLine(IKey.lang("blpc.party.tooltip.link_bqu"))
                 .addTooltipLine(IKey.dynamicKey(() -> {
                     Party myParty = ClientPartyCache.getPartyByPlayer(playerId);

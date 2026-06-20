@@ -12,14 +12,14 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.RelationType;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.network.MessageClientNotify;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.RelationType;
 
 /**
  * Detects when players cross claimed chunk boundaries and:
@@ -127,7 +127,7 @@ public class ChunkTransitHandler {
 
     private static void sendNotifications(Party claimParty, EntityPlayerMP transitPlayer,
                                           RelationType relation, boolean entered) {
-        MessageClientNotify packet = MessageClientNotify.chunkTransit(
+        ClientNotify packet = ClientNotify.chunkTransit(
                 transitPlayer.getName(), relation, entered);
 
         for (UUID memberId : claimParty.getMembers().keySet()) {

@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /**
  * Client-side in-memory cache of chunk claim data.
- * Populated via {@code MessageSyncClaims} / {@code MessageSyncAllClaims} from the server.
+ * Populated via {@code SyncClaims} / {@code SyncAllClaims} from the server.
  */
 public class ClientCache {
 

@@ -16,9 +16,9 @@ import net.minecraft.util.text.TextFormatting;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.party.Party;
 
 public class InfoCommand extends CommandBase {
 
@@ -44,7 +44,7 @@ public class InfoCommand extends CommandBase {
         }
 
         UUID owner = party.getOwner();
-        String ownerName = owner != null ? ListCommand.resolveName(server, party, owner) : "-";
+        String ownerName = owner != null ? BLPCCommandHelper.resolveName(server, party, owner) : "-";
         int claimCount = countClaims(party);
 
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.header", party.getName()));
@@ -55,7 +55,7 @@ public class InfoCommand extends CommandBase {
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.claims", claimCount));
 
         for (var entry : party.getMembers().entrySet()) {
-            String name = ListCommand.resolveName(server, party, entry.getKey());
+            String name = BLPCCommandHelper.resolveName(server, party, entry.getKey());
             sender.sendMessage(new TextComponentString(String.format("  %s- %s%s %s(%s)%s",
                     TextFormatting.GRAY, TextFormatting.RESET, name,
                     TextFormatting.DARK_GRAY, ListCommand.roleLabel(entry.getValue()), TextFormatting.RESET)));

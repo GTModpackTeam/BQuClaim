@@ -1,5 +1,6 @@
 package com.github.gtexpert.blpc.api.party;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -7,9 +8,6 @@ import javax.annotation.Nullable;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
-
-import com.github.gtexpert.blpc.common.network.MessagePartySync;
-import com.github.gtexpert.blpc.common.network.ModNetwork;
 
 /**
  * Service Provider Interface for party management.
@@ -41,6 +39,22 @@ public interface IPartyProvider {
     /** Returns the player's role name (e.g. "OWNER","ADMIN","MEMBER"), or null. */
     @Nullable
     String getRole(UUID playerUUID);
+
+    /** Returns the party with the given name, or null if none exists. */
+    @Nullable
+    default Party findByName(String name) {
+        return null;
+    }
+
+    /** Returns the names of all known parties. */
+    default List<String> allPartyNames() {
+        return Collections.emptyList();
+    }
+
+    /** Returns all parties that have a pending invite for the given player. */
+    default List<Party> pendingInvitesFor(UUID playerUUID) {
+        return Collections.emptyList();
+    }
 
     // --- Mutation (player UUID identifies the party) ---
 
@@ -77,7 +91,7 @@ public interface IPartyProvider {
      * ready for linking after this call.
      */
     default boolean ensureNativePartyWithMembers(EntityPlayerMP owner,
-                                                 com.github.gtexpert.blpc.common.party.Party blpcParty) {
+                                                 Party blpcParty) {
         return hasNativeParty(owner.getUniqueID());
     }
 
@@ -89,10 +103,10 @@ public interface IPartyProvider {
      * Used to roll back optimistic client mutations when an action is rejected
      * server-side — broadcasting via {@link #syncToAll} would be wasteful when
      * only the actor's local cache is divergent.
+     * <p>
+     * Implementations that support per-player sync should override this.
      */
-    default void syncToPlayer(EntityPlayerMP player) {
-        ModNetwork.INSTANCE.sendTo(new MessagePartySync(serializeForClient()), player);
-    }
+    default void syncToPlayer(EntityPlayerMP player) {}
 
     /** Returns NBT data representing all parties for client-side cache. */
     NBTTagCompound serializeForClient();

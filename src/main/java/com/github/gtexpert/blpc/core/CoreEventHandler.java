@@ -14,6 +14,7 @@ import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
@@ -21,7 +22,6 @@ import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 public class CoreEventHandler {

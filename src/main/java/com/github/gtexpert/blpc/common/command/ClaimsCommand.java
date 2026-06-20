@@ -9,9 +9,10 @@ import net.minecraft.util.text.TextComponentTranslation;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 public class ClaimsCommand extends CommandBase {
@@ -53,9 +54,9 @@ public class ClaimsCommand extends CommandBase {
 
         sender.sendMessage(new TextComponentTranslation("command.blpc.claims.party_header", party.getName()));
         sender.sendMessage(new TextComponentTranslation("command.blpc.claims.party_total",
-                partyClaims, party.sumClaimLimit()));
+                partyClaims, party.sumClaimLimit(ModConfig.claims.maxClaimsPerPlayer)));
         sender.sendMessage(new TextComponentTranslation("command.blpc.claims.party_force",
-                partyForce, party.sumForceLoadLimit()));
+                partyForce, party.sumForceLoadLimit(ModConfig.claims.maxForceLoadsPerPlayer)));
         sender.sendMessage(new TextComponentTranslation("command.blpc.claims.your_share",
                 personalClaims, personalForce));
     }

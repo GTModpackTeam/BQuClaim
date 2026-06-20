@@ -16,8 +16,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 public class AcceptCommand extends CommandBase {

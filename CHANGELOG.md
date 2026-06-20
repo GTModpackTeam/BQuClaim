@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.12.0]
+
+### Changed
+
+- **Cleaner party UI**
+  - The chunk-map theme-switch button has been removed.
+  - Buttons no longer change color when you hover over them.
+- **Searchable Transfer Ownership screen**
+  - The Transfer Ownership screen now has a search box, matching the Members and Moderators lists, and shows a message when there is no one to transfer to.
+- **Tidier claim display on JourneyMap**
+  - Adjacent chunks owned by the same player now show as a single outlined area with one label, instead of a separate border and name on every chunk.
+
+### Fixed
+
+- **Hard-to-read party menu text**
+  - Button labels now use clear, high-contrast text against the menu buttons.
+  - Role names (Owner, Admin) and ally/enemy names display in bright, readable colors instead of dark, muddy ones.
+
+[0.12.0]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.12.0
+
+* * *
+
 ## [0.11.0]
 
 ### Changed

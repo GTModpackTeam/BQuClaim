@@ -14,16 +14,19 @@ import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.ModLog;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.network.message.PartySync;
+import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncConfig;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /** Sends initial sync packets (claims, config, parties) to newly connected players. */
 @Mod.EventBusSubscriber(modid = Tags.MODID)
@@ -93,12 +96,12 @@ public class PlayerLoginHandler {
 
         ChunkManagerData data = ChunkManagerData.getInstance();
 
-        ModNetwork.INSTANCE.sendTo(new MessageSyncAllClaims(data.serializeAll()), player);
+        ModNetwork.INSTANCE.sendTo(new SyncAllClaims(data.serializeAll()), player);
         ModNetwork.INSTANCE.sendTo(
-                new MessageSyncConfig(ModConfig.claims.maxClaimsPerPlayer, ModConfig.claims.maxForceLoadsPerPlayer),
+                new SyncConfig(ModConfig.claims.maxClaimsPerPlayer, ModConfig.claims.maxForceLoadsPerPlayer),
                 player);
 
         ModNetwork.INSTANCE.sendTo(
-                new MessagePartySync(PartyProviderRegistry.get().serializeForClient()), player);
+                new PartySync(PartyProviderRegistry.get().serializeForClient()), player);
     }
 }
