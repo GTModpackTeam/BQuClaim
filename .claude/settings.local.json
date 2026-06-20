@@ -12,6 +12,9 @@
       "Bash(./gradlew build:*)",
       "Bash(./gradlew spotlessApply:*)",
       "WebFetch(domain:deepwiki.com)"
+    ],
+    "deny": [
+      "Bash(git:*)"
     ]
   }
 }

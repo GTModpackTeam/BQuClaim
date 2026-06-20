@@ -15,9 +15,9 @@ import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
-import com.github.gtexpert.blpc.common.party.Party;
 
 public class DeclineCommand extends CommandBase {
 

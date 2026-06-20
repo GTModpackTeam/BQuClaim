@@ -10,10 +10,10 @@ import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 public class LeaveCommand extends CommandBase {
 

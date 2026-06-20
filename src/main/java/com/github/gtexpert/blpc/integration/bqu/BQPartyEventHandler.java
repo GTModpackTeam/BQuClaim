@@ -11,9 +11,9 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.TrustAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.TrustAction;
 
 import betterquesting.api.enums.EnumPartyStatus;
 import betterquesting.api.events.DatabaseEvent;

@@ -7,7 +7,6 @@ import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.Dialog;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
@@ -129,29 +128,22 @@ public final class ConfirmDialog {
             dialog.size(width, height);
 
             // Title + message in a column with automatic spacing
-            dialog.child(Flow.col()
-                    .childPadding(4)
-                    .crossAxisAlignment(Alignment.CrossAxis.START)
-                    .left(8).right(8).top(6)
-                    .child(IKey.lang(titleKey).color(GuiColors.WHITE).shadow(true)
-                            .asWidget())
-                    .child(IKey.lang(messageKey).color(GuiColors.GRAY).shadow(true)
-                            .asWidget()));
+            dialog.child(PartyWidgets.dialogHeader(titleKey, messageKey));
 
             // Yes/No buttons pinned to the bottom
             Flow buttonRow = Flow.row()
                     .childPadding(8)
                     .mainAxisAlignment(Alignment.MainAxis.SPACE_BETWEEN)
-                    .left(8).right(8).bottom(6).height(16);
+                    .left(8).right(8).bottom(6).height(PartyWidgets.CONFIRM_BTN_H);
 
-            buttonRow.child(new ButtonWidget<>().size(80, 16)
-                    .overlay(IKey.lang(yesKey))
+            buttonRow.child(new ButtonWidget<>().size(PartyWidgets.CONFIRM_BTN_W, PartyWidgets.CONFIRM_BTN_H)
+                    .overlay(PartyWidgets.buttonLabel(IKey.lang(yesKey)))
                     .onMousePressed(btn -> {
                         dialog.closeWith(true);
                         return true;
                     }));
-            buttonRow.child(new ButtonWidget<>().size(80, 16)
-                    .overlay(IKey.lang(noKey))
+            buttonRow.child(new ButtonWidget<>().size(PartyWidgets.CONFIRM_BTN_W, PartyWidgets.CONFIRM_BTN_H)
+                    .overlay(PartyWidgets.buttonLabel(IKey.lang(noKey)))
                     .onMousePressed(btn -> {
                         dialog.closeWith(false);
                         return true;

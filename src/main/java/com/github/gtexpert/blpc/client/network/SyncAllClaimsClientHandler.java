@@ -10,14 +10,14 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientCache;
-import com.github.gtexpert.blpc.common.network.MessageSyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
 
 /** Client-side handler for the full chunk-ownership sync sent on login. */
 @SideOnly(Side.CLIENT)
-public final class SyncAllClaimsClientHandler implements IMessageHandler<MessageSyncAllClaims, IMessage> {
+public final class SyncAllClaimsClientHandler implements IMessageHandler<SyncAllClaims, IMessage> {
 
     @Override
-    public IMessage onMessage(MessageSyncAllClaims msg, MessageContext ctx) {
+    public IMessage onMessage(SyncAllClaims msg, MessageContext ctx) {
         final NBTTagCompound data = msg.getData();
         Minecraft.getMinecraft().addScheduledTask(() -> {
             ClientCache.clear();

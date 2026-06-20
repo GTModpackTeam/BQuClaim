@@ -34,7 +34,7 @@ public class BQuModule extends IntegrationSubmodule {
 
     @Override
     public void preInit(FMLPreInitializationEvent event) {
-        PartyProviderRegistry.register(new BQPartyProvider());
+        PartyProviderRegistry.register(new BQPartyProvider(), PartyProviderRegistry.PRIORITY_HIGH);
     }
 
     @Override

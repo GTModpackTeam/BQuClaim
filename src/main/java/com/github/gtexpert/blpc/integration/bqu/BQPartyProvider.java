@@ -15,14 +15,15 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
+import com.github.gtexpert.blpc.common.ModLog;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
-import com.github.gtexpert.blpc.common.network.MessagePartySync;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.network.message.PartySync;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
@@ -54,7 +55,9 @@ public class BQPartyProvider implements IPartyProvider {
                     return true;
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            ModLog.BQU.debug("BQu party DB lookup failed in areInSameParty", e);
+        }
         return fallback.areInSameParty(playerA, playerB);
     }
 
@@ -145,13 +148,11 @@ public class BQPartyProvider implements IPartyProvider {
         EnumPartyStatus status = party.getStatus(playerId);
         if (status != EnumPartyStatus.OWNER && !player.canUseCommand(2, "")) return false;
 
-        ChunkManagerData chunkData = ChunkManagerData.getInstance();
-        for (UUID memberId : party.getMembers()) {
-            chunkData.releaseAllClaims(memberId, player.world);
-        }
+        List<UUID> members = new ArrayList<>(party.getMembers());
+        ChunkManagerData.getInstance().releaseAllMemberClaims(members, player.world);
 
         PartyManagerData pmData = PartyManagerData.getInstance();
-        for (UUID memberId : party.getMembers()) {
+        for (UUID memberId : members) {
             pmData.setBQuLinked(memberId, false);
         }
         BLPCSaveHandler.INSTANCE.markDirty();
@@ -299,7 +300,12 @@ public class BQPartyProvider implements IPartyProvider {
         NetPartySync.sendSync(null, null);
         autoUnlinkOrphanedPlayers();
         NBTTagCompound syncData = serializeForClient();
-        ModNetwork.INSTANCE.sendToAll(new MessagePartySync(syncData));
+        ModNetwork.INSTANCE.sendToAll(new PartySync(syncData));
+    }
+
+    @Override
+    public void syncToPlayer(EntityPlayerMP player) {
+        ModNetwork.INSTANCE.sendTo(new PartySync(serializeForClient()), player);
     }
 
     @Override
@@ -340,9 +346,9 @@ public class BQPartyProvider implements IPartyProvider {
             }
             if (blpcPartyId == null) blpcPartyId = Party.uuidFromIntId(entry.getID());
 
-            Party party = new Party(blpcPartyId,
-                    bqParty.getProperties().getProperty(NativeProps.NAME),
-                    0L);
+            String bqName = bqParty.getProperties().getProperty(NativeProps.NAME);
+            if (bqName == null) bqName = "Party " + blpcPartyId.toString().substring(0, 8);
+            Party party = new Party(blpcPartyId, bqName, 0L);
             for (UUID memberId : bqParty.getMembers()) {
                 EnumPartyStatus status = bqParty.getStatus(memberId);
                 party.addMember(memberId, mapRole(status));
@@ -352,7 +358,7 @@ public class BQPartyProvider implements IPartyProvider {
             if (sourceSelfParty != null) {
                 party.copySettingsFrom(sourceSelfParty);
             }
-            party.resolvePlayerNames();
+            party.resolvePlayerNames(PartyManagerData.getInstance()::getParty);
             list.appendTag(party.toSyncNBT());
         }
 

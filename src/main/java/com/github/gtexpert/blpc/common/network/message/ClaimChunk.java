@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.network;
+package com.github.gtexpert.blpc.common.network.message;
 
 import java.util.UUID;
 
@@ -10,20 +10,21 @@ import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
+import com.github.gtexpert.blpc.api.event.ChunkModifiedEvent;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
-import com.github.gtexpert.blpc.common.chunk.ChunkModifiedEvent;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 import io.netty.buffer.ByteBuf;
 
 /** C→S: Request to claim/unclaim/force-load a chunk. */
-public class MessageClaimChunk implements IMessage {
+public class ClaimChunk implements IMessage {
 
     public static final int MODE_CLAIM = 0;
     public static final int MODE_UNCLAIM = 1;
@@ -35,9 +36,9 @@ public class MessageClaimChunk implements IMessage {
     private int z;
     private int mode;
 
-    public MessageClaimChunk() {}
+    public ClaimChunk() {}
 
-    public MessageClaimChunk(int x, int z, int mode) {
+    public ClaimChunk(int x, int z, int mode) {
         this.x = x;
         this.z = z;
         this.mode = mode;
@@ -57,10 +58,10 @@ public class MessageClaimChunk implements IMessage {
         buf.writeInt(this.mode);
     }
 
-    public static class Handler implements IMessageHandler<MessageClaimChunk, IMessage> {
+    public static class Handler implements IMessageHandler<ClaimChunk, IMessage> {
 
         @Override
-        public IMessage onMessage(MessageClaimChunk message, MessageContext ctx) {
+        public IMessage onMessage(ClaimChunk message, MessageContext ctx) {
             FMLCommonHandler.instance().getWorldThread(ctx.netHandler).addScheduledTask(() -> {
                 EntityPlayerMP player = ctx.getServerHandler().player;
 
@@ -85,7 +86,7 @@ public class MessageClaimChunk implements IMessage {
             return null;
         }
 
-        private void handleClaim(MessageClaimChunk msg, EntityPlayerMP player,
+        private void handleClaim(ClaimChunk msg, EntityPlayerMP player,
                                  ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing != null) return;
             if (isClaimLimitReached(data, playerId, player)) return;
@@ -102,7 +103,7 @@ public class MessageClaimChunk implements IMessage {
             MinecraftForge.EVENT_BUS.post(new ChunkModifiedEvent.Post.Claim(msg.x, msg.z, playerId));
         }
 
-        private void handleUnclaim(MessageClaimChunk msg, EntityPlayerMP player,
+        private void handleUnclaim(ClaimChunk msg, EntityPlayerMP player,
                                    ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing == null) return;
             if (!isOwnerOrOp(existing, player, playerId)) return;
@@ -120,7 +121,7 @@ public class MessageClaimChunk implements IMessage {
             MinecraftForge.EVENT_BUS.post(new ChunkModifiedEvent.Post.Unclaim(msg.x, msg.z, existing.ownerUUID));
         }
 
-        private void handleToggleForce(MessageClaimChunk msg, EntityPlayerMP player,
+        private void handleToggleForce(ClaimChunk msg, EntityPlayerMP player,
                                        ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing == null) {
                 if (isClaimLimitReached(data, playerId, player)) return;
@@ -145,7 +146,7 @@ public class MessageClaimChunk implements IMessage {
             }
         }
 
-        private void toggleForceLoad(MessageClaimChunk msg, EntityPlayerMP player,
+        private void toggleForceLoad(ClaimChunk msg, EntityPlayerMP player,
                                      ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing.isForceLoaded) {
                 if (MinecraftForge.EVENT_BUS.post(
@@ -178,7 +179,7 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countClaims(playerId);
                 if (used >= ModConfig.claims.maxClaimsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_CLAIM_LIMIT, used,
+                            ClientNotify.claimFailed(ClientNotify.REASON_CLAIM_LIMIT, used,
                                     ModConfig.claims.maxClaimsPerPlayer),
                             player);
                     return true;
@@ -190,17 +191,17 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countClaims(playerId);
                 if (used >= ModConfig.claims.maxClaimsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_CLAIM_LIMIT, used,
+                            ClientNotify.claimFailed(ClientNotify.REASON_CLAIM_LIMIT, used,
                                     ModConfig.claims.maxClaimsPerPlayer),
                             player);
                     return true;
                 }
             } else {
                 int used = data.countClaimsForParty(party.getPartyId());
-                int max = party.sumClaimLimit();
+                int max = party.sumClaimLimit(ModConfig.claims.maxClaimsPerPlayer);
                 if (used >= max) {
                     ModNetwork.INSTANCE.sendTo(
-                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_CLAIM_LIMIT, used, max),
+                            ClientNotify.claimFailed(ClientNotify.REASON_CLAIM_LIMIT, used, max),
                             player);
                     return true;
                 }
@@ -213,7 +214,7 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countForceLoads(playerId);
                 if (used >= ModConfig.claims.maxForceLoadsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_FORCELOAD_LIMIT, used,
+                            ClientNotify.claimFailed(ClientNotify.REASON_FORCELOAD_LIMIT, used,
                                     ModConfig.claims.maxForceLoadsPerPlayer),
                             player);
                     return true;
@@ -225,17 +226,17 @@ public class MessageClaimChunk implements IMessage {
                 int used = data.countForceLoads(playerId);
                 if (used >= ModConfig.claims.maxForceLoadsPerPlayer) {
                     ModNetwork.INSTANCE.sendTo(
-                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_FORCELOAD_LIMIT, used,
+                            ClientNotify.claimFailed(ClientNotify.REASON_FORCELOAD_LIMIT, used,
                                     ModConfig.claims.maxForceLoadsPerPlayer),
                             player);
                     return true;
                 }
             } else {
                 int used = data.countForceLoadsForParty(party.getPartyId());
-                int max = party.sumForceLoadLimit();
+                int max = party.sumForceLoadLimit(ModConfig.claims.maxForceLoadsPerPlayer);
                 if (used >= max) {
                     ModNetwork.INSTANCE.sendTo(
-                            MessageClientNotify.claimFailed(MessageClientNotify.REASON_FORCELOAD_LIMIT, used, max),
+                            ClientNotify.claimFailed(ClientNotify.REASON_FORCELOAD_LIMIT, used, max),
                             player);
                     return true;
                 }
@@ -253,7 +254,7 @@ public class MessageClaimChunk implements IMessage {
         }
 
         private void syncToAll(int x, int z, UUID owner, String name, String partyName, boolean forceLoaded) {
-            ModNetwork.INSTANCE.sendToAll(new MessageSyncClaims(x, z, owner, name, partyName, forceLoaded));
+            ModNetwork.INSTANCE.sendToAll(new SyncClaims(x, z, owner, name, partyName, forceLoaded));
         }
     }
 }

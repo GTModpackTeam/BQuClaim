@@ -8,15 +8,15 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import com.github.gtexpert.blpc.common.network.MessagePartySync;
+import com.github.gtexpert.blpc.common.network.message.PartySync;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
 /** Client-side handler that loads the full party snapshot into the client cache. */
 @SideOnly(Side.CLIENT)
-public final class PartySyncClientHandler implements IMessageHandler<MessagePartySync, IMessage> {
+public final class PartySyncClientHandler implements IMessageHandler<PartySync, IMessage> {
 
     @Override
-    public IMessage onMessage(MessagePartySync msg, MessageContext ctx) {
+    public IMessage onMessage(PartySync msg, MessageContext ctx) {
         final NBTTagCompound data = msg.getData();
         Minecraft.getMinecraft().addScheduledTask(() -> ClientPartyCache.loadFromNBT(data));
         return null;

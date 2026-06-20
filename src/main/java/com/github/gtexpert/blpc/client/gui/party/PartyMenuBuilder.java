@@ -9,16 +9,14 @@ import java.util.function.Predicate;
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
-import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
-import com.github.gtexpert.blpc.client.gui.GuiColors;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 
 /**
  * Fluent builder for the party main menu. Accumulate entries via
@@ -174,8 +172,7 @@ public final class PartyMenuBuilder {
             ButtonWidget<?> btn = PartyWidgets.dialogButton(IKey.lang(labelKey).alignment(Alignment.CenterLeft),
                     handler)
                     .widthRel(1f).height(PartyWidgets.BTN_H)
-                    .padding(4, 0, 0, 0)
-                    .hoverBackground(new Rectangle().color(GuiColors.HOVER));
+                    .padding(PartyWidgets.ROW_INDENT, 0, 0, 0);
             if (tooltipKey != null) btn.addTooltipLine(IKey.lang(tooltipKey));
             return btn;
         }

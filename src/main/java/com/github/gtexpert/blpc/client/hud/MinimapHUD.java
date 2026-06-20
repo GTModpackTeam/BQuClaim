@@ -1,12 +1,17 @@
-package com.github.gtexpert.blpc.client.gui;
+package com.github.gtexpert.blpc.client.hud;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.cleanroommc.modularui.drawable.GuiDraw;
 
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
+import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.input.KeyInputHandler;
 import com.github.gtexpert.blpc.client.map.AsyncMapRenderer;
 import com.github.gtexpert.blpc.client.map.ChunkMapRenderer;
 
@@ -17,14 +22,15 @@ import com.github.gtexpert.blpc.client.map.ChunkMapRenderer;
  * then scales it down for the HUD display. This ensures the minimap
  * looks identical to the full map, just smaller.
  */
+@SideOnly(Side.CLIENT)
 public class MinimapHUD {
 
-    /** Number of chunks visible on each side of the player. */
+    /** Number of chunks visible on each side of the player (wider than the full-map view). */
     private static final int RADIUS = 8;
     /** Grid size in chunks (diameter). */
     private static final int GRID = RADIUS * 2 + 1;
     /** Internal chunk render size in pixels (same scale as full map). */
-    private static final int RENDER_CHUNK_SIZE = 16;
+    private static final int RENDER_CHUNK_SIZE = ChunkMapRenderer.CHUNK_BLOCKS;
     /** Internal render size in pixels. */
     private static final int RENDER_SIZE = GRID * RENDER_CHUNK_SIZE;
     /** Display size on screen in pixels. */
@@ -53,8 +59,8 @@ public class MinimapHUD {
         GlStateManager.pushMatrix();
         GlStateManager.translate(startX, MARGIN, 0);
 
-        // Black background at display size
-        GuiDraw.drawRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE, 0xFF000000);
+        // Opaque backdrop at display size
+        GuiDraw.drawRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE, BLPCColors.minimapBackground());
 
         // Scale down and draw at full resolution
         GlStateManager.scale(SCALE, SCALE, 1.0f);

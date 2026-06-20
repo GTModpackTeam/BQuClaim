@@ -20,10 +20,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
-import com.github.gtexpert.blpc.common.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 /**
@@ -122,6 +122,10 @@ public class BLPCSaveHandler {
             try (FileInputStream fis = new FileInputStream(file)) {
                 NBTTagCompound nbt = CompressedStreamTools.readCompressed(fis);
                 Party party = Party.fromNBT(nbt);
+                if (party == null) {
+                    ModLog.IO.error("Corrupt party file skipped: {}", file.getName());
+                    continue;
+                }
                 data.addParty(party);
             } catch (IOException e) {
                 ModLog.IO.error("Failed to load party file: {}", file.getName(), e);
@@ -229,13 +233,18 @@ public class BLPCSaveHandler {
             for (File f : oldFiles) f.delete();
         }
 
+        boolean anyFailed = false;
         for (File tmp : tmpFiles) {
             String finalName = tmp.getName().replace(".dat.tmp", ".dat");
             File finalFile = new File(dir, finalName);
-            if (!tmp.renameTo(finalFile)) {
-                ModLog.IO.error("Failed to rename {} temp file: {}", label, tmp.getName());
+            try {
+                Files.move(tmp.toPath(), finalFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                ModLog.IO.error("Failed to rename {} temp file: {}", label, tmp.getName(), e);
+                anyFailed = true;
             }
         }
+        if (anyFailed) markDirty();
     }
 
     // --- Backup helper ---

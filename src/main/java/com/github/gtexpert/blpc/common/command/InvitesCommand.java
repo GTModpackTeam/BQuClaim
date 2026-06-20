@@ -14,7 +14,7 @@ import net.minecraft.util.text.TextFormatting;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.api.party.Party;
 
 public class InvitesCommand extends CommandBase {
 
@@ -40,7 +40,7 @@ public class InvitesCommand extends CommandBase {
         sender.sendMessage(new TextComponentTranslation("command.blpc.invites.header", invites.size()));
         for (Party party : invites) {
             UUID owner = party.getOwner();
-            String ownerName = owner != null ? ListCommand.resolveName(server, party, owner) : "-";
+            String ownerName = owner != null ? BLPCCommandHelper.resolveName(server, party, owner) : "-";
             sender.sendMessage(new TextComponentString(String.format("- %s%s%s (%s)",
                     TextFormatting.AQUA, party.getName(), TextFormatting.RESET, ownerName)));
         }

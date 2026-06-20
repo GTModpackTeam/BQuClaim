@@ -1,13 +1,17 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import javax.annotation.Nullable;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetworkPlayerInfo;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import org.lwjgl.input.Keyboard;
@@ -19,20 +23,22 @@ import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
+import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.PageButton;
 import com.cleanroommc.modularui.widgets.PagedWidget;
+import com.cleanroommc.modularui.widgets.ToggleButton;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.client.gui.PlayerFaceDrawable;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /** Shared constants, layout helpers, and live-update plumbing for party UI panels. */
 public final class PartyWidgets {
@@ -46,6 +52,17 @@ public final class PartyWidgets {
     public static final int BTN_H = 18;
     public static final int FACE_SIZE = 8;
     public static final int TAB_H = 16;
+    /** Left text indent inside full-width row buttons. */
+    public static final int ROW_INDENT = 4;
+    /** Text-field / inline action-button height. */
+    public static final int INPUT_H = 14;
+    /** Inline submit/create button width. */
+    public static final int SUBMIT_BTN_W = 50;
+    /** Confirm-dialog yes/no button size. */
+    public static final int CONFIRM_BTN_W = 80;
+    public static final int CONFIRM_BTN_H = 16;
+    /** Top inset that clears the header for a full-panel list (header + padding). */
+    public static final int CONTENT_TOP = 22;
 
     private PartyWidgets() {}
 
@@ -63,7 +80,7 @@ public final class PartyWidgets {
 
     /** Centered title + close button at the top of the panel. */
     public static void addHeader(ModularPanel panel, IKey title) {
-        panel.child(title.color(GuiColors.WHITE).shadow(true)
+        panel.child(title.color(BLPCColors.text()).shadow(BLPCColors.textShadow())
                 .asWidget().alignment(Alignment.Center).left(0).right(0).top(8).height(10));
         panel.child(ButtonWidget.panelCloseButton());
     }
@@ -75,9 +92,14 @@ public final class PartyWidgets {
     /** Positions {@code list} below the header (top=22). */
     @SuppressWarnings("rawtypes")
     public static void addList(ModularPanel panel, ListWidget list) {
-        list.left(8).right(8).top(22).bottom(8);
+        list.left(8).right(8).top(CONTENT_TOP).bottom(8);
         list.crossAxisAlignment(Alignment.CrossAxis.START);
         panel.child(list);
+    }
+
+    /** Insets a full-panel content container below the header (matches {@link #addList}). */
+    public static Flow fillBelowHeader(Flow content) {
+        return content.margin(8, 8, CONTENT_TOP, 8);
     }
 
     /**
@@ -102,21 +124,53 @@ public final class PartyWidgets {
 
     public static int getRoleColor(PartyRole role) {
         return switch (role) {
-            case OWNER -> GuiColors.GOLD;
-            case ADMIN -> GuiColors.GREEN;
-            case MEMBER -> GuiColors.WHITE;
+            case OWNER -> BLPCColors.owner();
+            case ADMIN -> BLPCColors.admin();
+            // Member rows render on a gray button — white reads, black would not.
+            case MEMBER -> BLPCColors.buttonText();
         };
+    }
+
+    /** Styles a label for rendering on a gray button: white text + drop shadow. */
+    public static IKey buttonLabel(IKey label) {
+        return label.color(BLPCColors.buttonText()).shadow(BLPCColors.buttonTextShadow());
+    }
+
+    /** {@link #buttonLabel} aligned to the left — the standard row-button label. */
+    public static IKey buttonLabelLeft(IKey label) {
+        return buttonLabel(label).alignment(Alignment.CenterLeft);
+    }
+
+    /**
+     * Styles an arbitrary-colored label for a gray button (role colors): keeps {@code color}, adds shadow + left align.
+     */
+    public static IKey rowLabel(IKey label, int color) {
+        return label.color(color).shadow(BLPCColors.buttonTextShadow()).alignment(Alignment.CenterLeft);
     }
 
     /** Button that opens {@code handler}'s dialog (rebuilding it first). */
     public static ButtonWidget<?> dialogButton(IKey label, IPanelHandler handler) {
         return (ButtonWidget<?>) new ButtonWidget<>()
-                .overlay(label)
+                .overlay(buttonLabel(label))
                 .onMousePressed(btn -> {
                     handler.deleteCachedPanel();
                     handler.openPanel();
                     return true;
                 });
+    }
+
+    /**
+     * Two-state toggle button styled like the rest of the party UI: full-width,
+     * {@link #BTN_H} tall, left-aligned white+shadow labels for the off/on states.
+     * Returned so callers can chain {@code addTooltipLine(...)}.
+     */
+    public static ToggleButton toggleButton(BoolValue.Dynamic value, String offKey, String onKey) {
+        ToggleButton btn = new ToggleButton();
+        btn.widthRel(1f).height(BTN_H).padding(ROW_INDENT, 0, 0, 0)
+                .value(value)
+                .overlay(false, buttonLabelLeft(IKey.lang(offKey)))
+                .overlay(true, buttonLabelLeft(IKey.lang(onKey)));
+        return btn;
     }
 
     /**
@@ -171,7 +225,7 @@ public final class PartyWidgets {
 
     /** Gray "no rows" placeholder sized to match a {@link #BTN_H} row. */
     public static IWidget emptyStateRow(String langKey) {
-        return IKey.lang(langKey).color(GuiColors.GRAY)
+        return IKey.lang(langKey).color(BLPCColors.subtext())
                 .asWidget().widthRel(1f).height(BTN_H).marginLeft(4);
     }
 
@@ -211,7 +265,7 @@ public final class PartyWidgets {
         var row = Flow.row().childPadding(2);
         for (int i = 0; i < labelKeys.length; i++) {
             row.child(new PageButton(i, controller).height(TAB_H).expanded()
-                    .overlay(IKey.lang(labelKeys[i])));
+                    .overlay(buttonLabel(IKey.lang(labelKeys[i]))));
         }
         return row;
     }
@@ -273,8 +327,8 @@ public final class PartyWidgets {
     public static Flow faceRow(UUID uuid, IKey label) {
         return Flow.row()
                 .widthRel(1f).heightRel(1f)
-                .padding(4, 0, 0, 0)
-                .childPadding(4)
+                .padding(ROW_INDENT, 0, 0, 0)
+                .childPadding(ROW_INDENT)
                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
                 .child(new PlayerFaceDrawable(uuid).asWidget().size(FACE_SIZE, FACE_SIZE))
                 .child(label.asWidget().expanded());
@@ -284,8 +338,7 @@ public final class PartyWidgets {
     public static ButtonWidget<?> createPlayerRow(UUID uuid, String label, int color) {
         var btn = new ButtonWidget<>();
         btn.widthRel(1f).height(BTN_H).padding(0);
-        btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
-        btn.child(faceRow(uuid, IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft)));
+        btn.child(faceRow(uuid, rowLabel(IKey.str(label), color)));
         return btn;
     }
 
@@ -302,5 +355,93 @@ public final class PartyWidgets {
                 return super.onKeyPressed(c, keyCode);
             }
         };
+    }
+
+    /** Full-width 1px section divider with the standard vertical margins. */
+    public static IWidget divider() {
+        return new Rectangle().color(BLPCColors.divider()).asWidget()
+                .height(1).widthRel(1f).marginTop(4).marginBottom(4);
+    }
+
+    /** List sized to fill its parent page (used inside paged tab content). */
+    @SuppressWarnings("rawtypes")
+    public static ListWidget newPageList() {
+        ListWidget list = new ListWidget<>();
+        list.widthRel(1f).heightRel(1f);
+        list.crossAxisAlignment(Alignment.CrossAxis.START);
+        return list;
+    }
+
+    /** Dialog title (+ optional message) column, top-anchored. Shared by Confirm/Input dialogs. */
+    public static Flow dialogHeader(String titleKey, @Nullable String messageKey) {
+        Flow header = Flow.col()
+                .childPadding(4)
+                .crossAxisAlignment(Alignment.CrossAxis.START)
+                .left(8).right(8).top(6);
+        header.child(IKey.lang(titleKey).color(BLPCColors.text()).shadow(BLPCColors.textShadow()).asWidget());
+        if (messageKey != null) {
+            header.child(IKey.lang(messageKey).color(BLPCColors.subtext()).shadow(BLPCColors.textShadow())
+                    .asWidget());
+        }
+        return header;
+    }
+
+    /** OWNER → ADMIN → MEMBER, then alphabetical within a role. */
+    public static Comparator<MemberEntry> byRoleThenName() {
+        return (a, b) -> {
+            int cmp = b.role.ordinal() - a.role.ordinal();
+            if (cmp != 0) return cmp;
+            return a.name.compareToIgnoreCase(b.name);
+        };
+    }
+
+    /**
+     * Formats one option line for a cycle button's tooltip: the selected option gets
+     * a yellow arrow + white name, others are gray. Shared by trust-level and role cycles.
+     */
+    public static String formatCycleOptionLine(String langPrefix, String optionName, boolean selected) {
+        String name = IKey.lang(langPrefix + optionName.toLowerCase(Locale.ROOT)).get();
+        if (selected) {
+            return TextFormatting.YELLOW + "→ " + TextFormatting.WHITE + name;
+        }
+        return TextFormatting.GRAY + "  " + name;
+    }
+
+    /** Underlined tooltip header line for a setting's name. */
+    public static IKey underlineKey(String langKey) {
+        return IKey.dynamic(() -> TextFormatting.UNDERLINE + IKey.lang(langKey).get());
+    }
+
+    /** Tooltip line showing a setting's default value in green. */
+    public static String defaultTooltip(String value) {
+        return IKey.lang("blpc.party.tooltip.default", () -> new Object[] { TextFormatting.GREEN + value }).get();
+    }
+
+    /** Shared row data for member/player lists (role is {@code null} for invite candidates). */
+    public static final class MemberEntry {
+
+        final UUID uuid;
+        final String name;
+        @Nullable
+        final PartyRole role;
+
+        public MemberEntry(UUID uuid, String name, @Nullable PartyRole role) {
+            this.uuid = uuid;
+            this.name = name;
+            this.role = role;
+        }
+
+        public UUID uuid() {
+            return uuid;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        @Nullable
+        public PartyRole role() {
+            return role;
+        }
     }
 }

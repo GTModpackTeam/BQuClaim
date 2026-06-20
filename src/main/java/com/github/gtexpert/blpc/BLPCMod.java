@@ -14,8 +14,8 @@ import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 
 import com.github.gtexpert.blpc.api.util.Mods;
-import com.github.gtexpert.blpc.client.gui.KeyInputHandler;
-import com.github.gtexpert.blpc.client.gui.MinimapHUD;
+import com.github.gtexpert.blpc.client.hud.MinimapHUD;
+import com.github.gtexpert.blpc.client.input.KeyInputHandler;
 import com.github.gtexpert.blpc.module.ModuleManager;
 import com.github.gtexpert.blpc.module.Modules;
 

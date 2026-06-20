@@ -1,10 +1,15 @@
-package com.github.gtexpert.blpc.common.chunk;
+package com.github.gtexpert.blpc.api.event;
 
 import java.util.UUID;
 
 import net.minecraftforge.fml.common.eventhandler.Cancelable;
 import net.minecraftforge.fml.common.eventhandler.Event;
 
+/**
+ * Public Forge event fired around chunk claim/unclaim/force-load changes — addons
+ * may subscribe on {@code MinecraftForge.EVENT_BUS}. {@code Pre} variants are
+ * {@link Cancelable} (veto a claim); {@code Post} variants are informational.
+ */
 public abstract class ChunkModifiedEvent extends Event {
 
     private final int chunkX;

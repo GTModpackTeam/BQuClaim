@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.party;
+package com.github.gtexpert.blpc.api.party;
 
 /**
  * Relationship between a player and a chunk-owning party.

@@ -9,7 +9,13 @@ import net.minecraftforge.fml.relauncher.Side;
 
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.client.network.ClientPacketHandlers;
-import com.github.gtexpert.blpc.common.network.party.PartyActionDispatcher;
+import com.github.gtexpert.blpc.common.network.message.ClaimChunk;
+import com.github.gtexpert.blpc.common.network.message.ClientNotify;
+import com.github.gtexpert.blpc.common.network.message.PartyAction;
+import com.github.gtexpert.blpc.common.network.message.PartySync;
+import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncConfig;
 
 /**
  * Network channel initialization. Messages use incrementing discriminator IDs.
@@ -20,8 +26,8 @@ import com.github.gtexpert.blpc.common.network.party.PartyActionDispatcher;
  * the physical client only — on a dedicated server they are replaced with
  * {@link NoOpHandler} so the same discriminators remain valid for outbound sends.
  * <p>
- * <b>Discriminator multiplexing:</b> {@link MessagePartyAction} (C→S) and
- * {@link MessageClientNotify} (S→C) each carry their own internal discriminator
+ * <b>Discriminator multiplexing:</b> {@link PartyAction} (C→S) and
+ * {@link ClientNotify} (S→C) each carry their own internal discriminator
  * ({@code action} / {@code kind}). New party operations and client notifications
  * are added by appending a constant to those classes — neither this file nor
  * {@link ClientPacketHandlers} needs to change.
@@ -35,16 +41,16 @@ public class ModNetwork {
 
     @SuppressWarnings("unchecked")
     private static Class<? extends IMessage>[] clientBoundMessages() {
-        return new Class[] { MessageSyncClaims.class, MessageSyncAllClaims.class, MessageSyncConfig.class,
-                MessagePartySync.class, MessageClientNotify.class };
+        return new Class[] { SyncClaims.class, SyncAllClaims.class, SyncConfig.class,
+                PartySync.class, ClientNotify.class };
     }
 
     public static void init() {
         int id = 0;
 
         // C→S: server handlers live in common.network and have no client-only references.
-        INSTANCE.registerMessage(MessageClaimChunk.Handler.class, MessageClaimChunk.class, id++, Side.SERVER);
-        INSTANCE.registerMessage(PartyActionDispatcher.class, MessagePartyAction.class, id++, Side.SERVER);
+        INSTANCE.registerMessage(ClaimChunk.Handler.class, ClaimChunk.class, id++, Side.SERVER);
+        INSTANCE.registerMessage(ClientNotify.PartyActionDispatcher.class, PartyAction.class, id++, Side.SERVER);
 
         // S→C: handlers live in client.network and reference @SideOnly(CLIENT) classes
         // (Minecraft, IToast, etc.). Loading them on a dedicated server triggers the

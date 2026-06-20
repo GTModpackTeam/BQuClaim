@@ -3,21 +3,20 @@ package com.github.gtexpert.blpc.client.gui.party;
 import java.util.*;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.text.TextFormatting;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
-import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.IntValue;
 import com.cleanroommc.modularui.widgets.CycleButtonWidget;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
+import com.github.gtexpert.blpc.client.gui.party.PartyWidgets.MemberEntry;
 import com.github.gtexpert.blpc.client.gui.party.widget.LiveSearchableList;
-import com.github.gtexpert.blpc.common.network.MessagePartyAction;
+import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
  * Member roles list (panel ID: {@value #PANEL_ID}). OWNER cycles others between
@@ -42,7 +41,7 @@ public class ModeratorsPanel {
                 "blpc.party.no_players_online");
 
         // margin (not left/right/top/bottom): Flow.column already pre-fills sizeRel(1f, 1f).
-        panel.child(rowList.buildContainer().margin(8, 8, 22, 8));
+        panel.child(PartyWidgets.fillBelowHeader(rowList.buildContainer()));
 
         rowList.rebuild(collectSorted(party));
 
@@ -64,12 +63,7 @@ public class ModeratorsPanel {
         for (Map.Entry<UUID, PartyRole> e : party.getMembers().entrySet()) {
             result.add(new MemberEntry(e.getKey(), PartyWidgets.getDisplayName(e.getKey()), e.getValue()));
         }
-        // OWNER first, then ADMIN, then MEMBER; alphabetical within role.
-        result.sort((a, b) -> {
-            int cmp = b.role.ordinal() - a.role.ordinal();
-            if (cmp != 0) return cmp;
-            return a.name.compareToIgnoreCase(b.name);
-        });
+        result.sort(PartyWidgets.byRoleThenName());
         return result;
     }
 
@@ -77,7 +71,7 @@ public class ModeratorsPanel {
         boolean canEdit = isOwner && !entry.uuid.equals(myId) && entry.role != PartyRole.OWNER;
 
         if (!canEdit) {
-            int color = entry.role == PartyRole.MEMBER ? GuiColors.GRAY_LIGHT :
+            int color = entry.role == PartyRole.MEMBER ? BLPCColors.inactive() :
                     PartyWidgets.getRoleColor(entry.role);
             String label = PartyWidgets.formatMemberLabel(entry.name, entry.role);
             return PartyWidgets.createPlayerRow(entry.uuid, label, color);
@@ -91,7 +85,7 @@ public class ModeratorsPanel {
                         idx -> {
                             PartyRole r = idx == 1 ? PartyRole.ADMIN : PartyRole.MEMBER;
                             if (r == currentRole(partyId, entry.uuid)) return;
-                            PartyWidgets.sendAndApply(MessagePartyAction.changeRole(entry.name + ":" + r.name()),
+                            PartyWidgets.sendAndApply(PartyAction.changeRole(entry.name + ":" + r.name()),
                                     partyId, p -> p.setRole(entry.uuid, r));
                         }))
                 .stateChild(0, memberRowDisplay(entry, PartyRole.MEMBER))
@@ -111,30 +105,14 @@ public class ModeratorsPanel {
     }
 
     private static String formatRoleOptionLine(PartyRole option, PartyRole current) {
-        String name = IKey.lang("blpc.party.role." + option.name().toLowerCase(Locale.ROOT)).get();
         // OWNER isn't a cycle option — treat as MEMBER for highlight comparison.
         PartyRole shown = current == PartyRole.OWNER ? PartyRole.MEMBER : current;
-        if (option == shown) {
-            return TextFormatting.YELLOW + "→ " + TextFormatting.WHITE + name;
-        }
-        return TextFormatting.GRAY + "  " + name;
+        return PartyWidgets.formatCycleOptionLine("blpc.party.role.", option.name(), option == shown);
     }
 
     private static IWidget memberRowDisplay(MemberEntry entry, PartyRole role) {
-        return PartyWidgets.faceRow(entry.uuid, IKey.str(PartyWidgets.formatMemberLabel(entry.name, role))
-                .color(PartyWidgets.getRoleColor(role)).shadow(true).alignment(Alignment.CenterLeft));
-    }
-
-    private static class MemberEntry {
-
-        final UUID uuid;
-        final String name;
-        final PartyRole role;
-
-        MemberEntry(UUID uuid, String name, PartyRole role) {
-            this.uuid = uuid;
-            this.name = name;
-            this.role = role;
-        }
+        return PartyWidgets.faceRow(entry.uuid,
+                PartyWidgets.rowLabel(IKey.str(PartyWidgets.formatMemberLabel(entry.name, role)),
+                        PartyWidgets.getRoleColor(role)));
     }
 }

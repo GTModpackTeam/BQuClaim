@@ -9,7 +9,6 @@ import net.minecraft.client.Minecraft;
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
-import com.cleanroommc.modularui.drawable.Rectangle;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
@@ -17,12 +16,12 @@ import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
-import com.github.gtexpert.blpc.common.network.MessagePartyAction;
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
+import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 /**
  * Create-or-join panel shown when the player has no party. Lists pending
@@ -49,7 +48,7 @@ public class CreatePanel {
         Runnable doCreate = () -> {
             String name = fieldRef[0].getText().trim();
             if (!name.isEmpty()) {
-                ModNetwork.INSTANCE.sendToServer(MessagePartyAction.create(name));
+                ModNetwork.INSTANCE.sendToServer(PartyAction.create(name));
                 transitionToMain(panel, reopener);
             }
         };
@@ -57,16 +56,16 @@ public class CreatePanel {
         TextFieldWidget nameField = PartyWidgets.createEnterSubmitTextField(doCreate);
         fieldRef[0] = nameField;
         nameField.setMaxLength(32);
-        nameField.size(PartyWidgets.STANDARD_W - 80, 14);
+        nameField.size(PartyWidgets.STANDARD_W - 80, PartyWidgets.INPUT_H);
         nameField.setText(IKey.lang(Party.DEFAULT_NAME_KEY).get());
 
         panel.child(Flow.row()
                 .childPadding(4)
                 .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                .left(8).right(8).top(24).height(14)
+                .left(8).right(8).top(24).height(PartyWidgets.INPUT_H)
                 .child(nameField)
-                .child(new ButtonWidget<>().size(50, 14)
-                        .overlay(IKey.lang("blpc.party.create"))
+                .child(new ButtonWidget<>().size(PartyWidgets.SUBMIT_BTN_W, PartyWidgets.INPUT_H)
+                        .overlay(PartyWidgets.buttonLabel(IKey.lang("blpc.party.create")))
                         .onMousePressed(btn -> {
                             doCreate.run();
                             return true;
@@ -140,22 +139,19 @@ public class CreatePanel {
         int color;
         String label;
         if (entry.full) {
-            color = GuiColors.GRAY;
+            color = BLPCColors.subtext();
             label = entry.displayName + " [" + IKey.lang("blpc.toast.party_full").get() + "]";
         } else if (entry.invited) {
-            color = GuiColors.GREEN;
+            color = BLPCColors.admin();
             label = entry.displayName + " [" + IKey.lang("blpc.party.invited_label").get() + "]";
         } else {
-            color = GuiColors.GRAY_LIGHT;
+            color = BLPCColors.inactive();
             label = entry.displayName;
         }
 
         ButtonWidget<?> btn = new ButtonWidget<>();
-        btn.widthRel(1f).height(PartyWidgets.BTN_H).padding(4, 0, 0, 0);
-        if (!entry.full) {
-            btn.hoverBackground(new Rectangle().color(GuiColors.HOVER));
-        }
-        btn.overlay(IKey.str(label).color(color).shadow(true).alignment(Alignment.CenterLeft));
+        btn.widthRel(1f).height(PartyWidgets.BTN_H).padding(PartyWidgets.ROW_INDENT, 0, 0, 0);
+        btn.overlay(PartyWidgets.rowLabel(IKey.str(label), color));
 
         if (!entry.description.isEmpty()) {
             btn.addTooltipLine(IKey.str(entry.description));
@@ -171,8 +167,8 @@ public class CreatePanel {
         if (entry.full) return btn;
 
         UUID partyId = entry.partyId;
-        var action = entry.invited ? MessagePartyAction.acceptInvite(partyId) :
-                MessagePartyAction.joinFreeParty(partyId);
+        var action = entry.invited ? PartyAction.acceptInvite(partyId) :
+                PartyAction.joinFreeParty(partyId);
         btn.onMousePressed(b -> PartyWidgets.sendAndApply(action, partyId,
                 p -> p.addMember(Minecraft.getMinecraft().player.getUniqueID(), PartyRole.MEMBER)));
 

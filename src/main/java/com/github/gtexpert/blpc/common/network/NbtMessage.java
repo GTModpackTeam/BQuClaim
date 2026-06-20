@@ -23,7 +23,8 @@ public abstract class NbtMessage implements IMessage {
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        this.data = ByteBufUtils.readTag(buf);
+        NBTTagCompound tag = ByteBufUtils.readTag(buf);
+        this.data = tag != null ? tag : new NBTTagCompound();
     }
 
     @Override

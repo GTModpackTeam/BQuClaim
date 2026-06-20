@@ -10,7 +10,6 @@ import com.cleanroommc.modularui.widgets.Dialog;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 
-import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
@@ -101,17 +100,7 @@ public final class InputDialog {
             dialog.size(width, height);
 
             // Title (and optional message) at the top
-            Flow header = Flow.col()
-                    .childPadding(4)
-                    .crossAxisAlignment(Alignment.CrossAxis.START)
-                    .left(8).right(8).top(6);
-            header.child(IKey.lang(titleKey).color(GuiColors.WHITE).shadow(true)
-                    .asWidget());
-            if (messageKey != null) {
-                header.child(IKey.lang(messageKey).color(GuiColors.GRAY).shadow(true)
-                        .asWidget());
-            }
-            dialog.child(header);
+            dialog.child(PartyWidgets.dialogHeader(titleKey, messageKey));
 
             // Text field + submit button in a row with automatic spacing
             int fieldY = messageKey != null ? 30 : 24;
@@ -133,15 +122,15 @@ public final class InputDialog {
                 textField.value(new StringValue(defaultValue));
             }
             textField.setMaxLength(32);
-            textField.size(width - 70, 14);
+            textField.size(width - 70, PartyWidgets.INPUT_H);
 
             Flow inputRow = Flow.row()
                     .childPadding(4)
                     .crossAxisAlignment(Alignment.CrossAxis.CENTER)
-                    .left(8).right(8).top(fieldY).height(14);
+                    .left(8).right(8).top(fieldY).height(PartyWidgets.INPUT_H);
             inputRow.child(textField);
-            inputRow.child(new ButtonWidget<>().size(50, 14)
-                    .overlay(IKey.lang(confirmKey))
+            inputRow.child(new ButtonWidget<>().size(PartyWidgets.SUBMIT_BTN_W, PartyWidgets.INPUT_H)
+                    .overlay(PartyWidgets.buttonLabel(IKey.lang(confirmKey)))
                     .onMousePressed(btn -> {
                         doSubmit.run();
                         return true;

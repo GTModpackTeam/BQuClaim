@@ -1,10 +1,9 @@
-package com.github.gtexpert.blpc.common.party;
+package com.github.gtexpert.blpc.api.party;
 
 /**
  * Enumerates the protection actions that can be configured per-party via trust levels.
  * <p>
- * Each action maps to one or more Forge events in
- * {@link com.github.gtexpert.blpc.core.ChunkProtectionHandler ChunkProtectionHandler}.
+ * Each action maps to one or more Forge events handled by the chunk protection handler.
  * The party owner can set the minimum {@link TrustLevel} required for each action
  * through the Settings panel.
  */

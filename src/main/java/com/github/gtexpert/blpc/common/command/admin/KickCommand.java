@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.command;
+package com.github.gtexpert.blpc.common.command.admin;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,14 +16,15 @@ import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
-import com.github.gtexpert.blpc.common.network.MessageClientNotify;
+import com.github.gtexpert.blpc.common.command.BLPCCommandHelper;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.common.party.PartyRole;
 
 public class KickCommand extends CommandBase {
 
@@ -56,7 +57,7 @@ public class KickCommand extends CommandBase {
             throw new CommandException("Cannot kick the party owner. Use /blpc admin move-owner first.");
         }
 
-        String targetName = ListCommand.resolveName(server, party, targetUUID);
+        String targetName = BLPCCommandHelper.resolveName(server, party, targetUUID);
         ChunkManagerData.getInstance().releaseAllClaims(targetUUID, sender.getEntityWorld());
         party.removeMember(targetUUID);
         PartyManagerData.getInstance().setBQuLinked(targetUUID, false);
@@ -66,7 +67,7 @@ public class KickCommand extends CommandBase {
         EntityPlayerMP target = server.getPlayerList().getPlayerByUUID(targetUUID);
         if (target != null) {
             ModNetwork.INSTANCE.sendTo(
-                    MessageClientNotify.partyEvent(MessageClientNotify.EVENT_KICKED, targetName, ""),
+                    ClientNotify.partyEvent(ClientNotify.EVENT_KICKED, targetName, ""),
                     target);
         }
         sender.sendMessage(
@@ -85,7 +86,7 @@ public class KickCommand extends CommandBase {
             if (party != null) {
                 List<String> names = party.getMembers().keySet().stream()
                         .filter(uuid -> party.getRole(uuid) != PartyRole.OWNER)
-                        .map(uuid -> ListCommand.resolveName(server, party, uuid))
+                        .map(uuid -> BLPCCommandHelper.resolveName(server, party, uuid))
                         .collect(Collectors.toList());
                 return getListOfStringsMatchingLastWord(args, names);
             }
@@ -105,7 +106,7 @@ public class KickCommand extends CommandBase {
             return online.getUniqueID();
         }
         for (UUID uuid : party.getMembers().keySet()) {
-            String resolved = ListCommand.resolveName(server, party, uuid);
+            String resolved = BLPCCommandHelper.resolveName(server, party, uuid);
             if (resolved.equalsIgnoreCase(name)) return uuid;
         }
         return null;

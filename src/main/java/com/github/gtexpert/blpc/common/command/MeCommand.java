@@ -13,7 +13,7 @@ import net.minecraft.util.text.TextFormatting;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.github.gtexpert.blpc.common.party.Party;
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 public class MeCommand extends CommandBase {
@@ -39,7 +39,7 @@ public class MeCommand extends CommandBase {
         }
 
         UUID owner = party.getOwner();
-        String ownerName = owner != null ? ListCommand.resolveName(server, party, owner) : "-";
+        String ownerName = owner != null ? BLPCCommandHelper.resolveName(server, party, owner) : "-";
 
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.header", party.getName()));
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.owner", ownerName));
@@ -48,7 +48,7 @@ public class MeCommand extends CommandBase {
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.members", party.getMembers().size()));
 
         for (var entry : party.getMembers().entrySet()) {
-            String name = ListCommand.resolveName(server, party, entry.getKey());
+            String name = BLPCCommandHelper.resolveName(server, party, entry.getKey());
             boolean online = server.getPlayerList().getPlayerByUUID(entry.getKey()) != null;
             String dot = online ? TextFormatting.GREEN + "●" : TextFormatting.DARK_GRAY + "○";
             sender.sendMessage(new TextComponentString(String.format("  %s%s %s %s(%s)%s",

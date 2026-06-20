@@ -1,6 +1,5 @@
-package com.github.gtexpert.blpc.client.gui;
+package com.github.gtexpert.blpc.client.input;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -10,10 +9,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import org.lwjgl.input.Keyboard;
 
-import com.cleanroommc.modularui.factory.ClientGUI;
-
+import com.github.gtexpert.blpc.client.gui.Screens;
 import com.github.gtexpert.blpc.common.ModConfig;
 
+/** Registers BLPC keybinds and routes key presses to {@link Screens}. */
+@SideOnly(Side.CLIENT)
 public class KeyInputHandler {
 
     private static KeyBinding keyOpenMap;
@@ -32,13 +32,10 @@ public class KeyInputHandler {
         return minimapVisible;
     }
 
-    @SideOnly(Side.CLIENT)
     @SubscribeEvent
     public void onKeyInput(InputEvent.KeyInputEvent event) {
         if (keyOpenMap.isPressed()) {
-            if (Minecraft.getMinecraft().currentScreen == null) {
-                ClientGUI.open(new ChunkMapScreen());
-            }
+            Screens.openMap();
         }
         if (toggleMinimap.isPressed()) {
             minimapVisible = !minimapVisible;

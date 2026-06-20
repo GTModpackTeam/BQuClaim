@@ -1,12 +1,17 @@
 package com.github.gtexpert.blpc.common.party;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
+
+import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 
 /**
  * Server-side authoritative party storage.
@@ -15,7 +20,7 @@ import net.minecraftforge.common.util.Constants;
  * to {@code world/betterlink/pc/parties/&lt;id&gt;.dat}. The {@code bquLinkedPlayers}
  * set tracks which players have opted into BetterQuesting integration; lookup
  * via {@link #isBQuLinked(UUID)} drives provider selection in
- * {@link com.github.gtexpert.blpc.common.network.party.PartyActionDispatcher}.
+ * {@link ClientNotify.PartyActionDispatcher}.
  * <p>
  * The {@code migrated} flag records whether legacy (pre-FTB-Lib-layout) data
  * has already been imported, so migration is a one-time operation.
@@ -24,9 +29,9 @@ public class PartyManagerData {
 
     private static volatile PartyManagerData instance;
 
-    private final Map<UUID, Party> parties = new LinkedHashMap<>();
+    private final Map<UUID, Party> parties = new ConcurrentHashMap<>();
     private boolean migrated;
-    private final Set<UUID> bquLinkedPlayers = new HashSet<>();
+    private final Set<UUID> bquLinkedPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public static synchronized PartyManagerData getInstance() {
         if (instance == null) {
@@ -132,7 +137,7 @@ public class PartyManagerData {
         NBTTagCompound all = new NBTTagCompound();
         NBTTagList list = new NBTTagList();
         for (Party party : parties.values()) {
-            party.resolvePlayerNames();
+            party.resolvePlayerNames(this::getParty);
             list.appendTag(party.toSyncNBT());
         }
         all.setTag("parties", list);

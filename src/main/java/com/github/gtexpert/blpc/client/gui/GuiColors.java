@@ -1,11 +1,15 @@
 package com.github.gtexpert.blpc.client.gui;
 
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
 /**
  * Shared ARGB color constants for all BLPC GUI components.
  * <p>
  * Values match the Minecraft color palette.
  * Format: {@code 0xAARRGGBB} (fully opaque = {@code 0xFF} alpha).
  */
+@SideOnly(Side.CLIENT)
 public final class GuiColors {
 
     /** White — titles, borders, default text. Matches {@link TextFormatting#WHITE} (\u00a7f). */
@@ -18,10 +22,6 @@ public final class GuiColors {
     public static final int RED = 0xFFFF5555;
     /** Gray — sub-text, messages. Matches {@link TextFormatting#GRAY} (\u00a77). */
     public static final int GRAY = 0xFFAAAAAA;
-    /** Light gray — inactive items, non-members. */
-    public static final int GRAY_LIGHT = 0xFFCCCCCC;
-    /** Semi-transparent white — button hover background. */
-    public static final int HOVER = 0x40FFFFFF;
     /** Semi-transparent white — section divider line. */
     public static final int DIVIDER = 0x30FFFFFF;
 

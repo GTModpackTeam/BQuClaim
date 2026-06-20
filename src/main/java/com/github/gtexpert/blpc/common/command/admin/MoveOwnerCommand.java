@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.common.command;
+package com.github.gtexpert.blpc.common.command.admin;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,10 +15,11 @@ import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
-import com.github.gtexpert.blpc.common.party.Party;
-import com.github.gtexpert.blpc.common.party.PartyRole;
+import com.github.gtexpert.blpc.common.command.BLPCCommandHelper;
 
 public class MoveOwnerCommand extends CommandBase {
 
