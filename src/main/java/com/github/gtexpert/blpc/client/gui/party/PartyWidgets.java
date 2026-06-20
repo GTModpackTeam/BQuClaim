@@ -386,10 +386,12 @@ public final class PartyWidgets {
         return header;
     }
 
-    /** OWNER → ADMIN → MEMBER, then alphabetical within a role. */
+    /** OWNER → ADMIN → MEMBER, then alphabetical within a role. Null roles (e.g. invite candidates) sort last. */
     public static Comparator<MemberEntry> byRoleThenName() {
         return (a, b) -> {
-            int cmp = b.role.ordinal() - a.role.ordinal();
+            int ao = a.role == null ? Integer.MIN_VALUE : a.role.ordinal();
+            int bo = b.role == null ? Integer.MIN_VALUE : b.role.ordinal();
+            int cmp = bo - ao;
             if (cmp != 0) return cmp;
             return a.name.compareToIgnoreCase(b.name);
         };

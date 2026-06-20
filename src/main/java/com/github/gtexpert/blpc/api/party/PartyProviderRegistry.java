@@ -124,6 +124,10 @@ public class PartyProviderRegistry {
      * </ul>
      */
     public static synchronized void register(IPartyProvider newProvider, int priority) {
+        if (newProvider == null) {
+            LOG.warn("Ignoring null party provider registration (priority {})", priority);
+            return;
+        }
         if (provider != NO_OP && priority < registeredPriority) {
             LOG.warn(
                     "Ignoring {} (priority {}) — {} is already registered at higher priority {}",

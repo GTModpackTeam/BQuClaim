@@ -59,14 +59,14 @@ public final class PartyQueryUtil {
      * online player → party name cache → global UsernameCache → UUID prefix.
      *
      * @param server the running server instance
-     * @param party  the party the UUID belongs to (used for the cached name fallback)
+     * @param party  the party the UUID belongs to (used for the cached name fallback); may be {@code null}
      * @param uuid   the player UUID to resolve
      * @return a human-readable name, never {@code null}
      */
-    public static String resolveName(MinecraftServer server, Party party, UUID uuid) {
+    public static String resolveName(MinecraftServer server, @Nullable Party party, UUID uuid) {
         var online = server.getPlayerList().getPlayerByUUID(uuid);
         if (online != null) return online.getName();
-        String cached = party.getPlayerName(uuid);
+        String cached = party != null ? party.getPlayerName(uuid) : null;
         if (cached != null) return cached;
         String global = UsernameCache.getLastKnownUsername(uuid);
         return global != null ? global : uuid.toString().substring(0, 8);

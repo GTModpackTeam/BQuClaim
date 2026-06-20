@@ -450,6 +450,10 @@ public class Party {
 
     @Nullable
     public static Party fromNBT(NBTTagCompound tag) {
+        if (tag == null) {
+            LOG.error("Party NBT tag is null, skipping corrupt entry");
+            return null;
+        }
         UUID id = tag.getUniqueId("partyId");
         if (id.getMostSignificantBits() == 0 && id.getLeastSignificantBits() == 0) {
             LOG.error("Party NBT missing 'partyId' key, skipping corrupt entry");
