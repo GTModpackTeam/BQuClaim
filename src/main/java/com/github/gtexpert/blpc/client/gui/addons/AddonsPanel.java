@@ -1,13 +1,18 @@
 package com.github.gtexpert.blpc.client.gui.addons;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
@@ -27,19 +32,27 @@ public final class AddonsPanel {
         panel.size(PartyWidgets.STANDARD_W, PartyWidgets.STANDARD_H);
         PartyWidgets.addHeader(panel, "blpc.addons.title");
 
-        @SuppressWarnings("rawtypes")
-        ListWidget list = new ListWidget();
+        @SuppressWarnings("unchecked")
+        ListWidget<IWidget, ?> list = new ListWidget<>();
+        list.widthRel(1f).heightRel(1f);
+        list.crossAxisAlignment(Alignment.CrossAxis.START);
 
-        var entries = AddonPanelRegistry.available();
-        if (entries.isEmpty()) {
-            list.child(PartyWidgets.emptyStateRow("blpc.addons.empty"));
-        } else {
-            for (AddonPanelRegistry.Entry entry : entries) {
-                list.child(buildEntryButton(panel, entry, playerId));
-            }
+        List<AddonPanelRegistry.Entry> entries = AddonPanelRegistry.available();
+        var widgets = new ArrayList<IWidget>();
+        var searchNames = new ArrayList<String>();
+
+        for (AddonPanelRegistry.Entry entry : entries) {
+            ButtonWidget<?> btn = buildEntryButton(panel, entry, playerId);
+            widgets.add(btn);
+            searchNames.add(IKey.lang(entry.labelKey()).get().toLowerCase(Locale.ROOT));
+            list.child(btn);
         }
 
-        PartyWidgets.addList(panel, list);
+        IWidget content = PartyWidgets.finalizeSearchableList(
+                list, widgets, searchNames, "blpc.addons.empty");
+        Flow wrapper = PartyWidgets.fillBelowHeader(
+                Flow.column().child(content));
+        panel.child(wrapper);
         return panel;
     }
 

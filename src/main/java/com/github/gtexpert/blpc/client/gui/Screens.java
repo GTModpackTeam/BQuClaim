@@ -48,9 +48,8 @@ public final class Screens {
     public static final String PARTY_TRANSFER = TransferOwnerDialog.PANEL_ID;
     /**
      * Addons hub — per-mod integration settings. Opened from {@link MainPanel}; its
-     * per-mod sub-panels ({@code blpc.party.addons.journeymap}) are registered by the
-     * integration modules via {@code AddonPanelRegistry}. BQu's link/unlink toggle and
-     * native-manager shortcut live in {@link SettingsPanel}'s Party Info tab instead.
+     * per-mod sub-panels ({@code blpc.party.addons.journeymap}, {@code blpc.party.addons.bqu})
+     * are registered by the integration modules via {@code AddonPanelRegistry}.
      */
     public static final String PARTY_ADDONS = AddonsPanel.PANEL_ID;
 

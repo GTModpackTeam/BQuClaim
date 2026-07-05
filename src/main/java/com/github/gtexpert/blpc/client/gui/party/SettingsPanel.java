@@ -26,11 +26,9 @@ import com.cleanroommc.modularui.widgets.PagedWidget;
 import com.cleanroommc.modularui.widgets.SliderWidget;
 
 import com.github.gtexpert.blpc.api.party.Party;
-import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.party.TrustAction;
 import com.github.gtexpert.blpc.api.party.TrustLevel;
 import com.github.gtexpert.blpc.client.gui.BLPCColors;
-import com.github.gtexpert.blpc.client.gui.GuiColors;
 import com.github.gtexpert.blpc.client.gui.party.widget.InputDialog;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.PartyAction;
@@ -175,49 +173,7 @@ public class SettingsPanel {
                             ModNetwork.INSTANCE.sendToServer(PartyAction.setMaxMembers(max));
                         })));
 
-        if (PartyProviderRegistry.hasNativeScreen()) {
-            list.child(PartyWidgets.divider());
-            UUID playerId = Minecraft.getMinecraft().player.getUniqueID();
-            list.child(buildBquToggle(playerId));
-            list.child(buildOpenNativeButton(panel, playerId));
-        }
-
         return list;
-    }
-
-    private static IWidget buildBquToggle(UUID playerId) {
-        return PartyWidgets.toggleButton(
-                new BoolValue.Dynamic(
-                        () -> ClientPartyCache.isBQuLinked(playerId),
-                        val -> {
-                            PartyWidgets.setLocalBQuLinked(val);
-                            ModNetwork.INSTANCE.sendToServer(PartyAction.toggleBQuLink(val));
-                        }),
-                "blpc.party.link_bqu", "blpc.party.unlink_bqu")
-                .addTooltipLine(IKey.lang("blpc.party.tooltip.link_bqu"))
-                .addTooltipLine(IKey.dynamicKey(() -> {
-                    Party myParty = ClientPartyCache.getPartyByPlayer(playerId);
-                    if (myParty == null) {
-                        return IKey.lang("blpc.party.tooltip.bqu_no_party").color(GuiColors.RED);
-                    }
-                    String ownerName = myParty.getOwner() != null ?
-                            PartyWidgets.getDisplayName(myParty.getOwner()) : "?";
-                    return IKey.str(IKey.lang("blpc.party.tooltip.bqu_party_info").get() + ": " +
-                            myParty.getName() + " (" + ownerName + ")").color(GuiColors.GRAY);
-                }));
-    }
-
-    private static IWidget buildOpenNativeButton(ModularPanel panel, UUID playerId) {
-        return new ButtonWidget<>().widthRel(1f).height(BTN_H)
-                .padding(PartyWidgets.ROW_INDENT, 0, 0, 0)
-                .overlay(PartyWidgets.buttonLabelLeft(IKey.lang("blpc.party.open_native")))
-                .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
-                .setEnabledIf(w -> ClientPartyCache.isBQuLinked(playerId))
-                .onMousePressed(btn -> {
-                    panel.closeIfOpen();
-                    Minecraft.getMinecraft().addScheduledTask(PartyProviderRegistry::openNativeScreen);
-                    return true;
-                });
     }
 
     private static String buildMaxMembersLabel(Party party) {
