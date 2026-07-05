@@ -36,8 +36,6 @@ public final class BLPCColors {
     private static final int MAP_BACKGROUND = 0xE01C1C22;
     /** Chunk-map border accent. */
     private static final int MAP_BORDER = 0xFFFFFFFF;
-    /** Minimap HUD opaque backdrop. */
-    private static final int MINIMAP_BACKGROUND = 0xFF000000;
     /** Map tile shown while a chunk's terrain is still loading. */
     private static final int MAP_UNLOADED = 0xFF222222;
     /** Claim overlay — owned by the local player (translucent green). */
@@ -104,11 +102,6 @@ public final class BLPCColors {
     /** Border accent for the chunk-map panel. */
     public static int mapBorder() {
         return MAP_BORDER;
-    }
-
-    /** Opaque backdrop behind the minimap HUD. */
-    public static int minimapBackground() {
-        return MINIMAP_BACKGROUND;
     }
 
     /** Fill shown for a chunk whose terrain has not rendered yet. */
