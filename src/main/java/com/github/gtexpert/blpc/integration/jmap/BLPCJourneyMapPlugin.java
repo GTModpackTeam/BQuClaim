@@ -79,8 +79,22 @@ public class BLPCJourneyMapPlugin implements IClientPlugin {
         return instance;
     }
 
+    /** Re-applies overlays after a settings toggle: redraws when enabled, clears when disabled. */
+    static void refreshFromSettings() {
+        if (instance == null) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.player == null) return;
+        instance.refreshOverlays(mc.player.dimension);
+    }
+
     void refreshOverlays(int dimension) {
         if (api == null) return;
+
+        // Client toggle (Addons → JourneyMap): drop existing overlays when disabled.
+        if (!JMapClientConfig.isShowClaimOverlays()) {
+            if (!activeOverlays.isEmpty()) clearOverlays();
+            return;
+        }
 
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.player == null) return;
