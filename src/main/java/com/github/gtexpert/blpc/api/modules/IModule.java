@@ -15,7 +15,7 @@ import org.jetbrains.annotations.NotNull;
  * <p>
  * Implementations are discovered automatically: annotate the class with
  * {@link TModule}, ensure it has a no-arg constructor, and the
- * {@link com.github.gtexpert.blpc.module.ModuleManager} will instantiate and
+ * {@link com.github.gtexpert.blpc.modules.ModuleManager} will instantiate and
  * load it during FML Construction. Module loading respects:
  * <ul>
  * <li>{@link TModule#modDependencies()} — required Forge mods.</li>

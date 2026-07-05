@@ -6,8 +6,8 @@ import org.jetbrains.annotations.NotNull;
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.modules.TModule;
 import com.github.gtexpert.blpc.common.ModLog;
-import com.github.gtexpert.blpc.module.BaseModule;
-import com.github.gtexpert.blpc.module.Modules;
+import com.github.gtexpert.blpc.modules.BaseModule;
+import com.github.gtexpert.blpc.modules.Modules;
 
 /**
  * Umbrella module for third-party integrations.
