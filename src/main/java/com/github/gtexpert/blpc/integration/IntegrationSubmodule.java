@@ -10,8 +10,8 @@ import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.api.util.ModUtility;
 import com.github.gtexpert.blpc.common.ModLog;
-import com.github.gtexpert.blpc.module.BaseModule;
-import com.github.gtexpert.blpc.module.Modules;
+import com.github.gtexpert.blpc.modules.BaseModule;
+import com.github.gtexpert.blpc.modules.Modules;
 
 /**
  * Base class for third-party integration modules (BQu, JourneyMap, ...).

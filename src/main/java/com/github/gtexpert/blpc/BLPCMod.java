@@ -15,8 +15,8 @@ import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 
 import com.github.gtexpert.blpc.api.util.Mods;
 import com.github.gtexpert.blpc.client.input.KeyInputHandler;
-import com.github.gtexpert.blpc.module.ModuleManager;
-import com.github.gtexpert.blpc.module.Modules;
+import com.github.gtexpert.blpc.modules.ModuleManager;
+import com.github.gtexpert.blpc.modules.Modules;
 
 /**
  * Forge entry point for BLPC.

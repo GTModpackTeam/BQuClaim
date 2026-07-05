@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.module;
+package com.github.gtexpert.blpc.modules;
 
 import java.util.Collections;
 import java.util.Set;

@@ -17,7 +17,7 @@ import com.github.gtexpert.blpc.api.modules.TModule;
 import com.github.gtexpert.blpc.api.util.Mods;
 import com.github.gtexpert.blpc.client.gui.addons.AddonPanelRegistry;
 import com.github.gtexpert.blpc.integration.IntegrationSubmodule;
-import com.github.gtexpert.blpc.module.Modules;
+import com.github.gtexpert.blpc.modules.Modules;
 
 /**
  * JourneyMap integration module.

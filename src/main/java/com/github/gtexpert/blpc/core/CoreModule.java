@@ -33,7 +33,7 @@ import com.github.gtexpert.blpc.common.command.BLPCCommand;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
-import com.github.gtexpert.blpc.module.Modules;
+import com.github.gtexpert.blpc.modules.Modules;
 
 /**
  * Core module — always loaded, runs first.

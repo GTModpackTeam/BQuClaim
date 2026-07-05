@@ -4,7 +4,7 @@ import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.modules.IModuleManager;
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
-import com.github.gtexpert.blpc.module.ModuleManager;
+import com.github.gtexpert.blpc.modules.ModuleManager;
 
 /**
  * Central access point and discoverability index for BLPC — the first class a new

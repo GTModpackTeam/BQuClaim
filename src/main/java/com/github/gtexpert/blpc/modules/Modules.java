@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.module;
+package com.github.gtexpert.blpc.modules;
 
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.modules.IModuleContainer;
