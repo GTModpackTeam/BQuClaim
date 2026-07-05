@@ -14,7 +14,6 @@ public class ModConfig {
     /** Internal default values not exposed in the config GUI. */
     public static final class Defaults {
 
-        public static final boolean showMinimap = true;
         public static final boolean enableProtection = true;
         public static final boolean protectMobGriefing = true;
         public static final boolean protectFireSpread = true;

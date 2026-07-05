@@ -10,6 +10,7 @@ import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.factory.ClientGUI;
 import com.cleanroommc.modularui.screen.ModularPanel;
 
+import com.github.gtexpert.blpc.client.gui.addons.AddonsPanel;
 import com.github.gtexpert.blpc.client.gui.party.CreatePanel;
 import com.github.gtexpert.blpc.client.gui.party.MainPanel;
 import com.github.gtexpert.blpc.client.gui.party.MembersPanel;
@@ -45,6 +46,12 @@ public final class Screens {
     public static final String PARTY_MODERATORS = ModeratorsPanel.PANEL_ID;
     /** Transfer-ownership dialog. */
     public static final String PARTY_TRANSFER = TransferOwnerDialog.PANEL_ID;
+    /**
+     * Addons hub — per-mod integration settings. Opened from {@link MainPanel}; its
+     * per-mod sub-panels ({@code blpc.party.addons.journeymap}, {@code blpc.party.addons.bqu})
+     * are registered by the integration modules via {@code AddonPanelRegistry}.
+     */
+    public static final String PARTY_ADDONS = AddonsPanel.PANEL_ID;
 
     private Screens() {}
 

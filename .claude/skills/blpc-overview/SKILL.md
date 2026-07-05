@@ -20,7 +20,7 @@ RetroFuturaGradle (RFG) with GTNH Buildscripts. **Do not edit `build.gradle`** (
 
 ## Java 17 Syntax (Mandatory)
 
-Jabel (`enableModernJavaSyntax = true`) compiles Java 17 features to JVM 8 bytecode. **目的:** NPE削減（pattern matching で安全なキャスト）とコード量削減（switch expressions で冗長な break/cast を排除）。
+Jabel (`enableModernJavaSyntax = true`) compiles Java 17 features to JVM 8 bytecode. **目的:** NPE削減（pattern matching で安全なキャスト）とコード量削減（switch expressions で冗長なbreak/castを排除）。
 
 | Feature | Requirement | Example |
 |---|---|---|
@@ -75,8 +75,8 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 - **`common/network/party/`** — `PartyActionDispatcher` (server-side handler for `MessagePartyAction`; one private static method per action discriminator; the `onAdminParty(c, Predicate<Party>)` helper wraps the ADMIN+ auth gate shared by ~8 simple settings actions).
 - **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `MessageClientNotify.getKind()` to the matching `BLPCToast` builder). `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
 - **`client/gui/`** — ModularUI screens only. `Screens` = the single catalog of every GUI + its open/build entry points (`openMap()`, `partyMain(...)`; RecipeMaps analog); `BLPCGuiTextures` = shared reusable `IDrawable`s (`DIVIDER`, `MAP_BACKGROUND`, `MAP_BORDER`) + `ICON_*` constants that reuse ModularUI's built-in `GuiTextures` icon atlas (`CLOSE`/`REFRESH`/`REMOVE` — no custom art; chunk-map tool buttons use these). Drawables are shared instances (a `Rectangle` only reads its fields at draw time) — never inline `new Rectangle().color(...)` in screen code, add it here. `BLPCColors` = semantic party/map palette, `GuiColors` = fixed vanilla-context ARGB; `BLPCToast` = vanilla toast notification; `ChunkMapScreen`/`ChunkMapWidget`; `PlayerFaceDrawable`; party panels in `party/` subpackage; reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`). Map pixel math derives from `ChunkMapRenderer.CHUNK_BLOCKS` (16 blocks/chunk — the single source for the recurring `% 16` / `/ 16` calculations).
-- **`client/hud/`** — `MinimapHUD` (in-game `RenderGameOverlayEvent` overlay; not a ModularUI screen).
-- **`client/input/`** — `KeyInputHandler` (keybind registration; routes key presses to `Screens`).
+- **`client/gui/addons/`** — Addons hub. `AddonPanelRegistry` = extensible registry of per-mod settings panels (each integration module registers one entry from its client-side init via a lazy method reference, mirroring `PartyProviderRegistry.registerNativeScreenOpener` — no `@SideOnly` on the registry, client-only-ness lives in the lambdas). `AddonsPanel` (`blpc.party.addons`) lists the available entries; opened from `MainPanel` when `AddonPanelRegistry.hasAvailable()`. The per-mod panels live in their integration packages (`integration/jmap/JourneyMapAddonPanel`). BQu has no addon panel — its link/unlink toggle and native-manager shortcut live directly in `SettingsPanel`'s Party Info tab (guarded by `PartyProviderRegistry.hasNativeScreen()`), not the Addons hub.
+- **`client/input/`** — `KeyInputHandler` (keybind registration; routes key presses to `Screens`). Single keybind: open chunk map (`M`).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
 ## Network Layer Architecture
@@ -200,9 +200,11 @@ The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Addition
 |---|---|---|
 | `blpc.party` | `MainPanel.java` | Party menu (uses `PartyMenuBuilder` for fluent menu composition) |
 | `blpc.party.create` | `CreatePanel.java` | Create-or-join (when no party): name input + pending-invite / free-to-join list |
-| `blpc.party.settings` | `SettingsPanel.java` | Protection settings, ally/enemy management |
+| `blpc.party.settings` | `SettingsPanel.java` | Protection settings, ally/enemy management, BQu link toggle + native party manager shortcut (Party Info tab) |
 | `blpc.party.members` | `MembersPanel.java` | Member list |
 | `blpc.party.moderators` | `ModeratorsPanel.java` | Moderator promote/demote |
+| `blpc.party.addons` | `client/gui/addons/AddonsPanel.java` | Addons hub — lists available per-mod settings panels |
+| `blpc.party.addons.journeymap` | `integration/jmap/JourneyMapAddonPanel.java` | JourneyMap claim-overlay toggle (+ future waypoint sharing) |
 | `blpc.party.dialog.disband` | MainPanel (inline `ConfirmDialog`) | Disband confirmation |
 | `blpc.party.dialog.transfer` | `TransferOwnerDialog.java` | Transfer ownership |
 | `blpc.party.dialog.rename` | SettingsPanel (InputDialog) | Rename party |
@@ -218,8 +220,8 @@ Invite is handled inline in `MembersPanel` (direct `MessagePartyAction.invite()`
 
 **No ModularUI theme system.** BLPC ships a single **light** look; all colors are fixed Java values. There are two holders, split by surface:
 
-- `client/gui/BLPCColors` — **semantic** party-panel + chunk-map colors. The `int` values are the **single source of truth** (`private static final`); consumers read them only through accessor methods so changing one value here propagates everywhere. Text/role: `text()` (`0xFF000000`), `buttonText()` (`0xFFFFFFFF`, white text on gray buttons) + `buttonTextShadow()` (`true`), `owner()` (`0xFFA66A00`), `admin()` (`0xFF1B7A1B`), `warning()` (`0xFFC00000`), `subtext()` (`0xFF555555`), `inactive()` (`0xFF888888`), `divider()` (`0x40000000`), plus `textShadow()` (`false`, panel-background titles). Map/HUD: `mapBackground()`, `mapBorder()`, `minimapBackground()`, `mapUnloaded()` (loading-tile fill), claim overlays `claimOwn()`/`claimParty()`/`claimOther()`/`claimHatching()`/`claimBorder()` (read by `ChunkMapRenderer`), and the `partyArgb(int rgb)` helper (opaque ARGB from a party's stored RGB — replaces the inlined `0xFF000000 | (rgb & 0xFFFFFF)`). Party panels, `ChunkMapScreen`, `ChunkMapWidget`, `ChunkMapRenderer`, and `MinimapHUD` all read these. `@SideOnly(CLIENT)`.
-- `client/gui/GuiColors` — **fixed vanilla-context** ARGB constants, used where the surface is always MC's own dark background: tooltips, toasts (`BLPCToast`), chunk-map counters, and the chunk-map grid (`MinimapHUD`, `ChunkMapWidget`).
+- `client/gui/BLPCColors` — **semantic** party-panel + chunk-map colors. The `int` values are the **single source of truth** (`private static final`); consumers read them only through accessor methods so changing one value here propagates everywhere. Text/role: `text()` (`0xFF000000`), `buttonText()` (`0xFFFFFFFF`, white text on gray buttons) + `buttonTextShadow()` (`true`), `owner()` (`0xFFA66A00`), `admin()` (`0xFF1B7A1B`), `warning()` (`0xFFC00000`), `subtext()` (`0xFF555555`), `inactive()` (`0xFF888888`), `divider()` (`0x40000000`), plus `textShadow()` (`false`, panel-background titles). Map: `mapBackground()`, `mapBorder()`, `mapUnloaded()` (loading-tile fill), claim overlays `claimOwn()`/`claimParty()`/`claimOther()`/`claimHatching()`/`claimBorder()` (read by `ChunkMapRenderer`), and the `partyArgb(int rgb)` helper (opaque ARGB from a party's stored RGB — replaces the inlined `0xFF000000 | (rgb & 0xFFFFFF)`). Party panels, `ChunkMapScreen`, `ChunkMapWidget`, and `ChunkMapRenderer` all read these. `@SideOnly(CLIENT)`.
+- `client/gui/GuiColors` — **fixed vanilla-context** ARGB constants, used where the surface is always MC's own dark background: tooltips, toasts (`BLPCToast`), chunk-map counters, and the chunk-map grid (`ChunkMapWidget`).
 
 | `GuiColors` constant | Value | Matches | Usage |
 |---|---|---|---|
@@ -341,7 +343,7 @@ Fluent builder for the party main menu. Accumulate entries, then `buildInto(List
 - `.widget(IWidget)` — raw widget injection (toggle buttons, etc.)
 - `.tooltip(langKey)` / `.visible(Predicate<MenuContext>)` — modifiers on the current entry; `.visible(...)` skips the entry when the predicate is false (used in place of `if` blocks for conditional widgets)
 - `.buildInto(ListWidget)` — materializes all entries
-- `MenuContext` exposes `canInvite()`, `isOwner()`, `bquAvailable()` (and package-private `party()` / `panel()`)
+- `MenuContext` exposes `canInvite()`, `isOwner()` (and package-private `party()` / `panel()`)
 
 **Allies/Enemies Management**: handled directly in `SettingsPanel` via inline trust lists (no separate dialog panels).
 
@@ -437,7 +439,6 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 
 | Constant | Value | Description |
 |---|---|---|
-| `showMinimap` | true | Minimap HUD default visibility (toggled at runtime via keybind) |
 | `enableProtection` | true | Master protection toggle |
 | `protectMobGriefing` | true | Prevent mob griefing in claims |
 | `protectFireSpread` | true | Prevent fire spread in claims |
@@ -481,7 +482,7 @@ Applied every 20 ticks while player is in a claimed chunk:
 
 ## Localization
 
-Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust actions/levels, protection settings, allies/enemies, tooltips, search, transit notifications (`blpc.transit.*`), and party event/claim failure notifications (`blpc.toast.*`).
+Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust actions/levels, protection settings, allies/enemies, tooltips, search, transit notifications (`blpc.transit.*`), party event/claim failure notifications (`blpc.toast.*`), and addon panels (`blpc.addons.*`).
 
 ## Adding a New Integration Module
 
@@ -489,3 +490,4 @@ Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.la
 2. Create a module class extending `IntegrationSubmodule` with `@TModule(modDependencies=Mods.Names.THE_MOD)`.
 3. Add module ID constant to `Modules.java`.
 4. Add mod ID to `Mods` enum and `Mods.Names`.
+5. (Optional, for a settings UI) Add a `<Mod>AddonPanel` (`@SideOnly(CLIENT)`) in the integration package and register it from the module's client-guarded `init` via `AddonPanelRegistry.register(labelKey, tooltipKey, available, <Mod>AddonPanel::build)`. Use a lazy method reference so the client-only panel is never loaded on a dedicated server. Add `blpc.addons.<mod>*` lang keys to both lang files. It then appears automatically under the party menu's Addons hub.

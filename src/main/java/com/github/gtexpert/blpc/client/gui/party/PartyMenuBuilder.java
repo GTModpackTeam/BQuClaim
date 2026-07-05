@@ -15,7 +15,6 @@ import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 
 import com.github.gtexpert.blpc.api.party.Party;
-import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.party.PartyRole;
 
 /**
@@ -34,8 +33,7 @@ public final class PartyMenuBuilder {
     }
 
     public static PartyMenuBuilder of(ModularPanel panel, Party party, UUID playerId) {
-        boolean bquAvailable = PartyProviderRegistry.hasNativeScreen();
-        return new PartyMenuBuilder(new MenuContext(party, playerId, panel, bquAvailable));
+        return new PartyMenuBuilder(new MenuContext(party, playerId, panel));
     }
 
     /** Appends a nav entry that builds a fresh sub-panel via {@code factory} on click. */
@@ -103,14 +101,12 @@ public final class PartyMenuBuilder {
         private final UUID playerId;
         private final ModularPanel panel;
         private final PartyRole role;
-        private final boolean bquAvailable;
 
-        MenuContext(Party party, UUID playerId, ModularPanel panel, boolean bquAvailable) {
+        MenuContext(Party party, UUID playerId, ModularPanel panel) {
             this.party = party;
             this.playerId = playerId;
             this.panel = panel;
             this.role = party.getRole(playerId);
-            this.bquAvailable = bquAvailable;
         }
 
         Party party() {
@@ -119,10 +115,6 @@ public final class PartyMenuBuilder {
 
         ModularPanel panel() {
             return panel;
-        }
-
-        public boolean bquAvailable() {
-            return bquAvailable;
         }
 
         public boolean canInvite() {
