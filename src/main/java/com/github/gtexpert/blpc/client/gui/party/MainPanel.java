@@ -2,23 +2,19 @@ package com.github.gtexpert.blpc.client.gui.party;
 
 import java.util.UUID;
 
-import net.minecraft.client.Minecraft;
-
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
-import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
-import com.cleanroommc.modularui.value.BoolValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.ScrollingTextWidget;
 
 import com.github.gtexpert.blpc.api.party.Party;
-import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.client.gui.BLPCColors;
-import com.github.gtexpert.blpc.client.gui.GuiColors;
+import com.github.gtexpert.blpc.client.gui.addons.AddonPanelRegistry;
+import com.github.gtexpert.blpc.client.gui.addons.AddonsPanel;
 import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.PartyAction;
@@ -75,7 +71,8 @@ public class MainPanel {
                 IPanelHandler.simple(panel, (pp, p) -> SettingsPanel.build(partyRef.get()), true),
                 IPanelHandler.simple(panel, (pp, p) -> MembersPanel.build(partyRef.get()), true),
                 IPanelHandler.simple(panel, (pp, p) -> ModeratorsPanel.build(partyRef.get()), true),
-                IPanelHandler.simple(panel, (pp, p) -> TransferOwnerDialog.build(partyRef.get()), true));
+                IPanelHandler.simple(panel, (pp, p) -> TransferOwnerDialog.build(partyRef.get()), true),
+                IPanelHandler.simple(panel, (pp, p) -> AddonsPanel.build(playerId), true));
 
         rebuildMenu(menuList, panel, partyId, playerId, nav);
 
@@ -133,58 +130,23 @@ public class MainPanel {
                 .navHandler("blpc.party.transfer", nav.transfer)
                 .tooltip("blpc.party.tooltip.transfer")
                 .visible(PartyMenuBuilder.MenuContext::isOwner)
-                .widget(buildOpenNativeButton(panel, playerId))
-                .visible(PartyMenuBuilder.MenuContext::bquAvailable)
-                .widget(buildBquToggle(playerId))
-                .visible(c -> c.bquAvailable() && c.canInvite())
+                .navHandler("blpc.addons", nav.addons)
+                .tooltip("blpc.addons.tooltip")
+                .visible(c -> AddonPanelRegistry.hasAvailable())
                 .buildInto(menuList);
-    }
-
-    private static IWidget buildOpenNativeButton(ModularPanel panel, UUID playerId) {
-        return new ButtonWidget<>().widthRel(1f).height(PartyWidgets.BTN_H)
-                .padding(PartyWidgets.ROW_INDENT, 0, 0, 0)
-                .overlay(PartyWidgets.buttonLabelLeft(IKey.lang("blpc.party.open_native")))
-                .addTooltipLine(IKey.lang("blpc.party.tooltip.open_native"))
-                .setEnabledIf(w -> ClientPartyCache.isBQuLinked(playerId))
-                .onMousePressed(btn -> {
-                    panel.closeIfOpen();
-                    Minecraft.getMinecraft().addScheduledTask(PartyProviderRegistry::openNativeScreen);
-                    return true;
-                });
-    }
-
-    private static IWidget buildBquToggle(UUID playerId) {
-        return PartyWidgets.toggleButton(
-                new BoolValue.Dynamic(
-                        () -> ClientPartyCache.isBQuLinked(playerId),
-                        val -> {
-                            PartyWidgets.setLocalBQuLinked(val);
-                            ModNetwork.INSTANCE.sendToServer(PartyAction.toggleBQuLink(val));
-                        }),
-                "blpc.party.link_bqu", "blpc.party.unlink_bqu")
-                .addTooltipLine(IKey.lang("blpc.party.tooltip.link_bqu"))
-                .addTooltipLine(IKey.dynamicKey(() -> {
-                    Party myParty = ClientPartyCache.getPartyByPlayer(playerId);
-                    if (myParty == null) {
-                        return IKey.lang("blpc.party.tooltip.bqu_no_party").color(GuiColors.RED);
-                    }
-                    String ownerName = myParty.getOwner() != null ?
-                            PartyWidgets.getDisplayName(myParty.getOwner()) : "?";
-                    return IKey.str(IKey.lang("blpc.party.tooltip.bqu_party_info").get() + ": " +
-                            myParty.getName() + " (" + ownerName + ")").color(GuiColors.GRAY);
-                }));
     }
 
     private static final class NavHandlers {
 
-        final IPanelHandler settings, members, moderators, transfer;
+        final IPanelHandler settings, members, moderators, transfer, addons;
 
         NavHandlers(IPanelHandler settings, IPanelHandler members,
-                    IPanelHandler moderators, IPanelHandler transfer) {
+                    IPanelHandler moderators, IPanelHandler transfer, IPanelHandler addons) {
             this.settings = settings;
             this.members = members;
             this.moderators = moderators;
             this.transfer = transfer;
+            this.addons = addons;
         }
     }
 }

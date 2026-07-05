@@ -7,7 +7,6 @@ config.blpc.protection=Protection
 
 # Key bindings
 key.blpc.open_map=Open Chunk Map
-key.blpc.toggle=Toggle Minimap
 key.categories.blpc=Better Link Party Claim
 
 # Commands
@@ -183,6 +182,18 @@ blpc.party.tooltip.open_native=Open BetterQuesting party manager
 blpc.party.tooltip.link_bqu=Toggle BQu party integration\nRequires a BQu party
 blpc.party.tooltip.bqu_no_party=No BQu party found
 blpc.party.tooltip.bqu_party_info=BQu Party
+
+# Addons
+blpc.addons=Addons
+blpc.addons.title=Addons
+blpc.addons.tooltip=Third-party mod integrations
+blpc.addons.empty=No addons available
+blpc.addons.journeymap=JourneyMap
+blpc.addons.journeymap.title=JourneyMap
+blpc.addons.journeymap.overlays_on=Claim Overlays: ON
+blpc.addons.journeymap.overlays_off=Claim Overlays: OFF
+blpc.addons.journeymap.overlays_tooltip=Show BLPC claim regions on JourneyMap
+blpc.addons.journeymap.waypoints_soon=Team Waypoint Sharing (coming soon)
 
 # Transit Notifications
 blpc.transit.member.enter=%s returned home
