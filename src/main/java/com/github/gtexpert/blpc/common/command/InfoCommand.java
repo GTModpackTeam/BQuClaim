@@ -2,9 +2,7 @@ package com.github.gtexpert.blpc.common.command;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
@@ -20,7 +18,7 @@ import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 
-public class InfoCommand extends CommandBase {
+public class InfoCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -38,13 +36,9 @@ public class InfoCommand extends CommandBase {
         if (args.length != 1) {
             throw new CommandException("/blpc info <partyName>");
         }
-        Party party = BLPCCommandHelper.findPartyByName(args[0]);
-        if (party == null) {
-            throw new CommandException("Party not found: " + args[0]);
-        }
+        Party party = BLPCCommandHelper.requirePartyByName(args[0]);
 
-        UUID owner = party.getOwner();
-        String ownerName = owner != null ? BLPCCommandHelper.resolveName(server, party, owner) : "-";
+        String ownerName = BLPCCommandHelper.resolveOwnerName(server, party);
         int claimCount = countClaims(party);
 
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.header", party.getName()));
@@ -70,16 +64,6 @@ public class InfoCommand extends CommandBase {
             return getListOfStringsMatchingLastWord(args, BLPCCommandHelper.allPartyNames());
         }
         return Collections.emptyList();
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 
     private static int countClaims(Party party) {

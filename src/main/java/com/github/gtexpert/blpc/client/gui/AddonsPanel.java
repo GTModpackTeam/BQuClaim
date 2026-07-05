@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.client.gui.addons;
+package com.github.gtexpert.blpc.client.gui;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,11 +14,12 @@ import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 
+import com.github.gtexpert.blpc.api.integration.IntegrationPanelRegistry;
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
  * Addons hub (panel ID: {@value #PANEL_ID}). Lists one row button per available
- * {@link AddonPanelRegistry.Entry}; each opens that mod's own settings panel.
+ * {@link IntegrationPanelRegistry.Entry}; each opens that mod's own settings panel.
  * Reached from the party main menu's <em>Addons</em> entry.
  */
 public final class AddonsPanel {
@@ -37,11 +38,11 @@ public final class AddonsPanel {
         list.widthRel(1f).heightRel(1f);
         list.crossAxisAlignment(Alignment.CrossAxis.START);
 
-        List<AddonPanelRegistry.Entry> entries = AddonPanelRegistry.available();
+        List<IntegrationPanelRegistry.Entry> entries = IntegrationPanelRegistry.available();
         var widgets = new ArrayList<IWidget>();
         var searchNames = new ArrayList<String>();
 
-        for (AddonPanelRegistry.Entry entry : entries) {
+        for (IntegrationPanelRegistry.Entry entry : entries) {
             ButtonWidget<?> btn = buildEntryButton(panel, entry, playerId);
             widgets.add(btn);
             searchNames.add(IKey.lang(entry.labelKey()).get().toLowerCase(Locale.ROOT));
@@ -57,7 +58,7 @@ public final class AddonsPanel {
     }
 
     private static ButtonWidget<?> buildEntryButton(ModularPanel panel,
-                                                    AddonPanelRegistry.Entry entry, UUID playerId) {
+                                                    IntegrationPanelRegistry.Entry entry, UUID playerId) {
         // One handler per entry, created once with the panel — IPanelHandler.simple
         // registers into panel.clientSubPanels (no removal API), and this panel is a
         // fresh instance on every open, so there is nothing to leak across opens.

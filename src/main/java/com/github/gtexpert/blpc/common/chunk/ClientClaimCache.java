@@ -11,7 +11,7 @@ import java.util.UUID;
  * Client-side in-memory cache of chunk claim data.
  * Populated via {@code SyncClaims} / {@code SyncAllClaims} from the server.
  */
-public class ClientCache {
+public class ClientClaimCache {
 
     private static final Map<Long, ClaimedChunkData> cache = new HashMap<>();
     private static final List<Runnable> changeListeners = new ArrayList<>();

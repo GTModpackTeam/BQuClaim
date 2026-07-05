@@ -10,10 +10,10 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.Tags;
+import com.github.gtexpert.blpc.api.integration.IntegrationPanelRegistry;
 import com.github.gtexpert.blpc.api.modules.TModule;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.util.Mods;
-import com.github.gtexpert.blpc.client.gui.addons.AddonPanelRegistry;
 import com.github.gtexpert.blpc.integration.IntegrationSubmodule;
 import com.github.gtexpert.blpc.modules.Modules;
 
@@ -22,7 +22,7 @@ import com.github.gtexpert.blpc.modules.Modules;
  * <p>
  * Loaded only when {@code betterquesting} is installed. Replaces the
  * {@code DefaultPartyProvider} registered by {@code CoreModule} with a
- * {@link BQPartyProvider} that delegates to BQu's party system, and registers
+ * {@link BQuPartyProvider} that delegates to BQu's party system, and registers
  * the native BQu party screen as an alternative entry point on the client.
  */
 @TModule(
@@ -35,16 +35,16 @@ public class BQuModule extends IntegrationSubmodule {
 
     @Override
     public void preInit(FMLPreInitializationEvent event) {
-        PartyProviderRegistry.register(new BQPartyProvider(), PartyProviderRegistry.PRIORITY_HIGH);
+        PartyProviderRegistry.register(new BQuPartyProvider(), PartyProviderRegistry.PRIORITY_HIGH);
     }
 
     @Override
     public void init(FMLInitializationEvent event) {
         if (event.getSide().isClient()) {
             PartyProviderRegistry.registerNativeScreenOpener(BQuScreenHelper::openPartyScreen);
-            AddonPanelRegistry.register(
+            IntegrationPanelRegistry.register(
                     "blpc.addons.bqu", "blpc.addons.bqu.tooltip",
-                    PartyProviderRegistry::hasNativeScreen, BQuAddonPanel::build);
+                    PartyProviderRegistry::hasNativeScreen, BQuSettingsPanel::build);
         }
     }
 
@@ -52,7 +52,7 @@ public class BQuModule extends IntegrationSubmodule {
     @Override
     public List<Class<?>> getEventBusSubscribers() {
         if (FMLCommonHandler.instance().getSide().isClient()) {
-            return Collections.singletonList(BQPartyEventHandler.class);
+            return Collections.singletonList(BQuPartyEventHandler.class);
         }
         return Collections.emptyList();
     }

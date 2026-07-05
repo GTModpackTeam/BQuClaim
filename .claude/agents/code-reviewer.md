@@ -22,7 +22,7 @@ Project architecture is provided via the blpc-overview skill.
 - Module pattern compliance (`@TModule`, `IntegrationSubmodule`, etc.)
 - Panel ID naming: `blpc.<area>`, `blpc.<area>.dialog.<name>`
 - Lang key naming: `blpc.<area>.*`
-- New ops/notifications use discriminators, not new wire IDs: append `ACTION_*` to `MessagePartyAction` (factory + `case` in `PartyActionDispatcher.dispatch()` + private method, no renumbering) or `KIND_*`/`EVENT_*` to `MessageClientNotify` (+ `toBytes`/`fromBytes` arm + `BLPCToast` case). A new top-level wire ID is only for a genuinely new message family — then it must be appended to **both** `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()` in identical order (never inserted)
+- New ops/notifications use discriminators, not new wire IDs: append `ACTION_*` to `PartyAction` (factory + `case` in `PartyAction.Handler.dispatch()` + private method, no renumbering) or `KIND_*`/`EVENT_*` to `ClientNotify` (+ `toBytes`/`fromBytes` arm + `BLPCToast` case). A new top-level wire ID is only for a genuinely new message family — then it must be appended to **both** `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()` in identical order (never inserted)
 - NBT-payload S→C messages extend `NbtMessage`
 - Side boundary respected: S→C handlers live in `client/network/` with `@SideOnly(Side.CLIENT)`; IMessage classes in `common/network/` must not reference any client-only types in their bytecode
 - Dispatcher actions fail-soft: on `false`, `dispatch()` rolls back via `syncToPlayer(actor)` (or `syncToAll()` for BQu-link); simple admin settings actions go through `onAdminParty(c, ...)`
@@ -60,7 +60,7 @@ Project architecture is provided via the blpc-overview skill.
 - NBT read/write backwards compatibility maintained
 
 ### Integration
-- BQu integration uses `BQPartyProvider` (no direct BQu API calls from outside integration package)
+- BQu integration uses `BQuPartyProvider` (no direct BQu API calls from outside integration package)
 - Optional mod dependencies properly gated with `Loader.isModLoaded()` or `@TModule(modDependencies=...)`
 
 ## Output Format

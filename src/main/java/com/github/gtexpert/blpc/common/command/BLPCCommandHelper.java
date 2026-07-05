@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.command.CommandException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 
@@ -31,6 +32,15 @@ public final class BLPCCommandHelper {
         return PartyQueryUtil.findByName(name);
     }
 
+    /** Like {@link #findPartyByName}, but throws the standard "not found" error instead of returning null. */
+    public static Party requirePartyByName(String name) throws CommandException {
+        Party party = findPartyByName(name);
+        if (party == null) {
+            throw new CommandException("Party not found: " + name);
+        }
+        return party;
+    }
+
     public static List<String> allPartyNames() {
         return PartyQueryUtil.allPartyNames();
     }
@@ -43,6 +53,12 @@ public final class BLPCCommandHelper {
     /** Resolves a display name for a UUID: online player → cached party name → UsernameCache → UUID prefix. */
     public static String resolveName(MinecraftServer server, Party party, UUID uuid) {
         return PartyQueryUtil.resolveName(server, party, uuid);
+    }
+
+    /** Resolves the party owner's display name, or {@code "-"} when the party has no owner. */
+    public static String resolveOwnerName(MinecraftServer server, Party party) {
+        UUID owner = party.getOwner();
+        return owner != null ? resolveName(server, party, owner) : "-";
     }
 
     /**

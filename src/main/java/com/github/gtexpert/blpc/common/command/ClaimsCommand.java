@@ -1,6 +1,5 @@
 package com.github.gtexpert.blpc.common.command;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -15,7 +14,7 @@ import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
-public class ClaimsCommand extends CommandBase {
+public class ClaimsCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -59,15 +58,5 @@ public class ClaimsCommand extends CommandBase {
                 partyForce, party.sumForceLoadLimit(ModConfig.claims.maxForceLoadsPerPlayer)));
         sender.sendMessage(new TextComponentTranslation("command.blpc.claims.your_share",
                 personalClaims, personalForce));
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 }

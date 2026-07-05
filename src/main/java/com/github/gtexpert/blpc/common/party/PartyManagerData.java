@@ -11,7 +11,7 @@ import net.minecraftforge.common.util.Constants;
 
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyRole;
-import com.github.gtexpert.blpc.common.network.message.ClientNotify;
+import com.github.gtexpert.blpc.common.network.message.PartyAction;
 
 /**
  * Server-side authoritative party storage.
@@ -20,7 +20,7 @@ import com.github.gtexpert.blpc.common.network.message.ClientNotify;
  * to {@code world/betterlink/pc/parties/&lt;id&gt;.dat}. The {@code bquLinkedPlayers}
  * set tracks which players have opted into BetterQuesting integration; lookup
  * via {@link #isBQuLinked(UUID)} drives provider selection in
- * {@link ClientNotify.PartyActionDispatcher}.
+ * {@link PartyAction.Handler}.
  * <p>
  * The {@code migrated} flag records whether legacy (pre-FTB-Lib-layout) data
  * has already been imported, so migration is a one-time operation.

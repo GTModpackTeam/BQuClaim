@@ -3,6 +3,7 @@ package com.github.gtexpert.blpc.common.chunk;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import net.minecraft.nbt.NBTTagCompound;
@@ -65,33 +66,33 @@ public class ChunkManagerData {
     }
 
     public int countClaims(UUID owner) {
-        return (int) claims.values().stream()
-                .filter(d -> d.ownerUUID.equals(owner))
-                .count();
+        return countMatching(d -> d.ownerUUID.equals(owner));
     }
 
     public int countForceLoads(UUID owner) {
-        return (int) claims.values().stream()
-                .filter(d -> d.ownerUUID.equals(owner) && d.isForceLoaded)
-                .count();
+        return countMatching(d -> d.ownerUUID.equals(owner) && d.isForceLoaded);
     }
 
     public int countClaimsForParty(UUID partyId) {
-        Party party = PartyManagerData.getInstance().getParty(partyId);
-        if (party == null) return 0;
-        Set<UUID> memberIds = new HashSet<>(party.getMemberUUIDs());
-        return (int) claims.values().stream()
-                .filter(d -> memberIds.contains(d.ownerUUID))
-                .count();
+        Set<UUID> memberIds = memberIdsOf(partyId);
+        if (memberIds == null) return 0;
+        return countMatching(d -> memberIds.contains(d.ownerUUID));
     }
 
     public int countForceLoadsForParty(UUID partyId) {
+        Set<UUID> memberIds = memberIdsOf(partyId);
+        if (memberIds == null) return 0;
+        return countMatching(d -> memberIds.contains(d.ownerUUID) && d.isForceLoaded);
+    }
+
+    private int countMatching(Predicate<ClaimedChunkData> filter) {
+        return (int) claims.values().stream().filter(filter).count();
+    }
+
+    /** Member UUIDs of {@code partyId}, or {@code null} when the party doesn't exist. */
+    private static Set<UUID> memberIdsOf(UUID partyId) {
         Party party = PartyManagerData.getInstance().getParty(partyId);
-        if (party == null) return 0;
-        Set<UUID> memberIds = new HashSet<>(party.getMemberUUIDs());
-        return (int) claims.values().stream()
-                .filter(d -> memberIds.contains(d.ownerUUID) && d.isForceLoaded)
-                .count();
+        return party == null ? null : new HashSet<>(party.getMemberUUIDs());
     }
 
     public void enqueueClaim(ClaimedChunkData data) {

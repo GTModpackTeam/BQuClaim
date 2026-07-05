@@ -1,5 +1,7 @@
 package com.github.gtexpert.blpc.api.party;
 
+import com.github.gtexpert.blpc.api.util.EnumUtils;
+
 /**
  * Represents a player's trust level within a party's claimed chunks.
  * <p>
@@ -27,10 +29,6 @@ public enum TrustLevel {
     }
 
     public static TrustLevel fromName(String name) {
-        try {
-            return valueOf(name);
-        } catch (IllegalArgumentException e) {
-            return NONE;
-        }
+        return EnumUtils.parseOrDefault(TrustLevel.class, name, NONE);
     }
 }

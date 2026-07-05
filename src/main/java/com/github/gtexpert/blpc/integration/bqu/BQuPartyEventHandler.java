@@ -22,9 +22,9 @@ import betterquesting.api.questing.party.IParty;
 import betterquesting.api2.storage.DBEntry;
 import betterquesting.questing.party.PartyManager;
 
-public class BQPartyEventHandler {
+@SideOnly(Side.CLIENT)
+public class BQuPartyEventHandler {
 
-    @SideOnly(Side.CLIENT)
     @SubscribeEvent
     public static void onPartyUpdate(DatabaseEvent.Update event) {
         if (event.getType() != DatabaseEvent.DBType.PARTY) return;
@@ -60,7 +60,7 @@ public class BQPartyEventHandler {
                     0L);
             for (UUID memberId : bqParty.getMembers()) {
                 EnumPartyStatus status = bqParty.getStatus(memberId);
-                party.addMember(memberId, BQPartyProvider.mapRole(status));
+                party.addMember(memberId, BQuPartyProvider.mapRole(status));
                 bquMembers.add(memberId);
             }
             Party cachedParty = ClientPartyCache.getParty(partyUuid);

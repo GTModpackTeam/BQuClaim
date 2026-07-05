@@ -1,9 +1,7 @@
 package com.github.gtexpert.blpc.common.command;
 
 import java.util.List;
-import java.util.UUID;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -16,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.api.party.Party;
 
-public class InvitesCommand extends CommandBase {
+public class InvitesCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -39,21 +37,10 @@ public class InvitesCommand extends CommandBase {
         }
         sender.sendMessage(new TextComponentTranslation("command.blpc.invites.header", invites.size()));
         for (Party party : invites) {
-            UUID owner = party.getOwner();
-            String ownerName = owner != null ? BLPCCommandHelper.resolveName(server, party, owner) : "-";
+            String ownerName = BLPCCommandHelper.resolveOwnerName(server, party);
             sender.sendMessage(new TextComponentString(String.format("- %s%s%s (%s)",
                     TextFormatting.AQUA, party.getName(), TextFormatting.RESET, ownerName)));
         }
         sender.sendMessage(new TextComponentTranslation("command.blpc.invites.hint"));
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 }

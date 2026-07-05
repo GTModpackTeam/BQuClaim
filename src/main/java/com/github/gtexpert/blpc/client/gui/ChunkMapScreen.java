@@ -28,7 +28,7 @@ import com.github.gtexpert.blpc.client.map.AsyncMapRenderer;
 import com.github.gtexpert.blpc.client.map.TextureCache;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.chunk.ClientCache;
+import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.ClaimChunk;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -149,7 +149,7 @@ public class ChunkMapScreen extends CustomModularScreen {
     private void executeBulkAction(int action) {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
         int mode = (action == 1) ? ClaimChunk.MODE_UNCLAIM : ClaimChunk.MODE_TOGGLE_FORCE;
-        for (ClaimedChunkData d : ClientCache.getAll()) {
+        for (ClaimedChunkData d : ClientClaimCache.getAll()) {
             if (d.ownerUUID.equals(myId)) {
                 if (action == 1 || d.isForceLoaded) {
                     ModNetwork.INSTANCE.sendToServer(new ClaimChunk(d.x, d.z, mode));
@@ -183,7 +183,7 @@ public class ChunkMapScreen extends CustomModularScreen {
     private int countChunks(boolean forceLoadedOnly) {
         UUID myId = Minecraft.getMinecraft().player.getUniqueID();
         Set<UUID> ids = getPartyMemberIds(myId);
-        return (int) ClientCache.getAll().stream()
+        return (int) ClientClaimCache.getAll().stream()
                 .filter(d -> ids.contains(d.ownerUUID) && (!forceLoadedOnly || d.isForceLoaded))
                 .count();
     }

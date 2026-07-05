@@ -1,6 +1,7 @@
 package com.github.gtexpert.blpc.common.network.message;
 
 import java.util.UUID;
+import java.util.function.Function;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.math.MathHelper;
@@ -175,71 +176,38 @@ public class ClaimChunk implements IMessage {
         }
 
         private boolean isClaimLimitReached(ChunkManagerData data, UUID playerId, EntityPlayerMP player) {
-            if (!ModConfig.claims.additiveLimits) {
-                int used = data.countClaims(playerId);
-                if (used >= ModConfig.claims.maxClaimsPerPlayer) {
-                    ModNetwork.INSTANCE.sendTo(
-                            ClientNotify.claimFailed(ClientNotify.REASON_CLAIM_LIMIT, used,
-                                    ModConfig.claims.maxClaimsPerPlayer),
-                            player);
-                    return true;
-                }
-                return false;
-            }
-            Party party = PartyManagerData.getInstance().getPartyByPlayer(playerId);
-            if (party == null) {
-                int used = data.countClaims(playerId);
-                if (used >= ModConfig.claims.maxClaimsPerPlayer) {
-                    ModNetwork.INSTANCE.sendTo(
-                            ClientNotify.claimFailed(ClientNotify.REASON_CLAIM_LIMIT, used,
-                                    ModConfig.claims.maxClaimsPerPlayer),
-                            player);
-                    return true;
-                }
-            } else {
-                int used = data.countClaimsForParty(party.getPartyId());
-                int max = party.sumClaimLimit(ModConfig.claims.maxClaimsPerPlayer);
-                if (used >= max) {
-                    ModNetwork.INSTANCE.sendTo(
-                            ClientNotify.claimFailed(ClientNotify.REASON_CLAIM_LIMIT, used, max),
-                            player);
-                    return true;
-                }
-            }
-            return false;
+            return isLimitReached(data, playerId, player,
+                    data::countClaims,
+                    party -> data.countClaimsForParty(party.getPartyId()),
+                    party -> party.sumClaimLimit(ModConfig.claims.maxClaimsPerPlayer),
+                    ModConfig.claims.maxClaimsPerPlayer,
+                    ClientNotify.REASON_CLAIM_LIMIT);
         }
 
         private boolean isForceLoadLimitReached(ChunkManagerData data, UUID playerId, EntityPlayerMP player) {
-            if (!ModConfig.claims.additiveLimits) {
-                int used = data.countForceLoads(playerId);
-                if (used >= ModConfig.claims.maxForceLoadsPerPlayer) {
-                    ModNetwork.INSTANCE.sendTo(
-                            ClientNotify.claimFailed(ClientNotify.REASON_FORCELOAD_LIMIT, used,
-                                    ModConfig.claims.maxForceLoadsPerPlayer),
-                            player);
-                    return true;
-                }
-                return false;
-            }
-            Party party = PartyManagerData.getInstance().getPartyByPlayer(playerId);
-            if (party == null) {
-                int used = data.countForceLoads(playerId);
-                if (used >= ModConfig.claims.maxForceLoadsPerPlayer) {
-                    ModNetwork.INSTANCE.sendTo(
-                            ClientNotify.claimFailed(ClientNotify.REASON_FORCELOAD_LIMIT, used,
-                                    ModConfig.claims.maxForceLoadsPerPlayer),
-                            player);
-                    return true;
-                }
-            } else {
-                int used = data.countForceLoadsForParty(party.getPartyId());
-                int max = party.sumForceLoadLimit(ModConfig.claims.maxForceLoadsPerPlayer);
-                if (used >= max) {
-                    ModNetwork.INSTANCE.sendTo(
-                            ClientNotify.claimFailed(ClientNotify.REASON_FORCELOAD_LIMIT, used, max),
-                            player);
-                    return true;
-                }
+            return isLimitReached(data, playerId, player,
+                    data::countForceLoads,
+                    party -> data.countForceLoadsForParty(party.getPartyId()),
+                    party -> party.sumForceLoadLimit(ModConfig.claims.maxForceLoadsPerPlayer),
+                    ModConfig.claims.maxForceLoadsPerPlayer,
+                    ClientNotify.REASON_FORCELOAD_LIMIT);
+        }
+
+        /**
+         * Shared shape for claim/force-load limit checks: per-player counting, unless
+         * {@link ModConfig.Claims#additiveLimits additiveLimits} is on and the player has a
+         * party, in which case usage and the cap are pooled across the party instead.
+         */
+        private boolean isLimitReached(ChunkManagerData data, UUID playerId, EntityPlayerMP player,
+                                       Function<UUID, Integer> perPlayerCount, Function<Party, Integer> perPartyCount,
+                                       Function<Party, Integer> perPartyMax, int perPlayerMax, String reason) {
+            Party party = ModConfig.claims.additiveLimits ?
+                    PartyManagerData.getInstance().getPartyByPlayer(playerId) : null;
+            int used = party != null ? perPartyCount.apply(party) : perPlayerCount.apply(playerId);
+            int max = party != null ? perPartyMax.apply(party) : perPlayerMax;
+            if (used >= max) {
+                ModNetwork.INSTANCE.sendTo(ClientNotify.claimFailed(reason, used, max), player);
+                return true;
             }
             return false;
         }

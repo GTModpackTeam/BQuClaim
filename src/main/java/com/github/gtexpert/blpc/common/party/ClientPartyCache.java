@@ -67,7 +67,7 @@ public class ClientPartyCache {
         }
     }
 
-    /** Locally update BQu link state without server sync. Used by BQPartyEventHandler. */
+    /** Locally update BQu link state without server sync. Used by BQuPartyEventHandler. */
     public static void setLocalBQuLinked(UUID playerUUID, boolean linked) {
         if (linked) {
             bquLinkedPlayers.add(playerUUID);

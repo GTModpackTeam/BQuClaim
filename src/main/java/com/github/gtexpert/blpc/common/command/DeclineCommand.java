@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -19,7 +18,7 @@ import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 
-public class DeclineCommand extends CommandBase {
+public class DeclineCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -38,10 +37,7 @@ public class DeclineCommand extends CommandBase {
             throw new CommandException("/blpc decline <partyName>");
         }
         EntityPlayerMP player = getCommandSenderAsPlayer(sender);
-        Party party = BLPCCommandHelper.findPartyByName(args[0]);
-        if (party == null) {
-            throw new CommandException("Party not found: " + args[0]);
-        }
+        Party party = BLPCCommandHelper.requirePartyByName(args[0]);
         if (!party.hasInvite(player.getUniqueID())) {
             throw new CommandException("No pending invite from party: " + args[0]);
         }
@@ -63,15 +59,5 @@ public class DeclineCommand extends CommandBase {
             return getListOfStringsMatchingLastWord(args, names);
         }
         return Collections.emptyList();
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 }

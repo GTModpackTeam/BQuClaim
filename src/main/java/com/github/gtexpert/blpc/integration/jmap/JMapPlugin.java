@@ -17,7 +17,7 @@ import net.minecraft.util.math.BlockPos;
 import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.chunk.ClientCache;
+import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
 import journeymap.client.api.ClientPlugin;
@@ -36,7 +36,7 @@ import journeymap.client.api.model.TextProperties;
  * bordered-and-labelled box per chunk.
  */
 @ClientPlugin
-public class BLPCJourneyMapPlugin implements IClientPlugin {
+public class JMapPlugin implements IClientPlugin {
 
     private static final String OVERLAY_GROUP = "BLPC Claims";
     private static final int CLAIM_Y = 70;
@@ -48,7 +48,7 @@ public class BLPCJourneyMapPlugin implements IClientPlugin {
     private static final float STROKE_OPACITY = 0.6f;
 
     private IClientAPI api;
-    private static BLPCJourneyMapPlugin instance;
+    private static JMapPlugin instance;
     private final Map<String, PolygonOverlay> activeOverlays = new HashMap<>();
 
     @Override
@@ -75,7 +75,7 @@ public class BLPCJourneyMapPlugin implements IClientPlugin {
         }
     }
 
-    static BLPCJourneyMapPlugin getInstance() {
+    static JMapPlugin getInstance() {
         return instance;
     }
 
@@ -103,7 +103,7 @@ public class BLPCJourneyMapPlugin implements IClientPlugin {
 
         // Group claims by owner so each owner's contiguous chunks can be merged.
         Map<UUID, List<ClaimedChunkData>> byOwner = new HashMap<>();
-        for (ClaimedChunkData claim : ClientCache.getAll()) {
+        for (ClaimedChunkData claim : ClientClaimCache.getAll()) {
             byOwner.computeIfAbsent(claim.ownerUUID, k -> new ArrayList<>()).add(claim);
         }
 

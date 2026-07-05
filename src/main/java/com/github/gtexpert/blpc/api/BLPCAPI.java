@@ -1,6 +1,7 @@
 package com.github.gtexpert.blpc.api;
 
 import com.github.gtexpert.blpc.Tags;
+import com.github.gtexpert.blpc.api.integration.IntegrationPanelRegistry;
 import com.github.gtexpert.blpc.api.modules.IModuleManager;
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
@@ -38,6 +39,11 @@ import com.github.gtexpert.blpc.modules.ModuleManager;
  * party data without depending on internal packages).</td>
  * </tr>
  * <tr>
+ * <td>{@code api.integration}</td>
+ * <td>{@link IntegrationPanelRegistry} — registry for per-mod settings panels surfaced in the
+ * party menu's Addons hub.</td>
+ * </tr>
+ * <tr>
  * <td>{@code common.party} / {@code common.chunk}</td>
  * <td>Party &amp; claim data models and persistence.</td>
  * </tr>
@@ -63,7 +69,7 @@ import com.github.gtexpert.blpc.modules.ModuleManager;
  * ({@link PartyProviderRegistry#PRIORITY_HIGH} to override BQu,
  * {@link PartyProviderRegistry#PRIORITY_LOW} for fallback-only).
  * {@code DefaultPartyProvider} is registered at {@link PartyProviderRegistry#PRIORITY_DEFAULT};
- * {@code BQPartyProvider} at {@link PartyProviderRegistry#PRIORITY_HIGH}.</li>
+ * {@code BQuPartyProvider} at {@link PartyProviderRegistry#PRIORITY_HIGH}.</li>
  * <li><b>Query party data</b> — use {@code api.util.PartyQueryUtil} ({@code findByName},
  * {@code allPartyNames}, {@code pendingInvitesFor}, {@code resolveName}) instead of depending
  * on internal packages. Delegates to the active {@link IPartyProvider}.</li>
@@ -73,6 +79,11 @@ import com.github.gtexpert.blpc.modules.ModuleManager;
  * <li><b>React to claims</b> — subscribe to {@code api.event.ChunkModifiedEvent} on the Forge event bus.</li>
  * <li><b>Conditional content</b> — annotate a class with {@code @TModule} and declare
  * {@code modDependencies}; it is discovered automatically (no manual registration).</li>
+ * <li><b>Settings panel in the Addons hub</b> — build a ModularUI panel and call
+ * {@link IntegrationPanelRegistry#register(String, String, java.util.function.BooleanSupplier,
+ * java.util.function.Function)} from a client-guarded {@code init} (lazy method reference,
+ * so the panel class is never loaded on a dedicated server). It appears automatically under
+ * the party menu's Addons entry once the {@code available} predicate returns {@code true}.</li>
  * </ul>
  */
 public final class BLPCAPI {

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -26,7 +25,7 @@ import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
-public class KickCommand extends CommandBase {
+public class KickCommand extends AdminSubCommand {
 
     @Override
     public @NotNull String getName() {
@@ -44,10 +43,7 @@ public class KickCommand extends CommandBase {
         if (args.length != 2) {
             throw new CommandException("/blpc admin kick <partyName> <player>");
         }
-        Party party = BLPCCommandHelper.findPartyByName(args[0]);
-        if (party == null) {
-            throw new CommandException("Party not found: " + args[0]);
-        }
+        Party party = BLPCCommandHelper.requirePartyByName(args[0]);
 
         UUID targetUUID = resolveMemberUUID(server, party, args[1]);
         if (targetUUID == null) {
@@ -92,11 +88,6 @@ public class KickCommand extends CommandBase {
             }
         }
         return Collections.emptyList();
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 3;
     }
 
     @Nullable

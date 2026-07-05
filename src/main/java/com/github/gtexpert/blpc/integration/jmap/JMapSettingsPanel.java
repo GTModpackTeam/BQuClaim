@@ -14,16 +14,16 @@ import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.client.gui.party.PartyWidgets;
 
 /**
- * JourneyMap addon settings (panel ID: {@value #PANEL_ID}). Reached from the party
+ * JourneyMap settings panel (panel ID: {@value #PANEL_ID}). Reached from the party
  * menu's Addons hub. Hosts the client-side claim-overlay visibility toggle; team
  * waypoint sharing is scaffolded here as a future extension point.
  */
 @SideOnly(Side.CLIENT)
-public final class JourneyMapAddonPanel {
+public final class JMapSettingsPanel {
 
     public static final String PANEL_ID = "blpc.party.addons.journeymap";
 
-    private JourneyMapAddonPanel() {}
+    private JMapSettingsPanel() {}
 
     public static ModularPanel build(UUID playerId) {
         ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));
@@ -38,7 +38,7 @@ public final class JourneyMapAddonPanel {
                         JMapClientConfig::isShowClaimOverlays,
                         val -> {
                             JMapClientConfig.setShowClaimOverlays(val);
-                            BLPCJourneyMapPlugin.refreshFromSettings();
+                            JMapPlugin.refreshFromSettings();
                         }),
                 "blpc.addons.journeymap.overlays_off", "blpc.addons.journeymap.overlays_on")
                 .addTooltipLine(IKey.lang("blpc.addons.journeymap.overlays_tooltip")));

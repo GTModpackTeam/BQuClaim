@@ -10,11 +10,11 @@ import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.ScrollingTextWidget;
 
+import com.github.gtexpert.blpc.api.integration.IntegrationPanelRegistry;
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyRole;
+import com.github.gtexpert.blpc.client.gui.AddonsPanel;
 import com.github.gtexpert.blpc.client.gui.BLPCColors;
-import com.github.gtexpert.blpc.client.gui.addons.AddonPanelRegistry;
-import com.github.gtexpert.blpc.client.gui.addons.AddonsPanel;
 import com.github.gtexpert.blpc.client.gui.party.widget.ConfirmDialog;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.PartyAction;
@@ -71,7 +71,7 @@ public class MainPanel {
                 IPanelHandler.simple(panel, (pp, p) -> SettingsPanel.build(partyRef.get()), true),
                 IPanelHandler.simple(panel, (pp, p) -> MembersPanel.build(partyRef.get()), true),
                 IPanelHandler.simple(panel, (pp, p) -> ModeratorsPanel.build(partyRef.get()), true),
-                IPanelHandler.simple(panel, (pp, p) -> TransferOwnerDialog.build(partyRef.get()), true),
+                IPanelHandler.simple(panel, (pp, p) -> TransferOwnerPanel.build(partyRef.get()), true),
                 IPanelHandler.simple(panel, (pp, p) -> AddonsPanel.build(playerId), true));
 
         rebuildMenu(menuList, panel, partyId, playerId, nav);
@@ -132,7 +132,7 @@ public class MainPanel {
                 .visible(PartyMenuBuilder.MenuContext::isOwner)
                 .navHandler("blpc.addons", nav.addons)
                 .tooltip("blpc.addons.tooltip")
-                .visible(c -> AddonPanelRegistry.hasAvailable())
+                .visible(c -> IntegrationPanelRegistry.hasAvailable())
                 .buildInto(menuList);
     }
 

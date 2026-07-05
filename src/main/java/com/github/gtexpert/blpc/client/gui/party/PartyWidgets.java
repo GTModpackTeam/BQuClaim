@@ -1,8 +1,10 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -384,6 +386,20 @@ public final class PartyWidgets {
                     .asWidget());
         }
         return header;
+    }
+
+    /**
+     * Every member as a {@link MemberEntry}, sorted by {@link #byRoleThenName}, optionally
+     * skipping one UUID (e.g. the acting player in a transfer/kick picker).
+     */
+    public static List<MemberEntry> collectSortedMembers(Party party, @Nullable UUID exclude) {
+        List<MemberEntry> result = new ArrayList<>();
+        for (Map.Entry<UUID, PartyRole> entry : party.getMembers().entrySet()) {
+            if (exclude != null && entry.getKey().equals(exclude)) continue;
+            result.add(new MemberEntry(entry.getKey(), getDisplayName(entry.getKey()), entry.getValue()));
+        }
+        result.sort(byRoleThenName());
+        return result;
     }
 
     /** OWNER → ADMIN → MEMBER, then alphabetical within a role. Null roles (e.g. invite candidates) sort last. */

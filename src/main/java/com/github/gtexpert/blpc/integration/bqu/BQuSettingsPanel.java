@@ -21,16 +21,16 @@ import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
 /**
- * BetterQuesting addon settings (panel ID: {@value #PANEL_ID}). Reached from
+ * BetterQuesting settings panel (panel ID: {@value #PANEL_ID}). Reached from
  * the party menu's Addons hub. Hosts the BQu link/unlink toggle and the
  * native BQu party manager shortcut.
  */
 @SideOnly(Side.CLIENT)
-public final class BQuAddonPanel {
+public final class BQuSettingsPanel {
 
     public static final String PANEL_ID = "blpc.party.addons.bqu";
 
-    private BQuAddonPanel() {}
+    private BQuSettingsPanel() {}
 
     public static ModularPanel build(UUID playerId) {
         ModularPanel panel = new ModularPanel(PartyWidgets.uniquePanelId(PANEL_ID));

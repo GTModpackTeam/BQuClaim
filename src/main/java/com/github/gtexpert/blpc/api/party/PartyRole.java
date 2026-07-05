@@ -1,5 +1,7 @@
 package com.github.gtexpert.blpc.api.party;
 
+import com.github.gtexpert.blpc.api.util.EnumUtils;
+
 /**
  * Party member roles with ascending privilege: MEMBER < ADMIN < OWNER.
  * Maps 1:1 to BetterQuesting's {@code EnumPartyStatus}.
@@ -40,11 +42,6 @@ public enum PartyRole {
 
     /** Maps a role name string (e.g. from BQu's EnumPartyStatus) to PartyRole. Defaults to MEMBER. */
     public static PartyRole fromName(String name) {
-        if (name == null) return MEMBER;
-        try {
-            return valueOf(name);
-        } catch (IllegalArgumentException e) {
-            return MEMBER;
-        }
+        return EnumUtils.parseOrDefault(PartyRole.class, name, MEMBER);
     }
 }

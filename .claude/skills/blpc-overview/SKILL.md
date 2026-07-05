@@ -50,9 +50,9 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 - **`api/party/IPartyProvider`** — Full interface with query methods (`areInSameParty`, `getPartyName`, `getPartyMembers`, `getRole`; plus `default` query methods `findByName`, `allPartyNames`, `pendingInvitesFor`) and mutation methods (`createParty`, `disbandParty`, `renameParty`, `invitePlayer`, `acceptInvite`, `kickOrLeave`, `changeRole`, `syncToAll`). Most mutation methods identify the party via the acting player's UUID. Exception: `acceptInvite(player, partyId)` requires an explicit partyId since it targets a different party. Addons should query via `api/util/PartyQueryUtil` rather than the raw interface.
 - **`api/party/PartyProviderRegistry`** — Priority-based registry for the active provider. Constants: `PRIORITY_LOW=-100`, `PRIORITY_DEFAULT=0`, `PRIORITY_HIGH=100`. Higher priority wins; equal priority logs a warning and accepts the new provider (last-write-wins at tie); lower priority is silently ignored. Use `register(provider, priority)`.
 - **`common/party/DefaultPartyProvider`** — Self-managed implementation backed by `PartyManagerData`. Registered by `CoreModule` at `PRIORITY_DEFAULT`.
-- **`integration/bqu/BQPartyProvider`** — BQu implementation that directly operates on BQu's `PartyManager`, `PartyInvitations`, and `NetPartySync`, with fallback to `DefaultPartyProvider` for players not in a BQu party. Registered by `BQuModule` at `PRIORITY_HIGH`, replacing the default provider when BQu is present — no data duplication.
+- **`integration/bqu/BQuPartyProvider`** — BQu implementation that directly operates on BQu's `PartyManager`, `PartyInvitations`, and `NetPartySync`, with fallback to `DefaultPartyProvider` for players not in a BQu party. Registered by `BQuModule` at `PRIORITY_HIGH`, replacing the default provider when BQu is present — no data duplication.
 
-**Design principle (Approach A):** When BQu is present, BLPC integrates INTO BQu's party system. BLPC's UI sends operations that `BQPartyProvider` translates into BQu API calls. BQu's quest sharing works unchanged.
+**Design principle (Approach A):** When BQu is present, BLPC integrates INTO BQu's party system. BLPC's UI sends operations that `BQuPartyProvider` translates into BQu API calls. BQu's quest sharing works unchanged.
 
 ## Naming Conventions
 
@@ -64,18 +64,17 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 
 **Start here:** `api/BLPCAPI` is the central access point and discoverability index (GregTech `GregTechAPI` analog) — one façade documenting every subsystem and addon extension point (`partyProvider()`, `moduleManager()`, `MODID`). Read it first.
 
-- **`api/`** — Public, addon-facing surface. `BLPCAPI` (façade/index), `modules/` (module framework SPI), `party/` (party backend SPI + domain types — `IPartyProvider`, `PartyProviderRegistry` with priority registration; **domain types**: `Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`), `event/` (`ChunkModifiedEvent`; `PartyEvent` — Pre/Post lifecycle hierarchy: cancelable `Pre.Created`/`Pre.Disbanded` veto mutations before they occur; informational `Post.Created`/`Post.Disbanded`/`Post.MemberJoined`/`Post.MemberLeft`/`Post.RoleChanged` fire after success), `util/` (`Mods`, `ModUtility`, `PartyQueryUtil` — addon-safe query façade delegating to the active `IPartyProvider`).
+- **`api/`** — Public, addon-facing surface. `BLPCAPI` (façade/index), `modules/` (module framework SPI), `party/` (party backend SPI + domain types — `IPartyProvider`, `PartyProviderRegistry` with priority registration, `unregister()`/`getRegisteredPriority()` for diagnostics/reset, `registerNativeScreenOpener`/`unregisterNativeScreenOpener`/`hasNativeScreen`; **domain types**: `Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`), `event/` (`ChunkModifiedEvent`; `PartyEvent` — Pre/Post lifecycle hierarchy: cancelable `Pre.Created`/`Pre.Disbanded` veto mutations before they occur; informational `Post.Created`/`Post.Disbanded`/`Post.MemberJoined`/`Post.MemberLeft`/`Post.RoleChanged` fire after success), `util/` (`Mods`, `ModUtility`, `PartyQueryUtil` — addon-safe query façade delegating to the active `IPartyProvider`; `EnumUtils.parseOrDefault(Class<E>, name, default)` — shared `valueOf`-or-fallback used by `TrustLevel.fromName`, `PartyRole.fromName`, `RelationType.fromName`; reach for this instead of writing another try/catch `valueOf`), `integration/` (`IntegrationPanelRegistry` — registry of per-mod settings panels for the Addons hub, mirroring the concrete `integration/` package below; see `client/gui/AddonsPanel` below).
 - **`common/party/`** — Party infrastructure: `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`. Domain types (`Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`) live in `api/party/`.
-- **`common/chunk/`** — Claim data: `ChunkManagerData`, `ClaimedChunkData`, `ClientCache`, `TicketManager`.
+- **`common/chunk/`** — Claim data: `ChunkManagerData` (per-player and per-party claim/force-load counts funnel through a private `countMatching(Predicate<ClaimedChunkData>)`; `ClaimChunk.Handler.isLimitReached(...)` mirrors this shape one level up, taking per-player vs. per-party count/max accessors as lambdas so `isClaimLimitReached`/`isForceLoadLimitReached` share one implementation), `ClaimedChunkData`, `ClientClaimCache` (client-side cache — named to mirror `common/party/ClientPartyCache`'s pattern), `TicketManager`.
 - **`common/network/`** — IMessage contracts only (no client-only references):
-  - C→S: `MessageClaimChunk` (with inner `Handler`), `MessagePartyAction` (POJO; handler split out — see below).
-  - S→C: `MessageSyncClaims`, `MessageSyncAllClaims`, `MessageSyncConfig`, `MessagePartySync`, `MessageClientNotify`. Each is a pure data container with getters; no inner `Handler`. `MessageClientNotify` is a discriminator-multiplexed packet that carries every transient client toast (chunk transit, party event, claim limit) through a single wire ID.
-  - `NbtMessage` — abstract base for messages whose entire payload is one `NBTTagCompound` (`data` field + getter + `readTag`/`writeTag`). `MessagePartySync` and `MessageSyncAllClaims` extend it; future NBT-payload messages should too.
+  - C→S: `ClaimChunk` (with inner `Handler`), `PartyAction` (with inner `Handler` — see below; same nested-handler convention as `ClaimChunk`, just larger).
+  - S→C: `SyncClaims`, `SyncAllClaims`, `SyncConfig`, `PartySync`, `ClientNotify`. Each is a pure data container with getters; no inner `Handler`. `ClientNotify` is a discriminator-multiplexed packet that carries every transient client toast (chunk transit, party event, claim limit) through a single wire ID — it does **not** hold `PartyAction`'s handler; that lives in `PartyAction.Handler`.
+  - `NbtMessage` — abstract base for messages whose entire payload is one `NBTTagCompound` (`data` field + getter + `readTag`/`writeTag`). `PartySync` and `SyncAllClaims` extend it; future NBT-payload messages should too.
   - `ModNetwork` — channel registration (side-aware). `NoOpHandler` — server-side fallback so S→C discriminators stay valid for outbound sends. `PlayerLoginHandler` — login sync.
-- **`common/network/party/`** — `PartyActionDispatcher` (server-side handler for `MessagePartyAction`; one private static method per action discriminator; the `onAdminParty(c, Predicate<Party>)` helper wraps the ADMIN+ auth gate shared by ~8 simple settings actions).
-- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `MessageClientNotify.getKind()` to the matching `BLPCToast` builder). `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
+- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `ClientNotify.getKind()` to the matching `BLPCToast` builder). Every one of them extends `MainThreadMessageHandler<REQ>`, whose `final onMessage` schedules `handleOnMainThread(msg)` onto `Minecraft.addScheduledTask` — implementations only override `handleOnMainThread`, never re-implement the scheduling hop. `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
 - **`client/gui/`** — ModularUI screens only. `Screens` = the single catalog of every GUI + its open/build entry points (`openMap()`, `partyMain(...)`; RecipeMaps analog); `BLPCGuiTextures` = shared reusable `IDrawable`s (`DIVIDER`, `MAP_BACKGROUND`, `MAP_BORDER`) + `ICON_*` constants that reuse ModularUI's built-in `GuiTextures` icon atlas (`CLOSE`/`REFRESH`/`REMOVE` — no custom art; chunk-map tool buttons use these). Drawables are shared instances (a `Rectangle` only reads its fields at draw time) — never inline `new Rectangle().color(...)` in screen code, add it here. `BLPCColors` = semantic party/map palette, `GuiColors` = fixed vanilla-context ARGB; `BLPCToast` = vanilla toast notification; `ChunkMapScreen`/`ChunkMapWidget`; `PlayerFaceDrawable`; party panels in `party/` subpackage; reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`). Map pixel math derives from `ChunkMapRenderer.CHUNK_BLOCKS` (16 blocks/chunk — the single source for the recurring `% 16` / `/ 16` calculations).
-- **`client/gui/addons/`** — Addons hub. `AddonPanelRegistry` = extensible registry of per-mod settings panels (each integration module registers one entry from its client-side init via a lazy method reference, mirroring `PartyProviderRegistry.registerNativeScreenOpener` — no `@SideOnly` on the registry, client-only-ness lives in the lambdas). `AddonsPanel` (`blpc.party.addons`) lists the available entries; opened from `MainPanel` when `AddonPanelRegistry.hasAvailable()`. The per-mod panels live in their integration packages (`integration/jmap/JourneyMapAddonPanel`). BQu has no addon panel — its link/unlink toggle and native-manager shortcut live directly in `SettingsPanel`'s Party Info tab (guarded by `PartyProviderRegistry.hasNativeScreen()`), not the Addons hub.
+- **`client/gui/AddonsPanel`** — Addons hub (single class directly under `client/gui/`, not a subpackage — it's one small screen, not a feature area like `party/`). Searchable via `PartyWidgets.finalizeSearchableList`; lists the available entries from `api/integration/IntegrationPanelRegistry` (lives in `api/` so third-party integrations register without depending on `client.gui` internals; each integration module registers one entry from its client-side init via a lazy method reference, mirroring `PartyProviderRegistry.registerNativeScreenOpener` — no `@SideOnly` on the registry, client-only-ness lives in the lambdas); opened from `MainPanel` when `IntegrationPanelRegistry.hasAvailable()`. The per-mod panels live in their integration packages, named `<Mod>SettingsPanel` — not `<Mod>AddonPanel` — since they're just each mod's settings screen, not an "addon" concept in their own right (`integration/jmap/JMapSettingsPanel`, `integration/bqu/BQuSettingsPanel`). BQu's link/unlink toggle and native-manager shortcut live in `BQuSettingsPanel` (registered when `PartyProviderRegistry.hasNativeScreen()`), not `SettingsPanel`'s Party Info tab.
 - **`client/input/`** — `KeyInputHandler` (keybind registration; routes key presses to `Screens`). Single keybind: open chunk map (`M`).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
 
@@ -85,9 +84,9 @@ The network layer is split along the physical side boundary so that loading a cl
 
 | Package | Allowed types | Loaded on server? |
 |---|---|---|
-| `common/network/Message*` | IMessage POJOs only — no `@SideOnly` types in bytecode | Yes (both sides) |
+| `common/network/message/*` | IMessage POJOs only — no `@SideOnly` types in bytecode | Yes (both sides) |
 | `common/network/*Handler` | Server-side IMessageHandler implementations | Yes (both sides) |
-| `common/network/party/PartyActionDispatcher` | Server-side handler for the party god-message | Yes (both sides) |
+| `common/network/message/PartyAction.Handler` | Server-side handler for the party god-message | Yes (both sides) |
 | `client/network/*ClientHandler` | `@SideOnly(Side.CLIENT)` IMessageHandler implementations referencing `Minecraft`, `IToast`, `BLPCToast`, etc. | **Client only** |
 | `client/network/ClientPacketHandlers` | Side-aware SPI installer; **not** `@SideOnly` | Yes (referenced from `ModNetwork`), but `installAll()` only executes on client |
 
@@ -99,50 +98,50 @@ The network layer is split along the physical side boundary so that loading a cl
 
 | ID | Direction | Message | Handler |
 |---|---|---|---|
-| 0 | C→S | `MessageClaimChunk` | `MessageClaimChunk.Handler` |
-| 1 | C→S | `MessagePartyAction` (multiplexed) | `PartyActionDispatcher` |
-| 2 | S→C | `MessageSyncClaims` | `SyncClaimsClientHandler` |
-| 3 | S→C | `MessageSyncAllClaims` | `SyncAllClaimsClientHandler` |
-| 4 | S→C | `MessageSyncConfig` | `SyncConfigClientHandler` |
-| 5 | S→C | `MessagePartySync` | `PartySyncClientHandler` |
-| 6 | S→C | `MessageClientNotify` (multiplexed) | `ClientNotifyClientHandler` |
+| 0 | C→S | `ClaimChunk` | `ClaimChunk.Handler` |
+| 1 | C→S | `PartyAction` (multiplexed) | `PartyAction.Handler` |
+| 2 | S→C | `SyncClaims` | `SyncClaimsClientHandler` |
+| 3 | S→C | `SyncAllClaims` | `SyncAllClaimsClientHandler` |
+| 4 | S→C | `SyncConfig` | `SyncConfigClientHandler` |
+| 5 | S→C | `PartySync` | `PartySyncClientHandler` |
+| 6 | S→C | `ClientNotify` (multiplexed) | `ClientNotifyClientHandler` |
 
 ### Discriminator-multiplexed packets (preferred for new operations)
 
 Two packets carry their own internal discriminator so adding new operations
 does not require a new top-level wire ID:
 
-- **`MessagePartyAction`** (C→S, ID 1) — `int action` + `String stringArg`. ~22 party operations.
-- **`MessageClientNotify`** (S→C, ID 6) — `int kind` + per-kind payload. Three kinds today (`KIND_CHUNK_TRANSIT`, `KIND_PARTY_EVENT`, `KIND_CLAIM_FAILED`) covering every BLPC toast.
+- **`PartyAction`** (C→S, ID 1) — `int action` + `String stringArg`. ~22 party operations.
+- **`ClientNotify`** (S→C, ID 6) — `int kind` + per-kind payload. Three kinds today (`KIND_CHUNK_TRANSIT`, `KIND_PARTY_EVENT`, `KIND_CLAIM_FAILED`) covering every BLPC toast.
 
 Append-only: existing constants are part of the on-wire format. Do not renumber.
 
 ### Adding a new network message
 
-- **New action / notification** (preferred) — append a constant to `MessagePartyAction` or `MessageClientNotify` and extend the corresponding `switch` (dispatcher / handler / `toBytes` / `fromBytes`). Neither `ModNetwork` nor `ClientPacketHandlers` changes.
+- **New action / notification** (preferred) — append a constant to `PartyAction` or `ClientNotify` and extend the corresponding `switch` (dispatcher / handler / `toBytes` / `fromBytes`). Neither `ModNetwork` nor `ClientPacketHandlers` changes.
 - **New top-level packet** (only for genuinely new message families) —
   - **C→S** — Define IMessage in `common/network/`, write the server handler (inner class is fine), append `INSTANCE.registerMessage(...)` in `ModNetwork.init()` before the S→C block.
   - **S→C** — Define IMessage in `common/network/` with **no `@SideOnly` types** referenced (use getters, not lambdas that capture `Minecraft`). Create the client handler in `client/network/<MessageName>ClientHandler.java` with `@SideOnly(Side.CLIENT)`. Append the message class to `ModNetwork.CLIENT_BOUND_MESSAGES` **and** the handler/message pair to `ClientPacketHandlers.installAll()` in the **same order** so server-side NoOp registration and client-side real registration share the same discriminator.
 
-### MessagePartyAction action dispatch
+### PartyAction action dispatch
 
-`MessagePartyAction` multiplexes ~22 party operations through an `int action` discriminator + `String stringArg`. The server-side `PartyActionDispatcher` has one private static method per `ACTION_*` constant. Per-request state (player, args, providers, BQu link state, deferred notifications) lives in a private `ActionContext` holder passed to each method.
+`PartyAction` multiplexes ~22 party operations through an `int action` discriminator + `String stringArg`. The server-side `PartyAction.Handler` (nested in `PartyAction.java`, same convention as `ClaimChunk.Handler`) has one private static method per `ACTION_*` constant. Per-request state (player, args, providers, BQu link state, deferred notifications) lives in a private `ActionContext` holder passed to each method.
 
 **Authorization invariant:** `playerBQuLinked` and `activeProvider` are re-derived from `PartyManagerData.isBQuLinked` on every request — never trusted from the client. Mutating actions go through `getAdminParty()` / `getOrCreateSelfParty()` which enforce role checks server-side. Simple settings actions wrap the ADMIN+ gate via `onAdminParty(c, Predicate<Party>)` — return `false` from the predicate to fail the action.
 
 **Failure → rollback:** `dispatch()` calls `provider.syncToAll()` on success; on failure it sends `provider.syncToPlayer(actor)` (a single-player sync) so the actor's optimistic UI mutation is corrected (`TOGGLE_BQU_LINK` is the exception — it broadcasts on failure too, since provider state may have drifted). `joinFreeParty` / `acceptInvite` also push an `EVENT_PARTY_FULL` or `EVENT_JOIN_FAILED` toast on their respective failure paths so a click is never silent.
 
-**Adding a new action:** append a new `ACTION_*` constant to `MessagePartyAction` (do **not** renumber existing ones — wire-protocol stability), add a static factory method, add a `case` arm in `PartyActionDispatcher.dispatch()`, and implement the corresponding private method.
+**Adding a new action:** append a new `ACTION_*` constant to `PartyAction` (do **not** renumber existing ones — wire-protocol stability), add a static factory method, add a `case` arm in `PartyAction.Handler.dispatch()`, and implement the corresponding private method.
 
-### MessageClientNotify kind dispatch
+### ClientNotify kind dispatch
 
-`MessageClientNotify` multiplexes every transient client toast through an `int kind` discriminator. Top-level kinds carry their own payload fields; sub-discriminators (party event types, claim failure reasons) stay as strings for forward compatibility (newer clients/servers can ignore unknown sub-types without breaking the channel).
+`ClientNotify` multiplexes every transient client toast through an `int kind` discriminator. Top-level kinds carry their own payload fields; sub-discriminators (party event types, claim failure reasons) stay as strings for forward compatibility (newer clients/servers can ignore unknown sub-types without breaking the channel).
 
 `ClientNotifyClientHandler` switches on `kind` and delegates to the matching `BLPCToast` builder configuration (`fromTransit` / `fromPartyEvent` / `fromClaimFailed`).
 
 Party-event sub-types: `MEMBER_JOINED`, `MEMBER_LEFT`, `KICKED`, `DISBANDED`, `INVITE_RECEIVED`, `OWNER_TRANSFERRED`, `ROLE_CHANGED`, `BQU_LINKED`, `BQU_UNLINKED`, `PARTY_FULL`, `JOIN_FAILED`. The actor is excluded from their own "you joined" (`notifyPartyMembers(..., excludeId)`) and "you disbanded" toasts.
 
-**Adding a new kind:** append `KIND_*` to `MessageClientNotify`, add a static factory (e.g. `claimFailed(...)`), extend the `toBytes` / `fromBytes` `switch` with the new field layout, and add a `case` arm in `ClientNotifyClientHandler.buildToast`. No `ModNetwork` change required. New party-event sub-types only need a new `EVENT_*` constant + a `case` in `BLPCToast.Builder.fromPartyEvent` + a lang key.
+**Adding a new kind:** append `KIND_*` to `ClientNotify`, add a static factory (e.g. `claimFailed(...)`), extend the `toBytes` / `fromBytes` `switch` with the new field layout, and add a `case` arm in `ClientNotifyClientHandler.buildToast`. No `ModNetwork` change required. New party-event sub-types only need a new `EVENT_*` constant + a `case` in `BLPCToast.Builder.fromPartyEvent` + a lang key.
 
 ## Data Persistence
 
@@ -200,17 +199,18 @@ The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Addition
 |---|---|---|
 | `blpc.party` | `MainPanel.java` | Party menu (uses `PartyMenuBuilder` for fluent menu composition) |
 | `blpc.party.create` | `CreatePanel.java` | Create-or-join (when no party): name input + pending-invite / free-to-join list |
-| `blpc.party.settings` | `SettingsPanel.java` | Protection settings, ally/enemy management, BQu link toggle + native party manager shortcut (Party Info tab) |
+| `blpc.party.settings` | `SettingsPanel.java` | Protection settings, ally/enemy management (Party Info, Protection, Allies, Enemies tabs) |
 | `blpc.party.members` | `MembersPanel.java` | Member list |
 | `blpc.party.moderators` | `ModeratorsPanel.java` | Moderator promote/demote |
-| `blpc.party.addons` | `client/gui/addons/AddonsPanel.java` | Addons hub — lists available per-mod settings panels |
-| `blpc.party.addons.journeymap` | `integration/jmap/JourneyMapAddonPanel.java` | JourneyMap claim-overlay toggle (+ future waypoint sharing) |
+| `blpc.party.addons` | `client/gui/AddonsPanel.java` | Addons hub — searchable list of available per-mod settings panels |
+| `blpc.party.addons.journeymap` | `integration/jmap/JMapSettingsPanel.java` | JourneyMap claim-overlay toggle (+ future waypoint sharing) |
+| `blpc.party.addons.bqu` | `integration/bqu/BQuSettingsPanel.java` | BQu link/unlink toggle + native party manager shortcut |
 | `blpc.party.dialog.disband` | MainPanel (inline `ConfirmDialog`) | Disband confirmation |
-| `blpc.party.dialog.transfer` | `TransferOwnerDialog.java` | Transfer ownership |
+| `blpc.party.dialog.transfer` | `client/gui/party/TransferOwnerPanel.java` | Transfer ownership |
 | `blpc.party.dialog.rename` | SettingsPanel (InputDialog) | Rename party |
 | `blpc.party.dialog.description` | SettingsPanel (InputDialog) | Edit party description |
 
-Invite is handled inline in `MembersPanel` (direct `MessagePartyAction.invite()` call, no dialog). Ally/enemy management uses inline toggle buttons in SettingsPanel's trust party list (no separate dialog panels).
+Invite is handled inline in `MembersPanel` (direct `PartyAction.invite()` call, no dialog). Ally/enemy management uses inline toggle buttons in SettingsPanel's trust party list (no separate dialog panels).
 
 `MainPanel.build` is called either by `MainPanel.build(playerId)` (no auto-transition) or `MainPanel.build(playerId, IPanelHandler reopener)` — `ChunkMapScreen` passes its `partyHandler` so `CreatePanel`, after a successful create/join, can re-invoke the factory and pop straight into `MainPanel` instead of just closing. Full free-to-join parties show grayed and inert in `CreatePanel` (visible but not clickable — the server would reject anyway).
 
@@ -254,12 +254,12 @@ For Minecraft formatting codes in tooltip strings, use `TextFormatting` enum con
 
 **Link/Unlink** — toggled via `ToggleButton` in `MainPanel` with `BoolValue.Dynamic`:
 1. Client calls `PartyWidgets.setLocalBQuLinked()` for optimistic UI update + `fireSyncListeners()` for instant MainPanel rebuild.
-2. Client sends `MessagePartyAction.toggleBQuLink()` to server.
+2. Client sends `PartyAction.toggleBQuLink()` to server.
 3. Server verifies player is ADMIN+ and has a BQu party (for link). If rejected, `syncToAll()` is still called to roll back the optimistic update.
 4. On success, updates `PartyManagerData.bquLinkedPlayers` and persists via `BLPCSaveHandler`.
 5. `syncToAll()` broadcasts to all clients. Open panels stay mounted and rebuild their menus (live-update).
 
-**Disband** (`MessagePartyAction.disband()`):
+**Disband** (`PartyAction.disband()`):
 1. Server verifies player is OWNER (checks both BLPC and BQu roles when BQu-linked).
 2. Releases all chunk claims, removes party from `PartyManagerData`, clears BQu link flags.
 3. Persists and syncs. The actor is excluded from the `DISBANDED` toast (they initiated it).
@@ -286,7 +286,7 @@ For ModularUI API details, consult the ModularUI source code at `/mnt/data/git/M
 
 ## Client-Side Sync Pattern
 
-Party panels receive real-time updates via `ClientPartyCache.loadFromNBT()` (triggered by `MessagePartySync` from server). Listeners are fired **immediately** when new data arrives — no tick-based coalescing. **`loadFromNBT` replaces every `Party` instance** in the cache, so a captured `Party` reference goes stale at once — read fresh via `ClientPartyCache.getParty(partyId)` or `PartyWidgets.livePartyRef(partyId, fallback)`.
+Party panels receive real-time updates via `ClientPartyCache.loadFromNBT()` (triggered by `PartySync` from server). Listeners are fired **immediately** when new data arrives — no tick-based coalescing. **`loadFromNBT` replaces every `Party` instance** in the cache, so a captured `Party` reference goes stale at once — read fresh via `ClientPartyCache.getParty(partyId)` or `PartyWidgets.livePartyRef(partyId, fallback)`.
 
 `ClientPartyCache.fireSyncListeners()` can also be called directly for optimistic UI updates (e.g., after `PartyWidgets.setLocalBQuLinked()`, `clearLocalPartyData()`, or `PartyWidgets.sendAndApply(...)`).
 
@@ -319,7 +319,7 @@ The callback runs on the next client tick (deferred via `addScheduledTask`) to a
 | `MembersPanel` | Party gone / not a member / manage-permission flipped → `closeIfTopMost`; else rebuild member + invite `LiveSearchableList`s |
 | `ModeratorsPanel` | Party gone / not a member → `closeIfTopMost`; else refresh `isOwner` ref + rebuild row list |
 | `CreatePanel` | Now in a party → `transitionToMain` (close + reopener.openPanel); else rebuild invite/free-to-join list |
-| `TransferOwnerDialog` | Party gone / no longer OWNER → `closeIfTopMost`; else rebuild member list |
+| `TransferOwnerPanel` | Party gone / no longer OWNER → `closeIfTopMost`; else rebuild member list |
 | `SettingsPanel` | Party gone → `closeIfTopMost`; otherwise no rebuild — `livePartyRef` keeps values current |
 
 **Panels without sync listeners**: inline `ConfirmDialog` / `InputDialog` instances.
@@ -333,6 +333,8 @@ The callback runs on the next client tick (deferred via `addScheduledTask`) to a
 - **`LiveSearchableList<T>`** — search box + list + parallel filter arrays; `buildContainer()` + `rebuild(Collection<T>)`. Used by: `MembersPanel`, `ModeratorsPanel`.
 
 Dialogs use a consistent 220px width; custom sizing via `.size(w, h)`.
+
+`TransferOwnerPanel` (`blpc.party.dialog.transfer`, `client/gui/party/TransferOwnerPanel.java`) — OWNER-only member picker; transfers ownership via `PartyAction.transferOwnership`. Lives alongside `MembersPanel`/`ModeratorsPanel` in `client/gui/party/`, not `widget/`, since it returns a full `ModularPanel` (not a `Dialog<T>`) and is wired as a normal nav sub-panel.
 
 ### `PartyMenuBuilder` (`client/gui/party/`)
 
@@ -357,12 +359,13 @@ Color constants in `client/gui/GuiColors`: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRA
 - **Widgets** — `createPlayerRow(uuid, label, color)`, `dialogButton(IKey label, IPanelHandler)`, `createEnterSubmitTextField(onSubmit)`
 - **Data/format** — `getDisplayName(UUID)`, `getRoleColor(PartyRole)`, `formatMemberLabel(name, role)`
 - **Live-update plumbing** — `addSyncRefreshListener(panel, onSync)`, `closeIfTopMost(panel)`, `livePartyRef(partyId, fallback) → Supplier<Party>`, `sendAndApply(IMessage, partyId, Consumer<Party>) → boolean`, `setLocalBQuLinked(boolean)`, `clearLocalPartyData()`
+- **Member lists** — `collectSortedMembers(party, excludeUuid)` builds a `List<MemberEntry>` sorted by `byRoleThenName()`, optionally skipping one UUID (self, in transfer/kick pickers). Shared by `MembersPanel`, `ModeratorsPanel`, `TransferOwnerPanel` — don't hand-roll the collect-and-sort loop in a new panel.
 
 ## Commands
 
 `/blpc` root tree (`BLPCCommand extends CommandTreeBase`, permission level 0) registered by `CoreModule.serverStarting()`.
 
-**Player subcommands** (`common/command/`):
+**Player subcommands** (`common/command/`, all extend `PlayerCommand` — the shared base that fixes `getRequiredPermissionLevel() = 0` and `checkPermission(...) = true` so individual commands don't repeat that boilerplate):
 
 | Subcommand | Purpose |
 |---|---|
@@ -377,7 +380,7 @@ Color constants in `client/gui/GuiColors`: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRA
 | `leave` | Leave your current party |
 | `admin` | Admin subcommand tree (see below) |
 
-**Admin subcommands** (`common/command/admin/AdminCommand`, permission level 3):
+**Admin subcommands** (`common/command/admin/AdminCommand`, permission level 3; `MoveOwnerCommand`/`KickCommand`/`DisbandCommand` extend `AdminSubCommand`, the shared base that fixes `getRequiredPermissionLevel() = 3`):
 
 | Subcommand | Purpose |
 |---|---|
@@ -385,14 +388,14 @@ Color constants in `client/gui/GuiColors`: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRA
 | `admin kick <party> <player>` | Force-kick a player from a party |
 | `admin disband <party>` | Force-disband a party |
 
-Query helpers shared by all commands: `api/util/PartyQueryUtil` (`findByName`, `allPartyNames`, `pendingInvitesFor`, `resolveName`). The internal helper `common/command/BLPCCommandHelper` adds `activeProviderFor` (BQu routing logic) and delegates all queries to `PartyQueryUtil`.
+Query helpers shared by all commands: `api/util/PartyQueryUtil` (`findByName`, `allPartyNames`, `pendingInvitesFor`, `resolveName`). The internal helper `common/command/BLPCCommandHelper` adds `activeProviderFor` (BQu routing logic), `requirePartyByName(name)` (like `findByName` but throws the standard "Party not found" `CommandException` instead of returning null — use this instead of a manual null-check in every command), and `resolveOwnerName(server, party)` (owner display name, or `"-"` when ownerless), then delegates the rest to `PartyQueryUtil`.
 
 ## Mixins
 
 Uses MixinBooter (`ILateMixinLoader`) for conditional late-stage injection:
 
 - **`BLPCMixinLoader`** — Loads mixin configs conditionally based on mod presence.
-- **`PartyManagerMixin`** — Injects into BQu's `NetPartyAction.deleteParty()` to auto-unlink all affected players from BQu in BLPC's `PartyManagerData`. Prevents orphaned BQu links.
+- **`NetPartyActionMixin`** — Injects into BQu's `NetPartyAction.deleteParty()` to auto-unlink all affected players from BQu in BLPC's `PartyManagerData`. Prevents orphaned BQu links.
 
 Config: `src/main/resources/mixins.blpc.betterquesting.json`.
 
@@ -457,8 +460,8 @@ Players receive **toast notifications** when entering/leaving claimed chunks, an
 ### Classes
 
 - **`api/party/RelationType`** — Enum: `MEMBER`, `ALLY`, `ENEMY`, `NONE`.
-- **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `MessageClientNotify.chunkTransit(...)`, and applies area effects.
-- **`common/network/MessageClientNotify`** — multiplexed S→C packet for every client toast. `KIND_CHUNK_TRANSIT` carries player name + relation (`name()` string for forward compatibility) + entered flag. `KIND_PARTY_EVENT` carries event type string (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink) + player name + extra info. `KIND_CLAIM_FAILED` carries reason + current/max counts. Handler: `client/network/ClientNotifyClientHandler`.
+- **`core/ChunkTransitHandler`** — `PlayerTickEvent.END` listener. Detects chunk boundary crossings (overworld only), sends notifications via `ClientNotify.chunkTransit(...)`, and applies area effects.
+- **`common/network/message/ClientNotify`** — multiplexed S→C packet for every client toast. `KIND_CHUNK_TRANSIT` carries player name + relation (`name()` string for forward compatibility) + entered flag. `KIND_PARTY_EVENT` carries event type string (join, leave, kick, disband, invite, transfer, role change, BQu link/unlink) + player name + extra info. `KIND_CLAIM_FAILED` carries reason + current/max counts. Handler: `client/network/ClientNotifyClientHandler`.
 - **`client/gui/widget/BLPCToast`** — `IToast` implementation with Builder pattern. Factory methods: `fromTransit()` (chunk entry/exit), `fromPartyEvent()` (party events), `fromClaimFailed()` (claim limit errors). Only loaded on the physical client — never reachable from server-side bytecode.
 
 ### Notification Messages
@@ -490,4 +493,4 @@ Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.la
 2. Create a module class extending `IntegrationSubmodule` with `@TModule(modDependencies=Mods.Names.THE_MOD)`.
 3. Add module ID constant to `Modules.java`.
 4. Add mod ID to `Mods` enum and `Mods.Names`.
-5. (Optional, for a settings UI) Add a `<Mod>AddonPanel` (`@SideOnly(CLIENT)`) in the integration package and register it from the module's client-guarded `init` via `AddonPanelRegistry.register(labelKey, tooltipKey, available, <Mod>AddonPanel::build)`. Use a lazy method reference so the client-only panel is never loaded on a dedicated server. Add `blpc.addons.<mod>*` lang keys to both lang files. It then appears automatically under the party menu's Addons hub.
+5. (Optional, for a settings UI) Add a `<Mod>SettingsPanel` (`@SideOnly(CLIENT)`) in the integration package and register it from the module's client-guarded `init` via `api/integration/IntegrationPanelRegistry.register(labelKey, tooltipKey, available, <Mod>SettingsPanel::build)`. Use a lazy method reference so the client-only panel is never loaded on a dedicated server. Add `blpc.addons.<mod>*` lang keys to both lang files. It then appears automatically under the party menu's Addons hub.

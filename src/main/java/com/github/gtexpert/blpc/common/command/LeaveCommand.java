@@ -1,6 +1,5 @@
 package com.github.gtexpert.blpc.common.command;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -15,7 +14,7 @@ import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
-public class LeaveCommand extends CommandBase {
+public class LeaveCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -50,15 +49,5 @@ public class LeaveCommand extends CommandBase {
         provider.syncToAll();
         BLPCSaveHandler.INSTANCE.markDirty();
         sender.sendMessage(new TextComponentTranslation("command.blpc.leave.success", partyName));
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 }

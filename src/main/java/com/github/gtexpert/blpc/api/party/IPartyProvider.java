@@ -19,7 +19,7 @@ import net.minecraft.nbt.NBTTagCompound;
  * Two implementations exist:
  * <ul>
  * <li>{@code DefaultPartyProvider} — self-managed via {@code PartyManagerData}</li>
- * <li>{@code BQPartyProvider} — delegates to BetterQuesting's party system with self-managed fallback</li>
+ * <li>{@code BQuPartyProvider} — delegates to BetterQuesting's party system with self-managed fallback</li>
  * </ul>
  */
 public interface IPartyProvider {

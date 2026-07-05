@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -25,7 +24,7 @@ import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
-public class DisbandCommand extends CommandBase {
+public class DisbandCommand extends AdminSubCommand {
 
     @Override
     public @NotNull String getName() {
@@ -43,10 +42,7 @@ public class DisbandCommand extends CommandBase {
         if (args.length != 1) {
             throw new CommandException("/blpc admin disband <partyName>");
         }
-        Party party = BLPCCommandHelper.findPartyByName(args[0]);
-        if (party == null) {
-            throw new CommandException("Party not found: " + args[0]);
-        }
+        Party party = BLPCCommandHelper.requirePartyByName(args[0]);
 
         String partyName = party.getName();
         List<UUID> members = new ArrayList<>(party.getMemberUUIDs());
@@ -79,10 +75,5 @@ public class DisbandCommand extends CommandBase {
             return getListOfStringsMatchingLastWord(args, BLPCCommandHelper.allPartyNames());
         }
         return Collections.emptyList();
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 3;
     }
 }

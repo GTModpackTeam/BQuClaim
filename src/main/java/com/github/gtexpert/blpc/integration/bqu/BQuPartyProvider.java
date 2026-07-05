@@ -41,7 +41,7 @@ import betterquesting.questing.party.PartyManager;
  * Mutation methods operate on BQu when the player has a BQu party, otherwise fall back to self-managed.
  * Mutations also mirror to self-managed data to preserve chunk claim associations if BQu party is later deleted.
  */
-public class BQPartyProvider implements IPartyProvider {
+public class BQuPartyProvider implements IPartyProvider {
 
     private final DefaultPartyProvider fallback = new DefaultPartyProvider();
 
@@ -175,7 +175,7 @@ public class BQPartyProvider implements IPartyProvider {
         if (entry == null) return fallback.renameParty(player, newName);
 
         EnumPartyStatus status = entry.getValue().getStatus(playerId);
-        PartyRole role = BQPartyProvider.mapRole(status);
+        PartyRole role = BQuPartyProvider.mapRole(status);
         if (!role.canEditName() && !player.canUseCommand(2, "")) return false;
 
         entry.getValue().getProperties().setProperty(NativeProps.NAME, newName);

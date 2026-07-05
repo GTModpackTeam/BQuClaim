@@ -50,7 +50,7 @@ public class ModNetwork {
 
         // C→S: server handlers live in common.network and have no client-only references.
         INSTANCE.registerMessage(ClaimChunk.Handler.class, ClaimChunk.class, id++, Side.SERVER);
-        INSTANCE.registerMessage(ClientNotify.PartyActionDispatcher.class, PartyAction.class, id++, Side.SERVER);
+        INSTANCE.registerMessage(PartyAction.Handler.class, PartyAction.class, id++, Side.SERVER);
 
         // S→C: handlers live in client.network and reference @SideOnly(CLIENT) classes
         // (Minecraft, IToast, etc.). Loading them on a dedicated server triggers the

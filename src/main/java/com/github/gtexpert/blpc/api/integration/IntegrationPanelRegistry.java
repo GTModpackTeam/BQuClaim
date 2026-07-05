@@ -1,4 +1,4 @@
-package com.github.gtexpert.blpc.client.gui.addons;
+package com.github.gtexpert.blpc.api.integration;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,19 +11,19 @@ import com.cleanroommc.modularui.screen.ModularPanel;
 
 /**
  * Registry of per-mod settings panels surfaced under the party menu's
- * <em>Addons</em> entry ({@link AddonsPanel}). Each integration module registers
- * one {@link Entry} for its mod during client-side init, so adding support for a
- * new mod never requires touching the shared party UI.
+ * <em>Addons</em> entry ({@code client.gui.AddonsPanel}). Each integration
+ * module registers one {@link Entry} for its mod during client-side init, so
+ * adding support for a new mod never requires touching the shared party UI.
  * <p>
  * This holder is intentionally not {@code @SideOnly}: integration modules invoke
  * {@link #register} from client-guarded init blocks via lazy method references
  * (mirroring {@code PartyProviderRegistry.registerNativeScreenOpener}), so the
  * client-only panel classes are never loaded on a dedicated server.
  */
-public final class AddonPanelRegistry {
+public final class IntegrationPanelRegistry {
 
     /**
-     * A single addon's settings entry — a labelled button in {@link AddonsPanel}
+     * A single integration's settings entry — a labelled button in the Addons hub
      * that opens the mod's own settings panel.
      */
     public static final class Entry {
@@ -61,10 +61,10 @@ public final class AddonPanelRegistry {
 
     private static final List<Entry> ENTRIES = new ArrayList<>();
 
-    private AddonPanelRegistry() {}
+    private IntegrationPanelRegistry() {}
 
     /**
-     * Registers an addon settings entry.
+     * Registers an integration's settings entry.
      *
      * @param labelKey   lang key for the button label (also serves as the panel title source)
      * @param tooltipKey lang key for the button tooltip, or {@code null}
@@ -85,7 +85,7 @@ public final class AddonPanelRegistry {
         return Collections.unmodifiableList(out);
     }
 
-    /** True when at least one addon entry is currently available. */
+    /** True when at least one entry is currently available. */
     public static boolean hasAvailable() {
         for (Entry e : ENTRIES) {
             if (e.isAvailable()) return true;

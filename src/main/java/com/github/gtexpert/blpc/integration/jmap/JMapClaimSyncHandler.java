@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import com.github.gtexpert.blpc.common.chunk.ClientCache;
+import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 
 @SideOnly(Side.CLIENT)
 public class JMapClaimSyncHandler {
@@ -12,15 +12,15 @@ public class JMapClaimSyncHandler {
     private final Runnable listener = this::onCacheChanged;
 
     public void register() {
-        ClientCache.addChangeListener(listener);
+        ClientClaimCache.addChangeListener(listener);
     }
 
     public void unregister() {
-        ClientCache.removeChangeListener(listener);
+        ClientClaimCache.removeChangeListener(listener);
     }
 
     private void onCacheChanged() {
-        BLPCJourneyMapPlugin plugin = BLPCJourneyMapPlugin.getInstance();
+        JMapPlugin plugin = JMapPlugin.getInstance();
         if (plugin == null) return;
 
         Minecraft mc = Minecraft.getMinecraft();

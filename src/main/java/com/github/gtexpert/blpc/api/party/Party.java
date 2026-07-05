@@ -266,7 +266,7 @@ public class Party {
 
     /**
      * Copies all protection and relation settings from {@code source} into this party.
-     * Used by {@code BQPartyProvider} when building the client-sync view from the
+     * Used by {@code BQuPartyProvider} when building the client-sync view from the
      * owner's self-managed party.
      */
     public void copySettingsFrom(Party source) {

@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -21,7 +20,7 @@ import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.command.BLPCCommandHelper;
 
-public class MoveOwnerCommand extends CommandBase {
+public class MoveOwnerCommand extends AdminSubCommand {
 
     @Override
     public @NotNull String getName() {
@@ -40,10 +39,7 @@ public class MoveOwnerCommand extends CommandBase {
             throw new CommandException("/blpc admin move-owner <partyName> <newOwner>");
         }
 
-        Party party = BLPCCommandHelper.findPartyByName(args[0]);
-        if (party == null) {
-            throw new CommandException("Party not found: " + args[0]);
-        }
+        Party party = BLPCCommandHelper.requirePartyByName(args[0]);
 
         EntityPlayerMP newOwner = server.getPlayerList().getPlayerByUsername(args[1]);
         if (newOwner == null) {
@@ -81,10 +77,5 @@ public class MoveOwnerCommand extends CommandBase {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
         return Collections.emptyList();
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 3;
     }
 }

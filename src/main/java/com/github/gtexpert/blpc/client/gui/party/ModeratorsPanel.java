@@ -20,7 +20,7 @@ import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
 /**
  * Member roles list (panel ID: {@value #PANEL_ID}). OWNER cycles others between
- * MEMBER ↔ ADMIN; OWNER transfer lives in {@link TransferOwnerDialog}.
+ * MEMBER ↔ ADMIN; OWNER transfer lives in {@link TransferOwnerPanel}.
  */
 public class ModeratorsPanel {
 
@@ -59,12 +59,7 @@ public class ModeratorsPanel {
     }
 
     private static List<MemberEntry> collectSorted(Party party) {
-        List<MemberEntry> result = new ArrayList<>();
-        for (Map.Entry<UUID, PartyRole> e : party.getMembers().entrySet()) {
-            result.add(new MemberEntry(e.getKey(), PartyWidgets.getDisplayName(e.getKey()), e.getValue()));
-        }
-        result.sort(PartyWidgets.byRoleThenName());
-        return result;
+        return PartyWidgets.collectSortedMembers(party, null);
     }
 
     private static IWidget createRow(MemberEntry entry, UUID partyId, boolean isOwner, UUID myId) {

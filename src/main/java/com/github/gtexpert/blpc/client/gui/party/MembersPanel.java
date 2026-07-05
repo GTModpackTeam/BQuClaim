@@ -83,14 +83,7 @@ public class MembersPanel {
     }
 
     private static List<MemberEntry> collectMembers(Party party) {
-        List<MemberEntry> result = new ArrayList<>();
-        for (Map.Entry<UUID, PartyRole> entry : party.getMembers().entrySet()) {
-            UUID uuid = entry.getKey();
-            String name = PartyWidgets.getDisplayName(uuid);
-            result.add(new MemberEntry(uuid, name, entry.getValue()));
-        }
-        result.sort(PartyWidgets.byRoleThenName());
-        return result;
+        return PartyWidgets.collectSortedMembers(party, null);
     }
 
     private static List<MemberEntry> collectInvitableOnlinePlayers(Party party) {

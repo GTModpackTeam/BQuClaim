@@ -14,7 +14,7 @@ import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.client.map.AsyncMapRenderer;
 import com.github.gtexpert.blpc.client.map.ChunkMapRenderer;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.chunk.ClientCache;
+import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.ClaimChunk;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -34,7 +34,7 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
     public ChunkMapWidget() {
         tooltipDynamic(tooltip -> {
-            ClaimedChunkData d = ClientCache.get(selectedRX, selectedRZ);
+            ClaimedChunkData d = ClientClaimCache.get(selectedRX, selectedRZ);
             if (d == null) return;
             Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
             if (ownerParty != null) {

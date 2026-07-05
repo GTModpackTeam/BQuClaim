@@ -16,7 +16,7 @@ import org.apache.logging.log4j.Logger;
  * Registry for the active {@link IPartyProvider}.
  * <p>
  * {@code CoreModule} registers {@code DefaultPartyProvider} at {@link #PRIORITY_DEFAULT}.
- * {@code BQuModule} replaces it with {@code BQPartyProvider} at {@link #PRIORITY_HIGH} when
+ * {@code BQuModule} replaces it with {@code BQuPartyProvider} at {@link #PRIORITY_HIGH} when
  * BetterQuesting is present. Addons that need to override the provider should use
  * {@link #PRIORITY_HIGH}; addons that want a fallback-only provider should use
  * {@link #PRIORITY_LOW}.
@@ -145,14 +145,37 @@ public class PartyProviderRegistry {
         registeredPriority = priority;
     }
 
+    /**
+     * Clears the registered provider, reverting {@link #get()} to the internal no-op
+     * fallback and {@link #getRegisteredPriority()} to {@code Integer.MIN_VALUE}. Mainly
+     * useful for tests and hot-reload scenarios.
+     */
+    public static synchronized void unregister() {
+        provider = NO_OP;
+        registeredPriority = Integer.MIN_VALUE;
+    }
+
     /** Registers a runnable that opens the native party management screen (e.g. BQu's party UI). */
     public static void registerNativeScreenOpener(Runnable opener) {
         nativePartyScreenOpener = opener;
     }
 
+    /** Clears the registered native party screen opener, if any. */
+    public static void unregisterNativeScreenOpener() {
+        nativePartyScreenOpener = null;
+    }
+
     /** Returns the currently registered party provider. */
     public static IPartyProvider get() {
         return provider;
+    }
+
+    /**
+     * The priority the current provider was registered at, or {@code Integer.MIN_VALUE}
+     * if none has been registered (still on the no-op fallback).
+     */
+    public static int getRegisteredPriority() {
+        return registeredPriority;
     }
 
     /** Returns true if a native party screen opener has been registered. */

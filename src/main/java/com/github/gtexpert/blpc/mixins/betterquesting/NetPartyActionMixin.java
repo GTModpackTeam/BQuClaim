@@ -20,7 +20,7 @@ import betterquesting.questing.party.PartyManager;
  * Automatically unlinks affected players from BQu in BLPC's PartyManagerData.
  */
 @Mixin(value = NetPartyAction.class, remap = false)
-public class PartyManagerMixin {
+public class NetPartyActionMixin {
 
     @Inject(method = "deleteParty", at = @At("HEAD"))
     private static void blpc$onPartyDelete(int partyID, CallbackInfo ci) {

@@ -5,8 +5,8 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * Client-side, runtime-only JourneyMap integration toggles, edited from
- * {@link JourneyMapAddonPanel}. Deliberately holds no JourneyMap API types so it
- * can be read from {@link BLPCJourneyMapPlugin} without widening its dependency
+ * {@link JMapSettingsPanel}. Deliberately holds no JourneyMap API types so it
+ * can be read from {@link JMapPlugin} without widening its dependency
  * surface. Not persisted — resets to defaults each session, matching the previous
  * minimap-toggle behavior.
  */

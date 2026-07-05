@@ -13,7 +13,7 @@ import com.cleanroommc.modularui.utils.Platform;
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.chunk.ClientCache;
+import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
 public class ChunkMapRenderer {
@@ -61,7 +61,7 @@ public class ChunkMapRenderer {
                 drawClaimOverlay(rx, rz, dx, dy, chunkSize, playerUUID, showClaimBorder);
 
                 if (showForceLoad) {
-                    ClaimedChunkData d = ClientCache.get(rx, rz);
+                    ClaimedChunkData d = ClientClaimCache.get(rx, rz);
                     if (d != null && d.isForceLoaded) {
                         drawHatching(dx, dy, chunkSize, chunkSize, BLPCColors.claimHatching());
                     }
@@ -92,7 +92,7 @@ public class ChunkMapRenderer {
 
     public static void drawClaimOverlay(int chunkX, int chunkZ, float dx, float dy, int size,
                                         UUID playerUUID, boolean showBorder) {
-        ClaimedChunkData d = ClientCache.get(chunkX, chunkZ);
+        ClaimedChunkData d = ClientClaimCache.get(chunkX, chunkZ);
         if (d == null) return;
 
         int color;
@@ -139,7 +139,7 @@ public class ChunkMapRenderer {
     }
 
     private static boolean isSameOwner(int chunkX, int chunkZ, UUID owner) {
-        ClaimedChunkData neighbor = ClientCache.get(chunkX, chunkZ);
+        ClaimedChunkData neighbor = ClientClaimCache.get(chunkX, chunkZ);
         return neighbor != null && neighbor.ownerUUID.equals(owner);
     }
 

@@ -1,8 +1,6 @@
 package com.github.gtexpert.blpc.client.gui.party;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.client.Minecraft;
@@ -18,8 +16,8 @@ import com.github.gtexpert.blpc.client.gui.party.widget.LiveSearchableList;
 import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
-/** Transfer-owner dialog (panel ID: {@value #PANEL_ID}). */
-public class TransferOwnerDialog {
+/** Transfer-ownership panel (panel ID: {@value #PANEL_ID}). OWNER-only member picker. */
+public class TransferOwnerPanel {
 
     public static final String PANEL_ID = "blpc.party.dialog.transfer";
 
@@ -35,7 +33,7 @@ public class TransferOwnerDialog {
 
         LiveSearchableList<MemberEntry> rowList = new LiveSearchableList<>(
                 entry -> createTransferRow(entry, partyId),
-                entry -> entry.name,
+                MemberEntry::name,
                 "blpc.party.no_players_online");
         panel.child(PartyWidgets.fillBelowHeader(rowList.buildContainer()));
 
@@ -54,21 +52,15 @@ public class TransferOwnerDialog {
     }
 
     private static List<MemberEntry> collectTransferable(Party party, UUID myId) {
-        List<MemberEntry> result = new ArrayList<>();
-        for (Map.Entry<UUID, PartyRole> e : party.getMembers().entrySet()) {
-            if (e.getKey().equals(myId)) continue;
-            result.add(new MemberEntry(e.getKey(), PartyWidgets.getDisplayName(e.getKey()), e.getValue()));
-        }
-        result.sort(PartyWidgets.byRoleThenName());
-        return result;
+        return PartyWidgets.collectSortedMembers(party, myId);
     }
 
     private static IWidget createTransferRow(MemberEntry entry, UUID partyId) {
-        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid,
-                PartyWidgets.formatMemberLabel(entry.name, entry.role), PartyWidgets.getRoleColor(entry.role));
+        ButtonWidget<?> btn = PartyWidgets.createPlayerRow(entry.uuid(),
+                PartyWidgets.formatMemberLabel(entry.name(), entry.role()), PartyWidgets.getRoleColor(entry.role()));
         btn.onMousePressed(b -> PartyWidgets.sendAndApply(
-                PartyAction.transferOwnership(entry.name), partyId,
-                p -> p.setRole(entry.uuid, PartyRole.OWNER)));
+                PartyAction.transferOwnership(entry.name()), partyId,
+                p -> p.setRole(entry.uuid(), PartyRole.OWNER)));
         return btn;
     }
 }

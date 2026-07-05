@@ -1,8 +1,5 @@
 package com.github.gtexpert.blpc.common.command;
 
-import java.util.UUID;
-
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -16,7 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
-public class MeCommand extends CommandBase {
+public class MeCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -38,8 +35,7 @@ public class MeCommand extends CommandBase {
             return;
         }
 
-        UUID owner = party.getOwner();
-        String ownerName = owner != null ? BLPCCommandHelper.resolveName(server, party, owner) : "-";
+        String ownerName = BLPCCommandHelper.resolveOwnerName(server, party);
 
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.header", party.getName()));
         sender.sendMessage(new TextComponentTranslation("command.blpc.info.owner", ownerName));
@@ -55,15 +51,5 @@ public class MeCommand extends CommandBase {
                     dot, TextFormatting.RESET, name,
                     TextFormatting.DARK_GRAY, ListCommand.roleLabel(entry.getValue()), TextFormatting.RESET)));
         }
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 }

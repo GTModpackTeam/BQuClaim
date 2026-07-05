@@ -1,6 +1,5 @@
 package com.github.gtexpert.blpc.common.command;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -13,7 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 
-public class HereCommand extends CommandBase {
+public class HereCommand extends PlayerCommand {
 
     @Override
     public @NotNull String getName() {
@@ -47,15 +46,5 @@ public class HereCommand extends CommandBase {
             sender.sendMessage(new TextComponentTranslation("command.blpc.here.claimed",
                     chunkX, chunkZ, partyName, claim.ownerName));
         }
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 0;
-    }
-
-    @Override
-    public boolean checkPermission(@NotNull MinecraftServer server, @NotNull ICommandSender sender) {
-        return true;
     }
 }

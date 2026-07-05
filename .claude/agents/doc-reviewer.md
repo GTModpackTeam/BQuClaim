@@ -32,8 +32,8 @@ Cross-check documented architecture against actual code:
 - Module system: verify `@TModule` annotations match documentation
 - Party Provider SPI: verify interface methods match `IPartyProvider`
 - Network messages: verify the wire-protocol ID table in `blpc-overview` matches `ModNetwork.init()` C→S registrations, `ModNetwork.CLIENT_BOUND_MESSAGES`, and `ClientPacketHandlers.installAll()` (all three must agree on order)
-- Side boundary: verify each S→C handler in `client/network/` is `@SideOnly(Side.CLIENT)` and that no `common/network/Message*.java` references client-only types
-- `MessagePartyAction` action discriminators: verify the `ACTION_*` constants match the `case` arms in `PartyActionDispatcher.dispatch()`
+- Side boundary: verify each S→C handler in `client/network/` is `@SideOnly(Side.CLIENT)` and that no `common/network/message/*.java` references client-only types
+- `PartyAction` action discriminators: verify the `ACTION_*` constants match the `case` arms in `PartyAction.Handler.dispatch()`
 - Data persistence: verify file structure matches docs
 - Trust levels and actions: verify enums match docs
 - GUI patterns: verify color constants (`GuiColors`), shared utilities (`PartyWidgets`), `PartyMenuBuilder`, and panel IDs match docs

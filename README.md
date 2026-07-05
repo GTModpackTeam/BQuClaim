@@ -11,8 +11,8 @@
 </h1>
 
 ## Info
-1. BetterLinkPartyClaim(BLPC) is a chunk claiming mod integrated with the Better Questing Unofficial party system. Players can claim chunks, share access with party members, and optionally force-load claimed chunks.
-2. Includes a full-screen claim map (ModularUI) and a small minimap HUD with async chunk rendering and texture caching.
+1. BetterLinkPartyClaim(BLPC) is a chunk claiming mod with its own party system, with optional integration into Better Questing Unofficial's parties. Players can claim chunks, share access with party members, and optionally force-load claimed chunks.
+2. Includes a full-screen claim map (ModularUI) with async chunk rendering and texture caching, plus an Addons menu for optional mod integrations.
 3. **Check with [Curseforge](https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim) or [Modrinth](https://modrinth.com/mod/better-link-party-claim) to see what changes have been made!!**
 
 ## Features
@@ -23,17 +23,24 @@
 - Bulk operations by dragging across chunks
 
 ### Party Integration
-- Members of the same Better Questing Unofficial party are treated as allies
+- Server-authoritative parties with Owner/Admin/Member roles, allies, and enemies
 - Allies are visualized on the claim map
 - Role-based tab UI for invited/joined party members
+- Optional link to a Better Questing Unofficial party, managed from the Addons menu
 
-### Map & HUD
+### Map
 - Full-screen chunk map (default keybind: `M`)
-- Client-side minimap HUD showing nearby chunks and claims (default keybind: `N`)
 - Async chunk map rendering with texture caching for performance
 
-### JourneyMap Integration (optional)
-- Optional integration with JourneyMap when present
+### Addons Menu (optional integrations)
+- A searchable "Addons" screen in the party menu gathers settings for optional mod integrations in one place
+- **BetterQuesting** — link/unlink your BLPC party to a BQu party, with a shortcut to BQu's own party manager
+- **JourneyMap** — shows claimed chunks as overlays directly on JourneyMap's map, merging adjacent same-owner chunks into a single labeled area
+
+## For Developers
+
+BLPC exposes an addon-facing API (custom party backends, party/claim lifecycle events,
+Addons-menu settings panels, and more) — see [`DEVELOPER.md`](DEVELOPER.md).
 
 ## Credits
 

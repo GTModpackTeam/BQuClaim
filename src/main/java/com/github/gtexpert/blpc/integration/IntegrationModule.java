@@ -19,8 +19,8 @@ import com.github.gtexpert.blpc.modules.Modules;
 @TModule(
          moduleID = Modules.MODULE_INTEGRATION,
          containerID = Tags.MODID,
-         name = "BLPCMod Mod Integration",
-         description = "General BLPCMod Integration Module. Disabling this disables all integration modules.")
+         name = "BLPC Integration",
+         description = "General BLPC Integration Module. Disabling this disables all integration modules.")
 public class IntegrationModule extends BaseModule {
 
     @NotNull

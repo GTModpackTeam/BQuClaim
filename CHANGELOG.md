@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.13.0]
+
+### Added
+
+- **Addons menu**
+  - A new "Addons" entry in the party menu gathers the settings for optional mod integrations (BetterQuesting, JourneyMap) in one place.
+  - The list is searchable, matching the Members, Moderators, and Transfer Ownership screens.
+- **JourneyMap claim overlays**
+  - With JourneyMap installed, claimed chunks are shown directly on JourneyMap's own map instead of a separate BLPC minimap.
+  - The overlay on/off toggle lives in the new Addons menu, under JourneyMap.
+
+### Changed
+
+- **BQu settings moved to the Addons menu**
+  - The BQu Link toggle and the "Open BQu Party Manager" button have moved out of the party Settings screen and into the new Addons menu, under BetterQuesting.
+
+### Removed
+
+- **Minimap HUD**
+  - The always-on minimap (`N` key) has been removed.
+  - The full-screen chunk map (`M` key) is unaffected; JourneyMap users get claim overlays on their own map instead (see Added, above).
+
+[0.13.0]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.13.0
+
+* * *
+
 ## [0.12.0]
 
 ### Changed

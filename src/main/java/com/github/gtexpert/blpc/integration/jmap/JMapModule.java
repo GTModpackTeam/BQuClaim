@@ -13,9 +13,9 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.gtexpert.blpc.Tags;
+import com.github.gtexpert.blpc.api.integration.IntegrationPanelRegistry;
 import com.github.gtexpert.blpc.api.modules.TModule;
 import com.github.gtexpert.blpc.api.util.Mods;
-import com.github.gtexpert.blpc.client.gui.addons.AddonPanelRegistry;
 import com.github.gtexpert.blpc.integration.IntegrationSubmodule;
 import com.github.gtexpert.blpc.modules.Modules;
 
@@ -44,8 +44,8 @@ public class JMapModule extends IntegrationSubmodule {
             syncHandler = new JMapClaimSyncHandler();
             syncHandler.register();
             MinecraftForge.EVENT_BUS.register(this);
-            AddonPanelRegistry.register(
-                    "blpc.addons.journeymap", null, () -> true, JourneyMapAddonPanel::build);
+            IntegrationPanelRegistry.register(
+                    "blpc.addons.journeymap", null, () -> true, JMapSettingsPanel::build);
         }
     }
 
