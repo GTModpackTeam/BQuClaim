@@ -6,8 +6,10 @@ import net.minecraftforge.fml.relauncher.Side;
 import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.network.message.PartySync;
 import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncAllWaypoints;
 import com.github.gtexpert.blpc.common.network.message.SyncClaims;
 import com.github.gtexpert.blpc.common.network.message.SyncConfig;
+import com.github.gtexpert.blpc.common.network.message.WaypointSync;
 
 /**
  * Side-aware installer for all S→C client handlers.
@@ -42,6 +44,10 @@ public final class ClientPacketHandlers {
         channel.registerMessage(PartySyncClientHandler.class, PartySync.class,
                 id++, Side.CLIENT);
         channel.registerMessage(ClientNotifyClientHandler.class, ClientNotify.class,
+                id++, Side.CLIENT);
+        channel.registerMessage(WaypointSyncClientHandler.class, WaypointSync.class,
+                id++, Side.CLIENT);
+        channel.registerMessage(SyncAllWaypointsClientHandler.class, SyncAllWaypoints.class,
                 id++, Side.CLIENT);
     }
 }

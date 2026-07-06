@@ -3,6 +3,7 @@ package com.github.gtexpert.blpc.core;
 import java.util.Set;
 import java.util.UUID;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.event.world.WorldEvent;
@@ -15,6 +16,8 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
+import com.github.gtexpert.blpc.client.cache.ClientCachePersistence;
 import com.github.gtexpert.blpc.common.BLPCSaveHandler;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
@@ -23,6 +26,7 @@ import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.waypoint.ClientWaypointCache;
 
 public class CoreEventHandler {
 
@@ -50,7 +54,7 @@ public class CoreEventHandler {
         if (ModConfig.claims.allowOfflineChunkLoading) return;
 
         UUID playerId = event.player.getUniqueID();
-        Party party = PartyManagerData.getInstance().getPartyByPlayer(playerId);
+        Party party = PartyProviderRegistry.get().getEffectiveParty(playerId);
         if (party == null) return;
 
         MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
@@ -73,9 +77,32 @@ public class CoreEventHandler {
     public static class ClientHandler {
 
         @SubscribeEvent
+        public void onClientConnect(FMLNetworkEvent.ClientConnectedToServerEvent event) {
+            // Forge posts this from the Netty I/O thread, not the client main thread — every
+            // other handler in this codebase (see MainThreadMessageHandler) hops onto the main
+            // thread before touching ClientClaimCache/ClientPartyCache, which are plain
+            // non-thread-safe collections.
+            Minecraft.getMinecraft().addScheduledTask(() -> {
+                // Load before registering listeners so the load itself doesn't trigger a
+                // redundant save.
+                ClientCachePersistence.loadForCurrentServer();
+                ClientCachePersistence.register();
+            });
+        }
+
+        @SubscribeEvent
         public void onClientDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
-            ClientClaimCache.clearAll();
-            ClientPartyCache.clearAll();
+            // Same off-main-thread caveat as onClientConnect above (abnormal disconnects such as
+            // a timeout can fire this from the Netty thread too).
+            Minecraft.getMinecraft().addScheduledTask(() -> {
+                ClientCachePersistence.saveNow();
+                // clearAll() below already drops every registered listener (including these),
+                // but unregister explicitly so this stays correct even if that changes.
+                ClientCachePersistence.unregister();
+                ClientClaimCache.clearAll();
+                ClientPartyCache.clearAll();
+                ClientWaypointCache.clearAll();
+            });
         }
     }
 }

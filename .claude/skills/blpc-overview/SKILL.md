@@ -17,10 +17,11 @@ RetroFuturaGradle (RFG) with GTNH Buildscripts. **Do not edit `build.gradle`** (
 | ModularUI | GUI framework | Yes |
 | BetterQuesting Unofficial | Party system backend (when present) | Optional (module) |
 | JourneyMap API | Overlay integration | Optional |
+| JourneyMap mod jar (`compileOnly`, not runtime-required) | Compile-time target for `WaypointStoreMixin`'s internal (non-API) class references | Optional |
 
 ## Java 17 Syntax (Mandatory)
 
-Jabel (`enableModernJavaSyntax = true`) compiles Java 17 features to JVM 8 bytecode. **目的:** NPE削減（pattern matching で安全なキャスト）とコード量削減（switch expressions で冗長なbreak/castを排除）。
+Jabel (`enableModernJavaSyntax = true`) compiles Java 17 features to JVM 8 bytecode. **目的:** NPE削減(pattern matching で安全なキャスト)とコード量削減(switch expressions で冗長なbreak/castを排除)。
 
 | Feature | Requirement | Example |
 |---|---|---|
@@ -48,6 +49,8 @@ Modules are discovered at FML Construction via `@TModule` annotation scanning. T
 Party management is abstracted via `IPartyProvider`, allowing transparent switching between self-managed parties and BQu's party system:
 
 - **`api/party/IPartyProvider`** — Full interface with query methods (`areInSameParty`, `getPartyName`, `getPartyMembers`, `getRole`; plus `default` query methods `findByName`, `allPartyNames`, `pendingInvitesFor`) and mutation methods (`createParty`, `disbandParty`, `renameParty`, `invitePlayer`, `acceptInvite`, `kickOrLeave`, `changeRole`, `syncToAll`). Most mutation methods identify the party via the acting player's UUID. Exception: `acceptInvite(player, partyId)` requires an explicit partyId since it targets a different party. Addons should query via `api/util/PartyQueryUtil` rather than the raw interface.
+  - **`getPartyId(UUID)`** and **`getEffectiveParty(UUID)`** — `default` methods returning `null`, added specifically so server-side authoritative code never reads `PartyManagerData` directly (which only reflects BLPC's own invite/accept/create flow — a BQu member added purely through BQu's own party UI has no record there). `getPartyId` returns just a stable storage key (used by `WaypointManagerData`, login sync); `getEffectiveParty` returns a fully-populated `Party` (members, trust levels, allies/enemies, limits) for **`ChunkProtectionHandler`** (trust checks), **`ClaimChunk.Handler`** (additive claim/force-load limits), **`ChunkTransitHandler`** (relation resolution for notifications/area effects), and the login/logout force-load re-sync in `PlayerLoginHandler`/`CoreEventHandler` — call `PartyProviderRegistry.get().getEffectiveParty(playerId)` from new code in these areas instead of `PartyManagerData.getInstance().getPartyByPlayer(playerId)`. `DefaultPartyProvider` just delegates to `PartyManagerData`; `BQuPartyProvider` builds a merged `Party` via its private `buildMergedParty(DBEntry<IParty>)` (live BQu membership + settings copied from whichever member has a BLPC-side record, preferring the owner's) — the same helper backs `serializeForClient()`'s per-party client-sync view, so both stay consistent. Party **settings mutations** (`PartyAction`'s `ACTION_SET_TRUST_LEVEL`, `ACTION_SET_COLOR`, ally/enemy, etc.) intentionally keep reading/writing `PartyManagerData` directly — those settings are BLPC-only concepts BQu has no equivalent for, and are exactly what a BQu-linked party's `Party` record exists to store.
+  - **`isLinkedParty(UUID)`** — `default` method returning `false`, used for **routing** (which provider handles a player's mutating action) instead of the `PartyManagerData.bquLinkedPlayers` per-player flag. That flag is only ever set for the members present at the moment an OWNER runs `ACTION_TOGGLE_BQU_LINK`; a player who joins the same (already-linked) BQu party afterward — normally through BQu's own party screen — never gets it, so flag-based routing kept sending their actions to the self-managed provider, and `PartyAction`'s `getOrCreateSelfParty` would then silently create a disconnected personal party for them on any settings change. `BQuPartyProvider.isLinkedParty` instead checks the player's *current* BQu party for any member with the flag set — recognizing new joiners immediately. `PartyAction.Handler.dispatch()`, `WaypointAction.Handler`, and `BLPCCommandHelper.activeProviderFor` all call `provider.isLinkedParty(playerId)` rather than `PartyManagerData.isBQuLinked(playerId)` directly. `BQuPartyProvider.serializeForClient()`'s `bquLinked` NBT list is likewise built from live `bquMembers` (every member of every linked party), not forwarded from the stale flag set, so the client's link-state UI matches.
 - **`api/party/PartyProviderRegistry`** — Priority-based registry for the active provider. Constants: `PRIORITY_LOW=-100`, `PRIORITY_DEFAULT=0`, `PRIORITY_HIGH=100`. Higher priority wins; equal priority logs a warning and accepts the new provider (last-write-wins at tie); lower priority is silently ignored. Use `register(provider, priority)`.
 - **`common/party/DefaultPartyProvider`** — Self-managed implementation backed by `PartyManagerData`. Registered by `CoreModule` at `PRIORITY_DEFAULT`.
 - **`integration/bqu/BQuPartyProvider`** — BQu implementation that directly operates on BQu's `PartyManager`, `PartyInvitations`, and `NetPartySync`, with fallback to `DefaultPartyProvider` for players not in a BQu party. Registered by `BQuModule` at `PRIORITY_HIGH`, replacing the default provider when BQu is present — no data duplication.
@@ -67,16 +70,18 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 - **`api/`** — Public, addon-facing surface. `BLPCAPI` (façade/index), `modules/` (module framework SPI), `party/` (party backend SPI + domain types — `IPartyProvider`, `PartyProviderRegistry` with priority registration, `unregister()`/`getRegisteredPriority()` for diagnostics/reset, `registerNativeScreenOpener`/`unregisterNativeScreenOpener`/`hasNativeScreen`; **domain types**: `Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`), `event/` (`ChunkModifiedEvent`; `PartyEvent` — Pre/Post lifecycle hierarchy: cancelable `Pre.Created`/`Pre.Disbanded` veto mutations before they occur; informational `Post.Created`/`Post.Disbanded`/`Post.MemberJoined`/`Post.MemberLeft`/`Post.RoleChanged` fire after success), `util/` (`Mods`, `ModUtility`, `PartyQueryUtil` — addon-safe query façade delegating to the active `IPartyProvider`; `EnumUtils.parseOrDefault(Class<E>, name, default)` — shared `valueOf`-or-fallback used by `TrustLevel.fromName`, `PartyRole.fromName`, `RelationType.fromName`; reach for this instead of writing another try/catch `valueOf`), `integration/` (`IntegrationPanelRegistry` — registry of per-mod settings panels for the Addons hub, mirroring the concrete `integration/` package below; see `client/gui/AddonsPanel` below).
 - **`common/party/`** — Party infrastructure: `PartyManagerData`, `DefaultPartyProvider`, `ClientPartyCache`. Domain types (`Party`, `PartyRole`, `TrustLevel`, `TrustAction`, `RelationType`) live in `api/party/`.
 - **`common/chunk/`** — Claim data: `ChunkManagerData` (per-player and per-party claim/force-load counts funnel through a private `countMatching(Predicate<ClaimedChunkData>)`; `ClaimChunk.Handler.isLimitReached(...)` mirrors this shape one level up, taking per-player vs. per-party count/max accessors as lambdas so `isClaimLimitReached`/`isForceLoadLimitReached` share one implementation), `ClaimedChunkData`, `ClientClaimCache` (client-side cache — named to mirror `common/party/ClientPartyCache`'s pattern), `TicketManager`.
+- **`common/waypoint/`** — Party-shared JourneyMap waypoint data (server + client): `PartyWaypointData` (value type), `WaypointManagerData` (server-side singleton store, persisted by `BLPCSaveHandler`), `ClientWaypointCache` (client-side mirror + change listeners, same shape as `ClientPartyCache`). See "JourneyMap Waypoint Team Sync" below.
 - **`common/network/`** — IMessage contracts only (no client-only references):
-  - C→S: `ClaimChunk` (with inner `Handler`), `PartyAction` (with inner `Handler` — see below; same nested-handler convention as `ClaimChunk`, just larger).
-  - S→C: `SyncClaims`, `SyncAllClaims`, `SyncConfig`, `PartySync`, `ClientNotify`. Each is a pure data container with getters; no inner `Handler`. `ClientNotify` is a discriminator-multiplexed packet that carries every transient client toast (chunk transit, party event, claim limit) through a single wire ID — it does **not** hold `PartyAction`'s handler; that lives in `PartyAction.Handler`.
-  - `NbtMessage` — abstract base for messages whose entire payload is one `NBTTagCompound` (`data` field + getter + `readTag`/`writeTag`). `PartySync` and `SyncAllClaims` extend it; future NBT-payload messages should too.
-  - `ModNetwork` — channel registration (side-aware). `NoOpHandler` — server-side fallback so S→C discriminators stay valid for outbound sends. `PlayerLoginHandler` — login sync.
-- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `ClientNotify.getKind()` to the matching `BLPCToast` builder). Every one of them extends `MainThreadMessageHandler<REQ>`, whose `final onMessage` schedules `handleOnMainThread(msg)` onto `Minecraft.addScheduledTask` — implementations only override `handleOnMainThread`, never re-implement the scheduling hop. `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
-- **`client/gui/`** — ModularUI screens only. `Screens` = the single catalog of every GUI + its open/build entry points (`openMap()`, `partyMain(...)`; RecipeMaps analog); `BLPCGuiTextures` = shared reusable `IDrawable`s (`DIVIDER`, `MAP_BACKGROUND`, `MAP_BORDER`) + `ICON_*` constants that reuse ModularUI's built-in `GuiTextures` icon atlas (`CLOSE`/`REFRESH`/`REMOVE` — no custom art; chunk-map tool buttons use these). Drawables are shared instances (a `Rectangle` only reads its fields at draw time) — never inline `new Rectangle().color(...)` in screen code, add it here. `BLPCColors` = semantic party/map palette, `GuiColors` = fixed vanilla-context ARGB; `BLPCToast` = vanilla toast notification; `ChunkMapScreen`/`ChunkMapWidget`; `PlayerFaceDrawable`; party panels in `party/` subpackage; reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`). Map pixel math derives from `ChunkMapRenderer.CHUNK_BLOCKS` (16 blocks/chunk — the single source for the recurring `% 16` / `/ 16` calculations).
+  - C→S: `ClaimChunk` (with inner `Handler`), `PartyAction` (with inner `Handler` — see below; same nested-handler convention as `ClaimChunk`, just larger), `WaypointAction` (with inner `Handler` — same convention, enforces party-OWNER-only mutation).
+  - S→C: `SyncClaims`, `SyncAllClaims`, `SyncConfig`, `PartySync`, `ClientNotify`, `WaypointSync`, `SyncAllWaypoints`. Each is a pure data container with getters; no inner `Handler`. `ClientNotify` is a discriminator-multiplexed packet that carries every transient client toast (chunk transit, party event, claim limit) through a single wire ID — it does **not** hold `PartyAction`'s handler; that lives in `PartyAction.Handler`.
+  - `NbtMessage` — abstract base for messages whose entire payload is one `NBTTagCompound` (`data` field + getter + `readTag`/`writeTag`). `PartySync`, `SyncAllClaims`, and `SyncAllWaypoints` extend it; future NBT-payload messages should too.
+  - `ModNetwork` — channel registration (side-aware). `NoOpHandler` — server-side fallback so S→C discriminators stay valid for outbound sends. `PlayerLoginHandler` — login sync (claims, parties, and — since the waypoint feature — the full party waypoint snapshot via `SyncAllWaypoints`).
+- **`client/network/`** — All S→C handlers (`@SideOnly(Side.CLIENT)`), one class per top-level wire packet: `SyncClaimsClientHandler`, `SyncAllClaimsClientHandler`, `SyncConfigClientHandler`, `PartySyncClientHandler`, `ClientNotifyClientHandler` (dispatches by `ClientNotify.getKind()` to the matching `BLPCToast` builder), `WaypointSyncClientHandler`, `SyncAllWaypointsClientHandler` (bulk-loads via `ClientWaypointCache.loadAll(...)`, not per-entry `update()` — see waypoint section below for why). Every one of them extends `MainThreadMessageHandler<REQ>`, whose `final onMessage` schedules `handleOnMainThread(msg)` onto `Minecraft.addScheduledTask` — implementations only override `handleOnMainThread`, never re-implement the scheduling hop. `ClientPacketHandlers` is a side-aware SPI installer (intentionally **not** `@SideOnly`) referenced by `ModNetwork`.
+- **`client/gui/`** — ModularUI screens only. `Screens` = the single catalog of every GUI + its open/build entry points (`openMap()`, `partyMain(...)`; RecipeMaps analog); `BLPCGuiTextures` = shared reusable `IDrawable`s (`DIVIDER`, `MAP_BACKGROUND`, `MAP_BORDER`) + `ICON_*` constants that reuse ModularUI's built-in `GuiTextures` icon atlas (`CLOSE`/`REFRESH`/`REMOVE` — no custom art; chunk-map tool buttons use these). Drawables are shared instances (a `Rectangle` only reads its fields at draw time) — never inline `new Rectangle().color(...)` in screen code, add it here. `BLPCColors` = semantic party/map palette, `GuiColors` = fixed vanilla-context ARGB; `BLPCToast` = vanilla toast notification; `ProtectionStatusHud` = brief claimed-chunk indicator (see "Protection Status HUD" below); `ChunkMapScreen`/`ChunkMapWidget`; `PlayerFaceDrawable`; party panels in `party/` subpackage; reusable widgets in `party/widget/` (`ConfirmDialog`, `InputDialog`, `LiveSearchableList`). Map pixel math derives from `ChunkMapRenderer.CHUNK_BLOCKS` (16 blocks/chunk — the single source for the recurring `% 16` / `/ 16` calculations).
 - **`client/gui/AddonsPanel`** — Addons hub (single class directly under `client/gui/`, not a subpackage — it's one small screen, not a feature area like `party/`). Searchable via `PartyWidgets.finalizeSearchableList`; lists the available entries from `api/integration/IntegrationPanelRegistry` (lives in `api/` so third-party integrations register without depending on `client.gui` internals; each integration module registers one entry from its client-side init via a lazy method reference, mirroring `PartyProviderRegistry.registerNativeScreenOpener` — no `@SideOnly` on the registry, client-only-ness lives in the lambdas); opened from `MainPanel` when `IntegrationPanelRegistry.hasAvailable()`. The per-mod panels live in their integration packages, named `<Mod>SettingsPanel` — not `<Mod>AddonPanel` — since they're just each mod's settings screen, not an "addon" concept in their own right (`integration/jmap/JMapSettingsPanel`, `integration/bqu/BQuSettingsPanel`). BQu's link/unlink toggle and native-manager shortcut live in `BQuSettingsPanel` (registered when `PartyProviderRegistry.hasNativeScreen()`), not `SettingsPanel`'s Party Info tab.
 - **`client/input/`** — `KeyInputHandler` (keybind registration; routes key presses to `Screens`). Single keybind: open chunk map (`M`).
 - **`client/map/`** — Async chunk rendering, texture caching, claim overlay.
+- **`client/cache/`** — `ClientCacheKey` (derives a filesystem-safe identifier for the current connection — singleplayer save folder or multiplayer server IP) + `ClientCachePersistence` (debounced NBT snapshot of `ClientClaimCache`/`ClientPartyCache` to `<gameDir>/blpc/cache/<key>/{claims,parties}.dat`, so the map/party UI shows last-known state immediately after reconnecting instead of an empty screen). Registered/loaded from `CoreEventHandler.ClientHandler` on `ClientConnectedToServerEvent`/`ClientDisconnectionFromServerEvent` — both hop onto `Minecraft.addScheduledTask` first, since Forge posts those events from the Netty I/O thread and `ClientClaimCache`/`ClientPartyCache` are plain non-thread-safe collections. NBT snapshotting always happens on the main thread; only the actual file write is handed to a background executor.
 
 ## Network Layer Architecture
 
@@ -100,11 +105,14 @@ The network layer is split along the physical side boundary so that loading a cl
 |---|---|---|---|
 | 0 | C→S | `ClaimChunk` | `ClaimChunk.Handler` |
 | 1 | C→S | `PartyAction` (multiplexed) | `PartyAction.Handler` |
-| 2 | S→C | `SyncClaims` | `SyncClaimsClientHandler` |
-| 3 | S→C | `SyncAllClaims` | `SyncAllClaimsClientHandler` |
-| 4 | S→C | `SyncConfig` | `SyncConfigClientHandler` |
-| 5 | S→C | `PartySync` | `PartySyncClientHandler` |
-| 6 | S→C | `ClientNotify` (multiplexed) | `ClientNotifyClientHandler` |
+| 2 | C→S | `WaypointAction` (multiplexed) | `WaypointAction.Handler` |
+| 3 | S→C | `SyncClaims` | `SyncClaimsClientHandler` |
+| 4 | S→C | `SyncAllClaims` | `SyncAllClaimsClientHandler` |
+| 5 | S→C | `SyncConfig` | `SyncConfigClientHandler` |
+| 6 | S→C | `PartySync` | `PartySyncClientHandler` |
+| 7 | S→C | `ClientNotify` (multiplexed) | `ClientNotifyClientHandler` |
+| 8 | S→C | `WaypointSync` | `WaypointSyncClientHandler` |
+| 9 | S→C | `SyncAllWaypoints` | `SyncAllWaypointsClientHandler` |
 
 ### Discriminator-multiplexed packets (preferred for new operations)
 
@@ -112,7 +120,8 @@ Two packets carry their own internal discriminator so adding new operations
 does not require a new top-level wire ID:
 
 - **`PartyAction`** (C→S, ID 1) — `int action` + `String stringArg`. ~22 party operations.
-- **`ClientNotify`** (S→C, ID 6) — `int kind` + per-kind payload. Three kinds today (`KIND_CHUNK_TRANSIT`, `KIND_PARTY_EVENT`, `KIND_CLAIM_FAILED`) covering every BLPC toast.
+- **`WaypointAction`** (C→S, ID 2) — `int action` (`ACTION_ADD_OR_UPDATE`/`ACTION_REMOVE`) + waypoint fields. See "JourneyMap Waypoint Team Sync" below.
+- **`ClientNotify`** (S→C, ID 7) — `int kind` + per-kind payload. Three kinds today (`KIND_CHUNK_TRANSIT`, `KIND_PARTY_EVENT`, `KIND_CLAIM_FAILED`) covering every BLPC toast.
 
 Append-only: existing constants are part of the on-wire format. Do not renumber.
 
@@ -127,7 +136,7 @@ Append-only: existing constants are part of the on-wire format. Do not renumber.
 
 `PartyAction` multiplexes ~22 party operations through an `int action` discriminator + `String stringArg`. The server-side `PartyAction.Handler` (nested in `PartyAction.java`, same convention as `ClaimChunk.Handler`) has one private static method per `ACTION_*` constant. Per-request state (player, args, providers, BQu link state, deferred notifications) lives in a private `ActionContext` holder passed to each method.
 
-**Authorization invariant:** `playerBQuLinked` and `activeProvider` are re-derived from `PartyManagerData.isBQuLinked` on every request — never trusted from the client. Mutating actions go through `getAdminParty()` / `getOrCreateSelfParty()` which enforce role checks server-side. Simple settings actions wrap the ADMIN+ gate via `onAdminParty(c, Predicate<Party>)` — return `false` from the predicate to fail the action.
+**Authorization invariant:** `playerBQuLinked` and `activeProvider` are re-derived from `IPartyProvider#isLinkedParty` on every request — never trusted from the client, and a *live* check against current party membership rather than a stale per-player flag (see `isLinkedParty` above). Mutating actions go through `getAdminParty()` / `getOrCreateSelfParty()` which enforce role checks server-side. Simple settings actions wrap the ADMIN+ gate via `onAdminParty(c, Predicate<Party>)` — return `false` from the predicate to fail the action. `disbandParty()` and `toggleBQuLink()` resolve the acting player's party/role via `c.provider.getEffectiveParty(...)` / `c.provider.getRole(...)` rather than a raw `PartyManagerData` lookup, for the same reason.
 
 **Failure → rollback:** `dispatch()` calls `provider.syncToAll()` on success; on failure it sends `provider.syncToPlayer(actor)` (a single-player sync) so the actor's optimistic UI mutation is corrected (`TOGGLE_BQU_LINK` is the exception — it broadcasts on failure too, since provider state may have drifted). `joinFreeParty` / `acceptInvite` also push an `EVENT_PARTY_FULL` or `EVENT_JOIN_FAILED` toast on their respective failure paths so a click is never silent.
 
@@ -156,9 +165,12 @@ world/betterlink/pc/
 ├── parties/
 │   ├── 0.dat           # one compressed NBT file per party (keyed by partyId)
 │   └── ...
-└── claims/
-    ├── global.dat      # claims belonging to players with no party
-    ├── 0.dat           # claims belonging to members of party 0
+├── claims/
+│   ├── global.dat      # claims belonging to players with no party
+│   ├── 0.dat           # claims belonging to members of party 0
+│   └── ...
+└── waypoints/
+    ├── 0.dat           # shared JourneyMap waypoints for party 0 (only written if non-empty)
     └── ...
 ```
 
@@ -203,7 +215,7 @@ The Settings panel cycles each action through `NONE -> ALLY -> MEMBER`. Addition
 | `blpc.party.members` | `MembersPanel.java` | Member list |
 | `blpc.party.moderators` | `ModeratorsPanel.java` | Moderator promote/demote |
 | `blpc.party.addons` | `client/gui/AddonsPanel.java` | Addons hub — searchable list of available per-mod settings panels |
-| `blpc.party.addons.journeymap` | `integration/jmap/JMapSettingsPanel.java` | JourneyMap claim-overlay toggle (+ future waypoint sharing) |
+| `blpc.party.addons.journeymap` | `integration/jmap/JMapSettingsPanel.java` | JourneyMap claim-overlay toggle + team waypoint-sharing toggle |
 | `blpc.party.addons.bqu` | `integration/bqu/BQuSettingsPanel.java` | BQu link/unlink toggle + native party manager shortcut |
 | `blpc.party.dialog.disband` | MainPanel (inline `ConfirmDialog`) | Disband confirmation |
 | `blpc.party.dialog.transfer` | `client/gui/party/TransferOwnerPanel.java` | Transfer ownership |
@@ -396,8 +408,33 @@ Uses MixinBooter (`ILateMixinLoader`) for conditional late-stage injection:
 
 - **`BLPCMixinLoader`** — Loads mixin configs conditionally based on mod presence.
 - **`NetPartyActionMixin`** — Injects into BQu's `NetPartyAction.deleteParty()` to auto-unlink all affected players from BQu in BLPC's `PartyManagerData`. Prevents orphaned BQu links.
+- **`mixins/journeymap/WaypointStoreMixin`** (client-only) — Injects into JourneyMap's internal (non-API) `journeymap.client.waypoint.WaypointStore` to detect local waypoint add/edit/remove, since the public JourneyMap API has no change-notification hook for this. `@Inject(method = "save", at = @At("RETURN"))` and `@Inject(method = "remove", at = @At("HEAD"))` forward to `JMapWaypointOutgoing`. Deliberately does **not** hook `WaypointStore`'s add path (startup load would look identical to a real add and cause spurious network traffic). Because this reaches into JourneyMap's non-API internals, it's inherently more fragile across JourneyMap versions than the rest of the (API-based) `integration/jmap` code — see "JourneyMap Waypoint Team Sync" below.
 
-Config: `src/main/resources/mixins.blpc.betterquesting.json`.
+Configs: `src/main/resources/mixins.blpc.betterquesting.json`, `src/main/resources/mixins.blpc.journeymap.json` (`client: ["WaypointStoreMixin"]`, no `server` mixins — JourneyMap itself is client-only). `dependencies.gradle` adds `compileOnly rfg.deobf(...)` for JourneyMap's mod jar (not just the API) so the Mixin's target classes resolve at compile time.
+
+## JourneyMap Waypoint Team Sync
+
+Party-owned JourneyMap waypoints are mirrored to every online party member's local map, so a party sees one shared set of markers (e.g. base, farm, portal) instead of each member maintaining their own. Gated by `JMapClientConfig.isWaypointSharingEnabled()` (per-client toggle in `JMapSettingsPanel`) and, structurally, by whether the Mixin config loaded at all (`Mods.Names.JOURNEY_MAP` present).
+
+**Permission model:** only the party **OWNER** may add/edit/remove shared waypoints; regular members are view-only. This is enforced authoritatively server-side in `WaypointAction.Handler` — a non-owner's action is rejected and the server sends back the pre-existing server-side state for that waypoint (or a `WaypointSync.remove` if it didn't exist) so the sender's local JourneyMap store snaps back to the authoritative state instead of silently keeping the rejected local edit. `JMapWaypointOutgoing.isPartyOwner()` mirrors this client-side purely to avoid pointless traffic/rollback flicker for non-owners — it is not itself a security boundary.
+
+**Outgoing flow (owner's client → server):**
+1. `WaypointStoreMixin` detects a local `save`/`remove` on JourneyMap's internal `WaypointStore` and forwards to `JMapWaypointOutgoing`.
+2. `JMapWaypointOutgoing` filters out: remote-echoed changes (`applyingRemoteChange` flag, set while `JMapWaypointSyncHandler` is writing incoming data — prevents feedback loops), `Waypoint.Type.Death` waypoints, non-owners, and sharing-disabled clients.
+3. **Save/remove debounce**: JourneyMap's waypoint editor always does `remove(original)` then `save(edited)` even for a pure edit of an existing waypoint. A detected remove is held in `pendingRemoveId` until end-of-tick (`TickEvent.ClientTickEvent`, static-registered on the class) rather than sent immediately; if a `save` for the same id arrives first, the pending remove is cleared and only the update is sent. Without this, every edit would emit a spurious delete-then-recreate on every other member's map.
+4. Sends `WaypointAction.addOrUpdate(...)` / `.remove(...)` (C→S, ID 2) to the server.
+
+**Server (`WaypointAction.Handler`):** resolves the acting player's party via `IPartyProvider.getPartyId(UUID)` (see below), validates (`waypointId`/`name` length caps, `MAX_WAYPOINTS_PER_PARTY = 200`), authorizes (OWNER-only, with rollback on rejection as described above), applies the change to `WaypointManagerData`, persists via `BLPCSaveHandler`, and broadcasts a `WaypointSync` diff (S→C, ID 8) to every **other** online party member (the actor already has the change applied locally).
+
+**Incoming flow (other members / full login sync):** `WaypointSyncClientHandler` (single-waypoint diff) and `SyncAllWaypointsClientHandler` (full snapshot, sent on login via `PlayerLoginHandler`) write into `ClientWaypointCache`, whose change listener (`JMapWaypointSyncHandler`) rebuilds the local JourneyMap `WaypointStore` entries under `applyingRemoteChange = true` so the mirrored writes don't re-trigger `WaypointStoreMixin`. `SyncAllWaypointsClientHandler` uses `ClientWaypointCache.loadAll(...)` (replace-all + fire listeners once) rather than looping `update()` per waypoint — the latter would re-run the full JourneyMap mirror rebuild once per waypoint on login, an O(n²) cost for a party with many waypoints.
+
+**Deterministic IDs:** a shared waypoint's key is JourneyMap's own `Waypoint.getId()`, which for a waypoint built via `journeymap.client.api.display.Waypoint(BLPC_MODID, waypointId, ...)` always resolves to `"blpc:" + waypointId` (from JourneyMap's `Waypoint.getGuid()` = `origin + ":" + displayId`). `JMapWaypointSyncHandler.applyToJourneyMap()` matches on `Tags.MODID.equals(wp.getOrigin())` to find/clean up only BLPC-mirrored entries, without needing a separate id-mapping table.
+
+**`IPartyProvider.getPartyId(UUID)`:** a `default` method returning `null`, added specifically so waypoint code (and any future per-party server storage) can resolve a stable party identifier without depending on a `Party` object existing. `DefaultPartyProvider` derives it from its own `Party.getPartyId()`; `BQuPartyProvider` derives it from BQu's own integer party id via `Party.uuidFromIntId(...)` so it's identical for every member even if no BLPC-side `Party` record has ever been created for that BQu party (a real bug found in earlier iterations — resolving the acting player's `Party` object directly could diverge between members before the BQu link created BLPC-side shadow records).
+
+**Persistence:** `common/waypoint/WaypointManagerData` (server-side singleton, `Map<UUID partyId, Map<String waypointId, PartyWaypointData>>`, `getWaypoints`/`getAllForSave` return unmodifiable views) is saved/loaded by `BLPCSaveHandler` under `world/betterlink/pc/waypoints/<partyId>.dat`, one file per party with any waypoints (mirrors the `parties/`/`claims/` layout). `WaypointManagerData.removeParty(partyId)` is called from `PartyAction`'s disband path so a disbanded party's waypoints don't linger.
+
+**Key classes:** `common/waypoint/PartyWaypointData` (value type), `WaypointManagerData` (server store), `ClientWaypointCache` (client mirror + change listeners); `common/network/message/WaypointAction` (C→S, with nested `Handler`), `WaypointSync` (S→C diff), `SyncAllWaypoints` (S→C snapshot, extends `NbtMessage`); `integration/jmap/JMapWaypointOutgoing` (local-change detector), `JMapWaypointSyncHandler` (remote-change applier); `mixins/journeymap/WaypointStoreMixin`.
 
 ## Server Configuration (ModConfig)
 
@@ -416,11 +453,13 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 | `additiveLimits` | boolean | true | Party claim limit = sum of each member's individual limit |
 | `allowOfflineChunkLoading` | boolean | true | Keep force-loaded chunks active when all party members are offline |
 
+**Party required to claim:** `ClaimChunk.Handler.isPartyMissing` rejects a brand-new claim (both `MODE_CLAIM` and the fresh-claim branch of `MODE_TOGGLE_FORCE`) unless `PartyProviderRegistry.get().getPartyId(playerId) != null` — chunk protection is a party-sharing feature, not a solo-player one, so a player must first create/join a party (or, in singleplayer, rely on `ModConfig.party.autoCreatePartySingleplayer`). Rejection sends `ClientNotify.claimFailed(REASON_NO_PARTY, 0, 0)` → `blpc.toast.no_party`. Already-claimed chunks are unaffected (unclaim/toggle-force on an *existing* claim never re-checks this).
+
 **Party** (`ModConfig.party`)
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `autoCreatePartySingleplayer` | boolean | false | Auto-create party in singleplayer |
+| `autoCreatePartySingleplayer` | boolean | true | Auto-create party in singleplayer |
 
 **Server Party** (`ModConfig.serverParty`)
 
@@ -438,6 +477,14 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 |---|---|---|---|
 | `mergeOfflineOnlineData` | boolean | true | Merge offline/online chunk data  |
 
+**Fair Play** (`ModConfig.fairPlay`) — client-visible gameplay toggles, aimed at PvP servers that want to dial back or fully disable BLPC's chunk-transit side effects.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `enableAreaEffects` | boolean | true | Apply potion effects for area control (weakness/mining fatigue to enemies, resistance/strength to defenders) |
+| `enableTransitNotify` | boolean | true | Send toast notifications on claimed-chunk entry/exit |
+| `showProtectionStatusHud` | boolean | true | Show `ProtectionStatusHud`'s on-screen indicator while standing in a claimed chunk |
+
 ### Internal defaults (`ModConfig.Defaults` inner class — not in cfg)
 
 | Constant | Value | Description |
@@ -446,9 +493,7 @@ Uses nested subcategories via `@Config.LangKey` (`config.blpc.<category>`). Acce
 | `protectMobGriefing` | true | Prevent mob griefing in claims |
 | `protectFireSpread` | true | Prevent fire spread in claims |
 | `protectFluidFlow` | true | Prevent fluid flow into claims |
-| `enableTransitNotify` | true | Toast notifications for chunk entry/exit |
 | `transitToastDuration` | 3000 | Toast display duration (ms) |
-| `enableAreaEffects` | true | Potion effects for enemies/defenders |
 | `enemyWeaknessAmplifier` | 0 | Weakness amplifier (0 = level I) |
 | `enemyMiningFatigue` | true | Mining fatigue for enemies |
 | `defenderResistanceAmplifier` | 0 | Resistance amplifier (0 = level I) |
@@ -483,9 +528,15 @@ Applied every 20 ticks while player is in a claimed chunk:
 
 `activeInvasions` map tracks which parties have enemy invaders. Cleaned up on player logout and enemy departure.
 
+### Protection Status HUD
+
+`client/gui/ProtectionStatusHud` — `RenderGameOverlayEvent.Post` listener, gated by `ModConfig.fairPlay.showProtectionStatusHud`. Purely client-side: resolves relation from `ClientClaimCache`/`ClientPartyCache` data already synced to the client (its own `resolveRelation` mirrors `ChunkTransitHandler`'s server-side version but starts from a `ClaimedChunkData` instead of a `Party`, and short-circuits to `MEMBER` when the local player is the claim's direct owner). On entering a new claimed chunk, shows `blpc.hud.protected_area` centered just above the food/stamina bar (`BOTTOM_MARGIN = 50`, matching vanilla's `height - 39` bar position) for 5 seconds (`DISPLAY_TICKS = 100`), colored via `GuiColors` by relation (`GREEN` member, `GOLD` ally, `RED` enemy, `GRAY` none). Re-arms only on a chunk-coordinate change, not every frame.
+
+
+
 ## Localization
 
-Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust actions/levels, protection settings, allies/enemies, tooltips, search, transit notifications (`blpc.transit.*`), party event/claim failure notifications (`blpc.toast.*`), and addon panels (`blpc.addons.*`).
+Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust actions/levels, protection settings, allies/enemies, tooltips, search, transit notifications (`blpc.transit.*`), party event/claim failure notifications (`blpc.toast.*`), addon panels (`blpc.addons.*` — including `blpc.addons.journeymap.waypoints_on`/`waypoints_off`/`waypoints_tooltip` for the team waypoint-sharing toggle), the Fair Play config category (`config.blpc.fair_play`), and the Protection Status HUD (`blpc.hud.protected_area`).
 
 ## Adding a New Integration Module
 

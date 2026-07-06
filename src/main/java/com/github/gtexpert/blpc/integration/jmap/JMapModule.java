@@ -23,9 +23,10 @@ import com.github.gtexpert.blpc.modules.Modules;
  * JourneyMap integration module.
  * <p>
  * Loaded only when {@code journeymap} is installed. On the client, hooks the
- * claim sync stream so JourneyMap displays per-chunk claim overlays. The
- * sync handler is re-registered on every reconnect to recover from JourneyMap
- * resetting its overlay state on disconnect.
+ * claim sync stream so JourneyMap displays per-chunk claim overlays, and (when the
+ * Mixin-based waypoint bridge is active) mirrors party-shared waypoints onto the local
+ * JourneyMap waypoint store. Sync handlers are re-registered on every reconnect to recover
+ * from JourneyMap resetting its overlay state on disconnect.
  */
 @TModule(
          moduleID = Modules.MODULE_JMAP,
@@ -38,12 +39,18 @@ public class JMapModule extends IntegrationSubmodule {
     @SideOnly(Side.CLIENT)
     private JMapClaimSyncHandler syncHandler;
 
+    @SideOnly(Side.CLIENT)
+    private JMapWaypointSyncHandler waypointSyncHandler;
+
     @Override
     public void init(FMLInitializationEvent event) {
         if (event.getSide().isClient()) {
             syncHandler = new JMapClaimSyncHandler();
             syncHandler.register();
+            waypointSyncHandler = new JMapWaypointSyncHandler();
+            waypointSyncHandler.register();
             MinecraftForge.EVENT_BUS.register(this);
+            MinecraftForge.EVENT_BUS.register(JMapWaypointOutgoing.class);
             IntegrationPanelRegistry.register(
                     "blpc.addons.journeymap", null, () -> true, JMapSettingsPanel::build);
         }
@@ -55,6 +62,9 @@ public class JMapModule extends IntegrationSubmodule {
         if (syncHandler != null) {
             syncHandler.unregister();
         }
+        if (waypointSyncHandler != null) {
+            waypointSyncHandler.unregister();
+        }
     }
 
     @SideOnly(Side.CLIENT)
@@ -63,6 +73,10 @@ public class JMapModule extends IntegrationSubmodule {
         if (syncHandler != null) {
             syncHandler.unregister();
             syncHandler.register();
+        }
+        if (waypointSyncHandler != null) {
+            waypointSyncHandler.unregister();
+            waypointSyncHandler.register();
         }
     }
 

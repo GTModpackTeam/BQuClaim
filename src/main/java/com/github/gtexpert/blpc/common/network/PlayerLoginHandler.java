@@ -6,6 +6,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.Mod;
@@ -25,8 +27,11 @@ import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.network.message.PartySync;
 import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncAllWaypoints;
 import com.github.gtexpert.blpc.common.network.message.SyncConfig;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.waypoint.PartyWaypointData;
+import com.github.gtexpert.blpc.common.waypoint.WaypointManagerData;
 
 /** Sends initial sync packets (claims, config, parties) to newly connected players. */
 @Mod.EventBusSubscriber(modid = Tags.MODID)
@@ -78,7 +83,7 @@ public class PlayerLoginHandler {
 
         // Re-force party chunks if this is the first member logging in after offline suppression
         if (!ModConfig.claims.allowOfflineChunkLoading) {
-            Party party = PartyManagerData.getInstance().getPartyByPlayer(player.getUniqueID());
+            Party party = activeProvider.getEffectiveParty(player.getUniqueID());
             if (party != null) {
                 MinecraftServer server = player.getServer();
                 if (server != null && party.countOnlineMembers(server) == 1) {
@@ -103,5 +108,19 @@ public class PlayerLoginHandler {
 
         ModNetwork.INSTANCE.sendTo(
                 new PartySync(PartyProviderRegistry.get().serializeForClient()), player);
+
+        // getPartyId(), not PartyManagerData#getPartyByPlayer() — see WaypointAction.Handler's
+        // javadoc: a BQu-linked player who joined entirely through BQu's own UI may have no
+        // BLPC-side Party record, and getPartyId() is the only id guaranteed stable across members.
+        UUID waypointPartyId = activeProvider.getPartyId(player.getUniqueID());
+        NBTTagCompound waypointsData = new NBTTagCompound();
+        NBTTagList waypointsList = new NBTTagList();
+        if (waypointPartyId != null) {
+            for (PartyWaypointData waypoint : WaypointManagerData.getInstance().getWaypoints(waypointPartyId)) {
+                waypointsList.appendTag(waypoint.toNBT());
+            }
+        }
+        waypointsData.setTag("waypoints", waypointsList);
+        ModNetwork.INSTANCE.sendTo(new SyncAllWaypoints(waypointsData), player);
     }
 }

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.14.0]
+
+### Added
+
+- **Claim/party data persists across reconnects**
+  - The chunk map and party menu now show your last-known claims and party info immediately after reconnecting to a server, instead of a blank screen while the server's fresh sync is in flight.
+  - Cached separately per server/world, so switching between servers never mixes up their claim data.
+- **Force-loaded areas stand out on JourneyMap**
+  - Claim regions where every chunk is force-loaded now render with a bolder, fully opaque outline on JourneyMap, and the region label is now properly localized.
+- **Fair play settings**
+  - New config options let server admins tune area-control potion effects and transit toast notifications independently, for servers that want PvP without a home-field advantage.
+  - Optional on-screen indicator shows whether you're currently standing in a claimed chunk and who owns it, so PvP fights always make protection status clear.
+- **Team waypoint sharing on JourneyMap**
+  - With JourneyMap installed, a party's waypoints can now be shared with every online member — only the party owner can add, move, or remove them, and members always see the up-to-date result on their own map.
+  - Toggleable per-player in the Addons menu, under JourneyMap.
+
+### Changed
+
+- **Claiming a chunk now requires a party.** Chunk protection is a party-sharing feature, so you must create or join a party before claiming. Singleplayer is unaffected by default (a party is still auto-created on first login).
+
+### Fixed
+
+- **BQu-linked parties could drift out of sync with BLPC.** A player who joined an already-linked BetterQuesting party through BQu's own party screen (rather than BLPC's) was previously invisible to BLPC's protection, claim-limit, and party-management logic — they could be wrongly denied access to their own party's claims, get a separate personal claim limit instead of sharing the party's pool, and be unable to use party settings, disband, or unlink through BLPC's UI. Party membership is now resolved consistently between BQu and BLPC in all of these paths.
+
+[0.14.0]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.14.0
+
+* * *
+
 ## [0.13.0]
 
 ### Added

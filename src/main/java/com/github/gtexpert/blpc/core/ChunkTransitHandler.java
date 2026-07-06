@@ -12,14 +12,15 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
+import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.party.RelationType;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.ClientNotify;
-import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 /**
  * Detects when players cross claimed chunk boundaries and:
@@ -50,25 +51,25 @@ public class ChunkTransitHandler {
         Long prev = previousChunk.put(playerId, packed);
         if (prev != null && prev == packed) {
             // Same chunk — only handle periodic area effects
-            if (ModConfig.Defaults.enableAreaEffects && player.ticksExisted % EFFECT_TICK_INTERVAL == 0) {
+            if (ModConfig.fairPlay.enableAreaEffects && player.ticksExisted % EFFECT_TICK_INTERVAL == 0) {
                 applyAreaEffects(player, cx, cz);
             }
             return;
         }
 
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
-        PartyManagerData partyData = PartyManagerData.getInstance();
+        IPartyProvider activeProvider = PartyProviderRegistry.get();
 
         if (prev != null) {
             int prevX = unpackX(prev);
             int prevZ = unpackZ(prev);
             ClaimedChunkData prevClaim = chunkData.getClaim(prevX, prevZ);
             if (prevClaim != null) {
-                Party prevParty = partyData.getPartyByPlayer(prevClaim.ownerUUID);
+                Party prevParty = activeProvider.getEffectiveParty(prevClaim.ownerUUID);
                 if (prevParty != null) {
-                    RelationType rel = resolveRelation(prevParty, player);
+                    RelationType rel = resolveRelation(prevParty, player, activeProvider);
                     if (rel != RelationType.NONE) {
-                        if (ModConfig.Defaults.enableTransitNotify) {
+                        if (ModConfig.fairPlay.enableTransitNotify) {
                             sendNotifications(prevParty, player, rel, false);
                         }
                         if (rel == RelationType.ENEMY) {
@@ -81,21 +82,21 @@ public class ChunkTransitHandler {
 
         ClaimedChunkData curClaim = chunkData.getClaim(cx, cz);
         if (curClaim != null) {
-            Party curParty = partyData.getPartyByPlayer(curClaim.ownerUUID);
+            Party curParty = activeProvider.getEffectiveParty(curClaim.ownerUUID);
             if (curParty != null) {
-                RelationType rel = resolveRelation(curParty, player);
+                RelationType rel = resolveRelation(curParty, player, activeProvider);
                 if (rel != RelationType.NONE) {
-                    if (ModConfig.Defaults.enableTransitNotify) {
+                    if (ModConfig.fairPlay.enableTransitNotify) {
                         sendNotifications(curParty, player, rel, true);
                     }
-                    if (rel == RelationType.ENEMY && ModConfig.Defaults.enableAreaEffects) {
+                    if (rel == RelationType.ENEMY && ModConfig.fairPlay.enableAreaEffects) {
                         onEnemyEnter(curParty.getPartyId(), playerId);
                     }
                 }
             }
         }
 
-        if (ModConfig.Defaults.enableAreaEffects) {
+        if (ModConfig.fairPlay.enableAreaEffects) {
             applyAreaEffects(player, cx, cz);
         }
     }
@@ -110,13 +111,14 @@ public class ChunkTransitHandler {
         });
     }
 
-    private static RelationType resolveRelation(Party claimParty, EntityPlayerMP player) {
+    private static RelationType resolveRelation(Party claimParty, EntityPlayerMP player,
+                                                IPartyProvider activeProvider) {
         UUID playerId = player.getUniqueID();
         if (claimParty.isMember(playerId)) {
             return RelationType.MEMBER;
         }
 
-        Party playerParty = PartyManagerData.getInstance().getPartyByPlayer(playerId);
+        Party playerParty = activeProvider.getEffectiveParty(playerId);
         if (playerParty == null) return RelationType.NONE;
 
         UUID playerPartyId = playerParty.getPartyId();
@@ -162,14 +164,14 @@ public class ChunkTransitHandler {
 
     private static void applyAreaEffects(EntityPlayerMP player, int cx, int cz) {
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
-        PartyManagerData partyData = PartyManagerData.getInstance();
+        IPartyProvider activeProvider = PartyProviderRegistry.get();
         ClaimedChunkData claim = chunkData.getClaim(cx, cz);
         if (claim == null) return;
 
-        Party claimParty = partyData.getPartyByPlayer(claim.ownerUUID);
+        Party claimParty = activeProvider.getEffectiveParty(claim.ownerUUID);
         if (claimParty == null) return;
 
-        RelationType rel = resolveRelation(claimParty, player);
+        RelationType rel = resolveRelation(claimParty, player, activeProvider);
 
         if (rel == RelationType.ENEMY) {
             player.addPotionEffect(new PotionEffect(

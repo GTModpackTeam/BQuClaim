@@ -18,9 +18,7 @@ public class ModConfig {
         public static final boolean protectMobGriefing = true;
         public static final boolean protectFireSpread = true;
         public static final boolean protectFluidFlow = true;
-        public static final boolean enableTransitNotify = true;
         public static final int transitToastDuration = 3000;
-        public static final boolean enableAreaEffects = true;
         public static final int enemyWeaknessAmplifier = 0;
         public static final boolean enemyMiningFatigue = true;
         public static final int defenderResistanceAmplifier = 0;
@@ -42,6 +40,9 @@ public class ModConfig {
 
     @Config.LangKey("config.blpc.protection")
     public static final Protection protection = new Protection();
+
+    @Config.LangKey("config.blpc.fair_play")
+    public static final FairPlay fairPlay = new FairPlay();
 
     public static class Claims {
 
@@ -77,6 +78,24 @@ public class ModConfig {
         @Config.Name("Item Use Blacklist")
         @Config.Comment("Items always blocked in claimed chunks regardless of trust (e.g. 'minecraft:bucket').")
         public String[] itemUseBlacklist = {};
+    }
+
+    public static class FairPlay {
+
+        @Config.Name("Enable Area Effects")
+        @Config.Comment("Apply potion effects for area control: weakness/mining fatigue to enemies inside a claim, " +
+                "resistance/strength to defenders while enemies are present. Disable for PvP servers where " +
+                "this home-field advantage would be considered unfair.")
+        public boolean enableAreaEffects = true;
+
+        @Config.Name("Enable Transit Notifications")
+        @Config.Comment("Send toast notifications when a member/ally/enemy enters or leaves a claimed chunk.")
+        public boolean enableTransitNotify = true;
+
+        @Config.Name("Show Protection Status HUD")
+        @Config.Comment("Show an on-screen indicator while standing in a claimed chunk, so you always know " +
+                "whether you're currently protected during PvP.")
+        public boolean showProtectionStatusHud = true;
     }
 
     public static class Party {

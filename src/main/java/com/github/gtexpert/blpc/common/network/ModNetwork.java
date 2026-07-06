@@ -14,8 +14,11 @@ import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.network.message.PartySync;
 import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncAllWaypoints;
 import com.github.gtexpert.blpc.common.network.message.SyncClaims;
 import com.github.gtexpert.blpc.common.network.message.SyncConfig;
+import com.github.gtexpert.blpc.common.network.message.WaypointAction;
+import com.github.gtexpert.blpc.common.network.message.WaypointSync;
 
 /**
  * Network channel initialization. Messages use incrementing discriminator IDs.
@@ -42,7 +45,7 @@ public class ModNetwork {
     @SuppressWarnings("unchecked")
     private static Class<? extends IMessage>[] clientBoundMessages() {
         return new Class[] { SyncClaims.class, SyncAllClaims.class, SyncConfig.class,
-                PartySync.class, ClientNotify.class };
+                PartySync.class, ClientNotify.class, WaypointSync.class, SyncAllWaypoints.class };
     }
 
     public static void init() {
@@ -51,6 +54,7 @@ public class ModNetwork {
         // C→S: server handlers live in common.network and have no client-only references.
         INSTANCE.registerMessage(ClaimChunk.Handler.class, ClaimChunk.class, id++, Side.SERVER);
         INSTANCE.registerMessage(PartyAction.Handler.class, PartyAction.class, id++, Side.SERVER);
+        INSTANCE.registerMessage(WaypointAction.Handler.class, WaypointAction.class, id++, Side.SERVER);
 
         // S→C: handlers live in client.network and reference @SideOnly(CLIENT) classes
         // (Minecraft, IToast, etc.). Loading them on a dedicated server triggers the

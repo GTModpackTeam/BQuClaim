@@ -25,6 +25,8 @@ import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.waypoint.PartyWaypointData;
+import com.github.gtexpert.blpc.common.waypoint.WaypointManagerData;
 
 /**
  * File-based persistence handler for BLPC data.
@@ -54,6 +56,7 @@ public class BLPCSaveHandler {
     private File dataDir;
     private File partiesDir;
     private File claimsDir;
+    private File waypointsDir;
     private volatile boolean dirty = false;
 
     private BLPCSaveHandler() {}
@@ -73,9 +76,11 @@ public class BLPCSaveHandler {
         dataDir = new File(worldDir, "betterlink/pc");
         partiesDir = new File(dataDir, "parties");
         claimsDir = new File(dataDir, "claims");
+        waypointsDir = new File(dataDir, "waypoints");
         dataDir.mkdirs();
         partiesDir.mkdirs();
         claimsDir.mkdirs();
+        waypointsDir.mkdirs();
     }
 
     // --- Config ---
@@ -211,6 +216,63 @@ public class BLPCSaveHandler {
         backupAndSwap(claimsDir, "claims", tmpFiles, "claim");
     }
 
+    // --- Waypoints (per-party files) ---
+
+    public void loadWaypoints(WaypointManagerData data) {
+        File[] files = waypointsDir.listFiles((dir, name) -> name.endsWith(".dat"));
+        if (files == null) return;
+        for (File file : files) {
+            String baseName = file.getName().substring(0, file.getName().length() - ".dat".length());
+            UUID partyId;
+            try {
+                partyId = UUID.fromString(baseName);
+            } catch (IllegalArgumentException e) {
+                ModLog.IO.error("Invalid party id in waypoint file name: {}", file.getName());
+                continue;
+            }
+            try (FileInputStream fis = new FileInputStream(file)) {
+                NBTTagCompound nbt = CompressedStreamTools.readCompressed(fis);
+                NBTTagList list = nbt.getTagList("waypoints", Constants.NBT.TAG_COMPOUND);
+                Map<String, PartyWaypointData> waypoints = new HashMap<>();
+                for (int i = 0; i < list.tagCount(); i++) {
+                    PartyWaypointData waypoint = PartyWaypointData.fromNBT(list.getCompoundTagAt(i));
+                    if (waypoint == null) continue;
+                    waypoints.put(waypoint.waypointId, waypoint);
+                }
+                data.loadParty(partyId, waypoints);
+            } catch (IOException e) {
+                ModLog.IO.error("Failed to load waypoint file: {}", file.getName(), e);
+            }
+        }
+    }
+
+    public void saveWaypoints(WaypointManagerData data) {
+        Map<String, NBTTagList> toWrite = new HashMap<>();
+        for (var entry : data.getAllForSave().entrySet()) {
+            if (entry.getValue().isEmpty()) continue;
+            NBTTagList list = new NBTTagList();
+            for (PartyWaypointData waypoint : entry.getValue().values()) {
+                list.appendTag(waypoint.toNBT());
+            }
+            toWrite.put(entry.getKey().toString(), list);
+        }
+
+        List<File> tmpFiles = new ArrayList<>();
+        for (var entry : toWrite.entrySet()) {
+            var tmpFile = new File(waypointsDir, entry.getKey() + ".dat.tmp");
+            NBTTagCompound nbt = new NBTTagCompound();
+            nbt.setTag("waypoints", entry.getValue());
+            if (!writeCompressedTemp(tmpFile, nbt)) {
+                for (File tmp : tmpFiles) tmp.delete();
+                ModLog.IO.error("Waypoints save aborted; old files preserved");
+                return;
+            }
+            tmpFiles.add(tmpFile);
+        }
+
+        backupAndSwap(waypointsDir, "waypoints", tmpFiles, "waypoint");
+    }
+
     private boolean writeCompressedTemp(File tmpFile, NBTTagCompound nbt) {
         try (var fos = new FileOutputStream(tmpFile)) {
             CompressedStreamTools.writeCompressed(nbt, fos);
@@ -277,12 +339,15 @@ public class BLPCSaveHandler {
         initWorldDir(server);
         ChunkManagerData.reset();
         PartyManagerData.reset();
+        WaypointManagerData.reset();
         TicketManager.reset();
         PartyManagerData partyData = PartyManagerData.getInstance();
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
+        WaypointManagerData waypointData = WaypointManagerData.getInstance();
         loadConfig(partyData);
         loadParties(partyData);
         loadClaims(chunkData);
+        loadWaypoints(waypointData);
     }
 
     public synchronized void saveAll() {
@@ -297,6 +362,7 @@ public class BLPCSaveHandler {
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
         saveConfig(partyData);
         saveParties(partyData);
+        saveWaypoints(WaypointManagerData.getInstance());
         saveClaims(chunkData, partyData);
     }
 }

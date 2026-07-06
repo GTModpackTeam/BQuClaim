@@ -40,6 +40,35 @@ public interface IPartyProvider {
     @Nullable
     String getRole(UUID playerUUID);
 
+    /**
+     * Returns a stable identifier for the player's party, or {@code null} if they have no party.
+     * Unlike the display-facing {@link Party} objects synced to clients (whose id can vary by
+     * which member's data happened to seed it — see {@code BQuPartyProvider#serializeForClient}),
+     * this id is guaranteed identical for every member of the same real party, making it safe as
+     * a server-side storage key (e.g. {@code WaypointManagerData}) even for members who have
+     * never had their own BLPC-side party record created.
+     */
+    @Nullable
+    default UUID getPartyId(UUID playerUUID) {
+        return null;
+    }
+
+    /**
+     * Returns the player's fully-populated {@link Party} (members, trust levels, allies/enemies,
+     * claim-limit settings) for authoritative server-side checks — chunk protection trust
+     * resolution, additive claim/force-load limits, and chunk-transit relation notifications.
+     * <p>
+     * Unlike reading a self-managed {@code PartyManagerData} record directly, this is guaranteed
+     * to reflect live membership even for a member who joined entirely through a delegate's own
+     * UI (e.g. BQu's native party screen) and so has no BLPC-side {@link Party} record of their
+     * own — see {@code BQuPartyProvider#getEffectiveParty}. Returns {@code null} if the player has
+     * no party.
+     */
+    @Nullable
+    default Party getEffectiveParty(UUID playerUUID) {
+        return null;
+    }
+
     /** Returns the party with the given name, or null if none exists. */
     @Nullable
     default Party findByName(String name) {
@@ -82,6 +111,20 @@ public interface IPartyProvider {
     /** Returns true if the player is in a native (non-fallback) party managed by this provider. */
     default boolean hasNativeParty(UUID playerUUID) {
         return getPartyName(playerUUID) != null;
+    }
+
+    /**
+     * Returns true if this player's current native party has been linked to BLPC (i.e. any of
+     * its members opted in via {@code ACTION_TOGGLE_BQU_LINK}), so mutations for this player
+     * should route through this provider instead of the self-managed fallback.
+     * <p>
+     * Unlike a per-player flag snapshotted at link time, this reflects the party's <em>current</em>
+     * membership: a player who joins an already-linked native party afterward (e.g. through BQu's
+     * own party screen, entirely outside BLPC) is recognized immediately, without requiring a
+     * separate propagation step every time membership changes elsewhere.
+     */
+    default boolean isLinkedParty(UUID playerUUID) {
+        return false;
     }
 
     /**

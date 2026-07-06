@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.util.math.BlockPos;
 
 import com.github.gtexpert.blpc.Tags;
@@ -46,6 +47,9 @@ public class JMapPlugin implements IClientPlugin {
     private static final int COLOR_OTHER = 0xFF0000;
     private static final float FILL_OPACITY = 0.35f;
     private static final float STROKE_OPACITY = 0.6f;
+    private static final float STROKE_WIDTH = 1.5f;
+    private static final float FORCE_LOADED_STROKE_OPACITY = 1.0f;
+    private static final float FORCE_LOADED_STROKE_WIDTH = 3.0f;
 
     private IClientAPI api;
     private static JMapPlugin instance;
@@ -156,17 +160,17 @@ public class JMapPlugin implements IClientPlugin {
             String key = sample.ownerUUID + ":" + minX + "," + minZ;
             currentKeys.add(key);
             String title = buildTitle(sample, allForceLoaded);
-            showRegion(key, dimension, outer, loops, areaColor, textColor, title);
+            showRegion(key, dimension, outer, loops, areaColor, textColor, title, allForceLoaded);
         }
     }
 
     private void showRegion(String key, int dimension, MapPolygon outer, List<MapPolygon> holes,
-                            int areaColor, int textColor, String title) {
+                            int areaColor, int textColor, String title, boolean forceLoaded) {
         PolygonOverlay existing = activeOverlays.get(key);
         if (existing != null) {
             existing.setOuterArea(outer);
             existing.setHoles(holes.isEmpty() ? null : holes);
-            existing.setShapeProperties(createShapeProperties(areaColor));
+            existing.setShapeProperties(createShapeProperties(areaColor, forceLoaded));
             existing.setTitle(title);
             existing.getTextProperties().setColor(textColor);
             try {
@@ -176,7 +180,7 @@ public class JMapPlugin implements IClientPlugin {
         }
 
         PolygonOverlay overlay = new PolygonOverlay(getModId(), "claim_region_" + key, dimension,
-                createShapeProperties(areaColor), outer, holes.isEmpty() ? null : holes);
+                createShapeProperties(areaColor, forceLoaded), outer, holes.isEmpty() ? null : holes);
         overlay.setOverlayGroupName(OVERLAY_GROUP);
         overlay.setTitle(title);
         overlay.setTextProperties(new TextProperties()
@@ -336,11 +340,11 @@ public class JMapPlugin implements IClientPlugin {
 
     // --- Color / label ---
 
-    private static ShapeProperties createShapeProperties(int color) {
+    private static ShapeProperties createShapeProperties(int color, boolean forceLoaded) {
         return new ShapeProperties()
                 .setStrokeColor(color)
-                .setStrokeOpacity(STROKE_OPACITY)
-                .setStrokeWidth(1.5f)
+                .setStrokeOpacity(forceLoaded ? FORCE_LOADED_STROKE_OPACITY : STROKE_OPACITY)
+                .setStrokeWidth(forceLoaded ? FORCE_LOADED_STROKE_WIDTH : STROKE_WIDTH)
                 .setFillColor(color)
                 .setFillOpacity(FILL_OPACITY);
     }
@@ -371,7 +375,7 @@ public class JMapPlugin implements IClientPlugin {
             sb.append(" [").append(claim.partyName).append("]");
         }
         if (allForceLoaded) {
-            sb.append(" (Force Loaded)");
+            sb.append(I18n.format("blpc.addons.journeymap.force_loaded_suffix"));
         }
         return sb.toString();
     }

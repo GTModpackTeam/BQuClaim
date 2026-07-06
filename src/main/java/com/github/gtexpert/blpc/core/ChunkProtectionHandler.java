@@ -26,12 +26,12 @@ import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import com.github.gtexpert.blpc.api.party.Party;
+import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.party.TrustAction;
 import com.github.gtexpert.blpc.api.party.TrustLevel;
 import com.github.gtexpert.blpc.common.ModConfig;
 import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
-import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 /**
  * Central Forge event handler for chunk protection.
@@ -52,9 +52,15 @@ public class ChunkProtectionHandler {
         return ChunkManagerData.getInstance().getClaim(chunkX, chunkZ) != null;
     }
 
+    /**
+     * Resolves the claim owner's effective party via the active {@link PartyProviderRegistry}
+     * provider rather than reading {@code PartyManagerData} directly — a BQu-linked owner who
+     * joined their party purely through BQu's own UI has no BLPC-side {@link Party} record, and
+     * a raw {@code PartyManagerData} lookup would incorrectly resolve to "no party" for them.
+     */
     @Nullable
     private static Party getPartyForClaim(ClaimedChunkData claim) {
-        return PartyManagerData.getInstance().getPartyByPlayer(claim.ownerUUID);
+        return PartyProviderRegistry.get().getEffectiveParty(claim.ownerUUID);
     }
 
     private static boolean isNameInList(@Nullable ResourceLocation name, String[] list) {
@@ -106,7 +112,7 @@ public class ChunkProtectionHandler {
 
         if (party == null) return false;
 
-        var playerParty = PartyManagerData.getInstance().getPartyByPlayer(player.getUniqueID());
+        var playerParty = PartyProviderRegistry.get().getEffectiveParty(player.getUniqueID());
         var playerPartyId = playerParty != null ? playerParty.getPartyId() : null;
         TrustLevel effectiveLevel = party.getEffectiveTrustLevel(player.getUniqueID(), playerPartyId);
         if (effectiveLevel == null) return false; // Enemy: null encodes "no trust"

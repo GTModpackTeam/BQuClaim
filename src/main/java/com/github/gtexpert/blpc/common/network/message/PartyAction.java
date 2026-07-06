@@ -19,6 +19,7 @@ import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.waypoint.WaypointManagerData;
 
 import io.netty.buffer.ByteBuf;
 
@@ -180,7 +181,9 @@ public class PartyAction implements IMessage {
      * maps to a single private method below.
      * <p>
      * <b>Authorization:</b> the active provider is re-derived per request from
-     * {@link PartyManagerData#isBQuLinked} so a malicious client cannot bypass BQu integration.
+     * {@link IPartyProvider#isLinkedParty} so a malicious client cannot bypass BQu integration —
+     * this checks the player's <em>current</em> native-party membership rather than a per-player
+     * flag, so it stays correct for members who joined an already-linked party after the fact.
      * Role checks happen via {@link #getAdminParty} / {@link #getOrCreateSelfParty} in each
      * mutating action.
      * <p>
@@ -200,13 +203,12 @@ public class PartyAction implements IMessage {
         private static void dispatch(PartyAction msg, MessageContext ctx) {
             EntityPlayerMP player = ctx.getServerHandler().player;
             IPartyProvider provider = PartyProviderRegistry.get();
-            boolean playerBQuLinked = PartyManagerData.getInstance().isBQuLinked(player.getUniqueID());
-            // When not BQu-linked, use self-managed provider to avoid accidentally
-            // creating/modifying BQu parties.
+            // See class javadoc: isLinkedParty is a live check, not a per-player flag.
+            boolean playerBQuLinked = provider.isLinkedParty(player.getUniqueID());
             IPartyProvider activeProvider = playerBQuLinked ? provider : SELF_PROVIDER;
 
             ActionContext c = new ActionContext(player, msg.getStringArg(), provider, SELF_PROVIDER, activeProvider,
-                    playerBQuLinked, new ArrayList<>());
+                    new ArrayList<>());
 
             boolean success = switch (msg.getAction()) {
                 case PartyAction.ACTION_CREATE -> createParty(c);
@@ -270,16 +272,11 @@ public class PartyAction implements IMessage {
         private static boolean disbandParty(ActionContext c) {
             UUID playerId = c.player.getUniqueID();
             PartyManagerData pm = PartyManagerData.getInstance();
-            Party party = pm.getPartyByPlayer(playerId);
+            Party party = c.provider.getEffectiveParty(playerId);
             if (party == null) return false;
 
             PartyRole role = party.getRole(playerId);
-            boolean isOwnerOrOp = (role == PartyRole.OWNER) || c.player.canUseCommand(2, "");
-            if (!isOwnerOrOp && c.playerBQuLinked) {
-                String providerRole = c.provider.getRole(playerId);
-                isOwnerOrOp = PartyRole.fromName(providerRole) == PartyRole.OWNER;
-            }
-            if (!isOwnerOrOp) return false;
+            if (role != PartyRole.OWNER && !c.player.canUseCommand(2, "")) return false;
 
             UUID partyId = party.getPartyId();
             String partyName = party.getName();
@@ -288,6 +285,7 @@ public class PartyAction implements IMessage {
             List<UUID> members = new ArrayList<>(party.getMemberUUIDs());
             pm.removeParty(partyId);
             ChunkManagerData.getInstance().releaseAllMemberClaims(members, c.player.world);
+            WaypointManagerData.getInstance().removeParty(partyId);
             for (UUID memberId : members) {
                 pm.setBQuLinked(memberId, false);
             }
@@ -447,27 +445,30 @@ public class PartyAction implements IMessage {
         private static boolean toggleBQuLink(ActionContext c) {
             boolean linked = "true".equals(c.stringArg);
             PartyManagerData pm = PartyManagerData.getInstance();
-            Party currentParty = pm.getPartyByPlayer(c.player.getUniqueID());
-            if (currentParty != null) {
-                PartyRole role = currentParty.getRole(c.player.getUniqueID());
-                if (role != null && !role.canInvite() && !c.player.canUseCommand(2, "")) {
-                    return false;
-                }
+            UUID playerId = c.player.getUniqueID();
+
+            // c.provider.getRole(), not a raw PartyManagerData lookup — a member who joined after
+            // the owner's original link action has no BLPC-side Party record of their own.
+            if (!c.player.canUseCommand(2, "")) {
+                PartyRole effectiveRole = PartyRole.fromName(c.provider.getRole(playerId));
+                if (effectiveRole == null || !effectiveRole.canInvite()) return false;
             }
+
             if (linked) {
+                Party currentParty = pm.getPartyByPlayer(playerId);
                 if (currentParty == null) return false;
                 if (!c.provider.ensureNativePartyWithMembers(c.player, currentParty)) return false;
-                for (UUID memberId : c.provider.getPartyMembers(c.player.getUniqueID())) {
+                for (UUID memberId : c.provider.getPartyMembers(playerId)) {
                     pm.setBQuLinked(memberId, true);
                 }
             } else {
-                if (!pm.isBQuLinked(c.player.getUniqueID())) return false;
-                for (UUID memberId : c.provider.getPartyMembers(c.player.getUniqueID())) {
+                if (!c.provider.isLinkedParty(playerId)) return false;
+                for (UUID memberId : c.provider.getPartyMembers(playerId)) {
                     pm.setBQuLinked(memberId, false);
                 }
                 getOrCreateSelfParty(c.player, c.provider);
             }
-            Party party = pm.getPartyByPlayer(c.player.getUniqueID());
+            Party party = pm.getPartyByPlayer(playerId);
             if (party != null) {
                 String event = linked ? ClientNotify.EVENT_BQU_LINKED : ClientNotify.EVENT_BQU_UNLINKED;
                 MinecraftServer srv = c.player.getServer();
@@ -694,18 +695,16 @@ public class PartyAction implements IMessage {
             final IPartyProvider provider;
             final DefaultPartyProvider selfProvider;
             final IPartyProvider activeProvider;
-            final boolean playerBQuLinked;
             final List<Runnable> pendingNotifications;
 
             ActionContext(EntityPlayerMP player, String stringArg, IPartyProvider provider,
-                          DefaultPartyProvider selfProvider, IPartyProvider activeProvider, boolean playerBQuLinked,
+                          DefaultPartyProvider selfProvider, IPartyProvider activeProvider,
                           List<Runnable> pendingNotifications) {
                 this.player = player;
                 this.stringArg = stringArg;
                 this.provider = provider;
                 this.selfProvider = selfProvider;
                 this.activeProvider = activeProvider;
-                this.playerBQuLinked = playerBQuLinked;
                 this.pendingNotifications = pendingNotifications;
             }
         }
