@@ -4,6 +4,7 @@ config.blpc.party=パーティ
 config.blpc.server_party=サーバーパーティ
 config.blpc.data=データ
 config.blpc.protection=保護
+config.blpc.fair_play=フェアプレイ
 
 # Key bindings
 key.blpc.open_map=チャンクマップを開く
@@ -23,13 +24,13 @@ command.blpc.disband.success=パーティ「%s」を解散しました。
 command.blpc.me.no_party=あなたはパーティに所属していません。
 command.blpc.me.your_role=あなたのロール: %s
 command.blpc.here.wilderness=チャンク (%d, %d) は未確保です。
-command.blpc.here.claimed=チャンク (%d, %d) はパーティ「%s」が確保中（オーナー: %s）。
-command.blpc.here.claimed_force=チャンク (%d, %d) はパーティ「%s」が確保＆常時読込中（オーナー: %s）。
-command.blpc.claims.personal=あなたの確保数: %d（常時読込: %d）。パーティに未所属です。
+command.blpc.here.claimed=チャンク (%d, %d) はパーティ「%s」が確保中(オーナー: %s)。
+command.blpc.here.claimed_force=チャンク (%d, %d) はパーティ「%s」が確保＆常時読込中(オーナー: %s)。
+command.blpc.claims.personal=あなたの確保数: %d(常時読込: %d)。パーティに未所属です。
 command.blpc.claims.party_header=== パーティ「%s」の確保状況 ==
 command.blpc.claims.party_total=確保チャンク数: %d / %d
 command.blpc.claims.party_force=常時読込数: %d / %d
-command.blpc.claims.your_share=あなたの貢献: 確保 %d（常時読込 %d）
+command.blpc.claims.your_share=あなたの貢献: 確保 %d(常時読込 %d)
 command.blpc.invites.empty=届いている招待はありません。
 command.blpc.invites.header=招待一覧 (%d 件):
 command.blpc.invites.hint=/blpc accept <partyName> または /blpc decline <partyName> で操作してください。
@@ -196,7 +197,13 @@ blpc.addons.journeymap.title=JourneyMap
 blpc.addons.journeymap.overlays_on=クレーム表示: ON
 blpc.addons.journeymap.overlays_off=クレーム表示: OFF
 blpc.addons.journeymap.overlays_tooltip=JourneyMap上にBLPCのクレーム範囲を表示
-blpc.addons.journeymap.waypoints_soon=チームウェイポイント共有（準備中）
+blpc.addons.journeymap.waypoints_on=チームウェイポイント共有: ON
+blpc.addons.journeymap.waypoints_off=チームウェイポイント共有: OFF
+blpc.addons.journeymap.waypoints_tooltip=パーティオーナーが共有したウェイポイントをJourneyMap上に表示します。追加・編集・削除はオーナーのみ可能です。
+blpc.addons.journeymap.force_loaded_suffix=  (強制ロード中)
+
+# HUD
+blpc.hud.protected_area=保護区域: %s
 
 # 領域出入り通知
 blpc.transit.member.enter=%sが帰宅した
@@ -222,3 +229,4 @@ blpc.toast.join_failed=パーティに参加できませんでした
 # クレーム失敗通知
 blpc.toast.claim_limit=確保上限に達しました (%d/%d)
 blpc.toast.forceload_limit=常時読込上限に達しました (%d/%d)
+blpc.toast.no_party=チャンクを確保するにはパーティに所属する必要があります

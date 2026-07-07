@@ -14,6 +14,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 public final class JMapClientConfig {
 
     private static boolean showClaimOverlays = true;
+    private static boolean waypointSharingEnabled = true;
 
     private JMapClientConfig() {}
 
@@ -24,5 +25,18 @@ public final class JMapClientConfig {
 
     public static void setShowClaimOverlays(boolean value) {
         showClaimOverlays = value;
+    }
+
+    /**
+     * Whether party-shared waypoints are synced. Only the party OWNER's edits are ever sent
+     * (see {@code WaypointAction} javadoc) — this toggle just lets any member opt out of
+     * receiving/mirroring them locally.
+     */
+    public static boolean isWaypointSharingEnabled() {
+        return waypointSharingEnabled;
+    }
+
+    public static void setWaypointSharingEnabled(boolean value) {
+        waypointSharingEnabled = value;
     }
 }

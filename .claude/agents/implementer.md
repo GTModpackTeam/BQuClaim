@@ -23,7 +23,7 @@ You receive tasks from the QA lead or the user. Your job is to:
 ## Key Rules
 
 - **Do not edit `build.gradle`** (auto-generated)
-- **Java 17 syntax is mandatory** per blpc-overview skill (switch expressions, pattern matching instanceof, `var`)
+- **Java 25 syntax is mandatory** per blpc-overview skill (switch expressions, pattern matching instanceof, `var`)
 - New network messages: append (never insert).
   - **C→S** — IMessage + handler both in `common/network/`. Append to `ModNetwork.init()` C→S block.
   - **S→C** — IMessage in `common/network/` (no `@SideOnly` types in bytecode!). Handler in `client/network/<Name>ClientHandler.java` with `@SideOnly(Side.CLIENT)`. Append to **both** `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()` in identical order.

@@ -6,13 +6,17 @@ import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 
 import com.github.gtexpert.blpc.Tags;
+import com.github.gtexpert.blpc.api.event.PartyEvent;
 import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
@@ -25,8 +29,11 @@ import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.network.message.PartySync;
 import com.github.gtexpert.blpc.common.network.message.SyncAllClaims;
+import com.github.gtexpert.blpc.common.network.message.SyncAllWaypoints;
 import com.github.gtexpert.blpc.common.network.message.SyncConfig;
 import com.github.gtexpert.blpc.common.party.PartyManagerData;
+import com.github.gtexpert.blpc.common.waypoint.PartyWaypointData;
+import com.github.gtexpert.blpc.common.waypoint.WaypointManagerData;
 
 /** Sends initial sync packets (claims, config, parties) to newly connected players. */
 @Mod.EventBusSubscriber(modid = Tags.MODID)
@@ -78,7 +85,7 @@ public class PlayerLoginHandler {
 
         // Re-force party chunks if this is the first member logging in after offline suppression
         if (!ModConfig.claims.allowOfflineChunkLoading) {
-            Party party = PartyManagerData.getInstance().getPartyByPlayer(player.getUniqueID());
+            Party party = activeProvider.getEffectiveParty(player.getUniqueID());
             if (party != null) {
                 MinecraftServer server = player.getServer();
                 if (server != null && party.countOnlineMembers(server) == 1) {
@@ -103,5 +110,54 @@ public class PlayerLoginHandler {
 
         ModNetwork.INSTANCE.sendTo(
                 new PartySync(PartyProviderRegistry.get().serializeForClient()), player);
+
+        // getPartyId(), not PartyManagerData#getPartyByPlayer() — see WaypointAction.Handler's
+        // javadoc: a BQu-linked player who joined entirely through BQu's own UI may have no
+        // BLPC-side Party record, and getPartyId() is the only id guaranteed stable across members.
+        sendWaypointSync(player, activeProvider.getPartyId(player.getUniqueID()));
+    }
+
+    /** Mid-session join: sync the party's shared waypoints without waiting for a relog. */
+    @SubscribeEvent
+    public static void onMemberJoined(PartyEvent.Post.MemberJoined event) {
+        EntityPlayerMP member = onlinePlayer(event.getMemberUUID());
+        if (member == null) return;
+        sendWaypointSync(member, PartyProviderRegistry.get().getPartyId(event.getMemberUUID()));
+    }
+
+    /** Left/kicked: clear the party's shared waypoints (null id sends an empty list). */
+    @SubscribeEvent
+    public static void onMemberLeft(PartyEvent.Post.MemberLeft event) {
+        EntityPlayerMP member = onlinePlayer(event.getMemberUUID());
+        if (member == null) return;
+        sendWaypointSync(member, null);
+    }
+
+    /** Disbanded: every former member drops the now-orphaned shared waypoints. */
+    @SubscribeEvent
+    public static void onPartyDisbanded(PartyEvent.Post.Disbanded event) {
+        for (UUID memberId : event.getMemberUUIDs()) {
+            EntityPlayerMP member = onlinePlayer(memberId);
+            if (member != null) sendWaypointSync(member, null);
+        }
+    }
+
+    private static EntityPlayerMP onlinePlayer(UUID playerId) {
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server == null) return null;
+        return server.getPlayerList().getPlayerByUUID(playerId);
+    }
+
+    /** Sends {@code player} the full shared-waypoint list for {@code partyId} (empty if null). */
+    private static void sendWaypointSync(EntityPlayerMP player, UUID partyId) {
+        NBTTagCompound waypointsData = new NBTTagCompound();
+        NBTTagList waypointsList = new NBTTagList();
+        if (partyId != null) {
+            for (PartyWaypointData waypoint : WaypointManagerData.getInstance().getWaypoints(partyId)) {
+                waypointsList.appendTag(waypoint.toNBT());
+            }
+        }
+        waypointsData.setTag("waypoints", waypointsList);
+        ModNetwork.INSTANCE.sendTo(new SyncAllWaypoints(waypointsData), player);
     }
 }

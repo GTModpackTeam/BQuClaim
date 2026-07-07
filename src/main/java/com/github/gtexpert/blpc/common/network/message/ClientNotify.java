@@ -48,6 +48,7 @@ public class ClientNotify implements IMessage {
     /** Sub-discriminators for {@link #KIND_CLAIM_FAILED}. */
     public static final String REASON_CLAIM_LIMIT = "CLAIM_LIMIT";
     public static final String REASON_FORCELOAD_LIMIT = "FORCELOAD_LIMIT";
+    public static final String REASON_NO_PARTY = "NO_PARTY";
 
     private int kind;
 

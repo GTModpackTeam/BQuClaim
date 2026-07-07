@@ -30,6 +30,7 @@ import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.enums.EnumPartyStatus;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.party.IParty;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.network.handlers.NetPartySync;
 import betterquesting.questing.party.PartyInvitations;
 import betterquesting.questing.party.PartyManager;
@@ -87,9 +88,53 @@ public class BQuPartyProvider implements IPartyProvider {
         return fallback.getRole(playerUUID);
     }
 
+    /**
+     * Derived from BQu's own integer party id, so it's identical for every member regardless of
+     * whether any of them has ever had a BLPC-side {@link Party} record created (unlike
+     * {@link #serializeForClient}'s display id, which prefers a member's self-managed party id
+     * when one happens to exist).
+     */
+    @Override
+    @Nullable
+    public UUID getPartyId(UUID playerUUID) {
+        var entry = PartyManager.INSTANCE.getParty(playerUUID);
+        if (entry != null) return Party.uuidFromIntId(entry.getID());
+        return fallback.getPartyId(playerUUID);
+    }
+
+    /**
+     * Looks up the player's BQu party directly (O(1) via BQu's own player index) rather than
+     * scanning every party like {@link #serializeForClient}, since this is called from hot
+     * per-action checks (block break/interact, claim limits, chunk transit).
+     */
+    @Override
+    @Nullable
+    public Party getEffectiveParty(UUID playerUUID) {
+        var entry = PartyManager.INSTANCE.getParty(playerUUID);
+        if (entry != null) return buildMergedParty(entry);
+        return fallback.getEffectiveParty(playerUUID);
+    }
+
     @Override
     public boolean hasNativeParty(UUID playerUUID) {
         return PartyManager.INSTANCE.getParty(playerUUID) != null;
+    }
+
+    /**
+     * Checks the player's <em>current</em> BQu party membership for any linked member, rather
+     * than a per-player flag — a member who joined this same BQu party after the owner's link
+     * action (typically through BQu's own party screen) is recognized without requiring the flag
+     * to be separately propagated to them.
+     */
+    @Override
+    public boolean isLinkedParty(UUID playerUUID) {
+        var entry = PartyManager.INSTANCE.getParty(playerUUID);
+        if (entry == null) return false;
+        PartyManagerData pmData = PartyManagerData.getInstance();
+        for (UUID memberId : entry.getValue().getMembers()) {
+            if (pmData.isBQuLinked(memberId)) return true;
+        }
+        return false;
     }
 
     @Override
@@ -308,6 +353,48 @@ public class BQuPartyProvider implements IPartyProvider {
         ModNetwork.INSTANCE.sendTo(new PartySync(serializeForClient()), player);
     }
 
+    /**
+     * Merges one BQu party's live membership with settings/relations copied from whichever
+     * member happens to have a BLPC-side {@link Party} record (preferring the BQu owner's, so
+     * the owner's protection settings win if members disagree). Shared by
+     * {@link #serializeForClient} (client display) and {@link #getEffectiveParty} (server-side
+     * authoritative checks) so both stay in sync as this logic evolves.
+     */
+    private Party buildMergedParty(DBEntry<IParty> entry) {
+        IParty bqParty = entry.getValue();
+        PartyManagerData pmData = PartyManagerData.getInstance();
+
+        UUID blpcPartyId = null;
+        Party ownerSelfParty = null;
+        Party fallbackSelfParty = null;
+        for (UUID memberId : bqParty.getMembers()) {
+            Party selfParty = pmData.getPartyByPlayer(memberId);
+            if (selfParty != null) {
+                if (blpcPartyId == null) blpcPartyId = selfParty.getPartyId();
+                EnumPartyStatus status = bqParty.getStatus(memberId);
+                if (status == EnumPartyStatus.OWNER) {
+                    ownerSelfParty = selfParty;
+                    blpcPartyId = selfParty.getPartyId();
+                } else if (fallbackSelfParty == null) {
+                    fallbackSelfParty = selfParty;
+                }
+            }
+        }
+        if (blpcPartyId == null) blpcPartyId = Party.uuidFromIntId(entry.getID());
+
+        String bqName = bqParty.getProperties().getProperty(NativeProps.NAME);
+        if (bqName == null) bqName = "Party " + blpcPartyId.toString().substring(0, 8);
+        Party party = new Party(blpcPartyId, bqName, 0L);
+        for (UUID memberId : bqParty.getMembers()) {
+            party.addMember(memberId, mapRole(bqParty.getStatus(memberId)));
+        }
+        Party sourceSelfParty = ownerSelfParty != null ? ownerSelfParty : fallbackSelfParty;
+        if (sourceSelfParty != null) {
+            party.copySettingsFrom(sourceSelfParty);
+        }
+        return party;
+    }
+
     @Override
     public NBTTagCompound serializeForClient() {
         NBTTagList list = new NBTTagList();
@@ -328,36 +415,8 @@ public class BQuPartyProvider implements IPartyProvider {
             }
             if (!hasLinkedMember) continue;
 
-            UUID blpcPartyId = null;
-            Party ownerSelfParty = null;
-            Party fallbackSelfParty = null;
-            for (UUID memberId : bqParty.getMembers()) {
-                Party selfParty = pmData.getPartyByPlayer(memberId);
-                if (selfParty != null) {
-                    if (blpcPartyId == null) blpcPartyId = selfParty.getPartyId();
-                    EnumPartyStatus status = bqParty.getStatus(memberId);
-                    if (status == EnumPartyStatus.OWNER) {
-                        ownerSelfParty = selfParty;
-                        blpcPartyId = selfParty.getPartyId();
-                    } else if (fallbackSelfParty == null) {
-                        fallbackSelfParty = selfParty;
-                    }
-                }
-            }
-            if (blpcPartyId == null) blpcPartyId = Party.uuidFromIntId(entry.getID());
-
-            String bqName = bqParty.getProperties().getProperty(NativeProps.NAME);
-            if (bqName == null) bqName = "Party " + blpcPartyId.toString().substring(0, 8);
-            Party party = new Party(blpcPartyId, bqName, 0L);
-            for (UUID memberId : bqParty.getMembers()) {
-                EnumPartyStatus status = bqParty.getStatus(memberId);
-                party.addMember(memberId, mapRole(status));
-                bquMembers.add(memberId);
-            }
-            Party sourceSelfParty = ownerSelfParty != null ? ownerSelfParty : fallbackSelfParty;
-            if (sourceSelfParty != null) {
-                party.copySettingsFrom(sourceSelfParty);
-            }
+            Party party = buildMergedParty(entry);
+            bquMembers.addAll(bqParty.getMembers());
             party.resolvePlayerNames(PartyManagerData.getInstance()::getParty);
             list.appendTag(party.toSyncNBT());
         }
@@ -381,8 +440,17 @@ public class BQuPartyProvider implements IPartyProvider {
         NBTTagCompound root = new NBTTagCompound();
         root.setTag("parties", list);
 
-        // Included even when empty so the client clears stale bquLinked state.
-        root.setTag("bquLinked", selfData.getTagList("bquLinked", Constants.NBT.TAG_COMPOUND));
+        // Built from bquMembers (live BQu membership of every linked party), not the raw
+        // bquLinkedPlayers flag set — a member who joined a linked party after the owner's
+        // link action has no flag of their own but is still genuinely linked. Included even
+        // when empty so the client clears stale bquLinked state.
+        NBTTagList bquLinkedList = new NBTTagList();
+        for (UUID memberId : bquMembers) {
+            NBTTagCompound tag = new NBTTagCompound();
+            tag.setUniqueId("uuid", memberId);
+            bquLinkedList.appendTag(tag);
+        }
+        root.setTag("bquLinked", bquLinkedList);
 
         return root;
     }

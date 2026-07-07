@@ -177,9 +177,9 @@ public class BLPCToast implements IToast {
         /**
          * Configures the toast for a claim failure notification.
          *
-         * @param reason  failure reason ("CLAIM_LIMIT" or "FORCELOAD_LIMIT")
-         * @param current current count
-         * @param max     maximum allowed count
+         * @param reason  failure reason ("CLAIM_LIMIT", "FORCELOAD_LIMIT", or "NO_PARTY")
+         * @param current current count (unused for "NO_PARTY")
+         * @param max     maximum allowed count (unused for "NO_PARTY")
          */
         public Builder fromClaimFailed(String reason, int current, int max) {
             switch (reason) {
@@ -191,6 +191,11 @@ public class BLPCToast implements IToast {
                 case "FORCELOAD_LIMIT" -> {
                     this.titleKey = "blpc.toast.forceload_limit";
                     this.titleArgs = new Object[] { current, max };
+                    this.color = GuiColors.RED;
+                }
+                case "NO_PARTY" -> {
+                    this.titleKey = "blpc.toast.no_party";
+                    this.titleArgs = new Object[] {};
                     this.color = GuiColors.RED;
                 }
                 default -> this.titleKey = "";

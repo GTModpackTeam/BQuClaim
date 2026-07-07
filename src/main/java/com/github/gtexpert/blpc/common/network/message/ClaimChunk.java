@@ -20,7 +20,6 @@ import com.github.gtexpert.blpc.common.chunk.ChunkManagerData;
 import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.TicketManager;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
-import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 import io.netty.buffer.ByteBuf;
 
@@ -90,6 +89,7 @@ public class ClaimChunk implements IMessage {
         private void handleClaim(ClaimChunk msg, EntityPlayerMP player,
                                  ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing != null) return;
+            if (isPartyMissing(playerId, player)) return;
             if (isClaimLimitReached(data, playerId, player)) return;
             if (MinecraftForge.EVENT_BUS.post(
                     new ChunkModifiedEvent.Pre.Claim(msg.x, msg.z, playerId))) {
@@ -125,6 +125,7 @@ public class ClaimChunk implements IMessage {
         private void handleToggleForce(ClaimChunk msg, EntityPlayerMP player,
                                        ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing == null) {
+                if (isPartyMissing(playerId, player)) return;
                 if (isClaimLimitReached(data, playerId, player)) return;
                 if (isForceLoadLimitReached(data, playerId, player)) return;
                 if (MinecraftForge.EVENT_BUS.post(
@@ -175,6 +176,13 @@ public class ClaimChunk implements IMessage {
             BLPCSaveHandler.INSTANCE.markDirty();
         }
 
+        /** Claiming requires a party — solo protection with no party to share/manage it is not supported. */
+        private boolean isPartyMissing(UUID playerId, EntityPlayerMP player) {
+            if (PartyProviderRegistry.get().getPartyId(playerId) != null) return false;
+            ModNetwork.INSTANCE.sendTo(ClientNotify.claimFailed(ClientNotify.REASON_NO_PARTY, 0, 0), player);
+            return true;
+        }
+
         private boolean isClaimLimitReached(ChunkManagerData data, UUID playerId, EntityPlayerMP player) {
             return isLimitReached(data, playerId, player,
                     data::countClaims,
@@ -196,13 +204,17 @@ public class ClaimChunk implements IMessage {
         /**
          * Shared shape for claim/force-load limit checks: per-player counting, unless
          * {@link ModConfig.Claims#additiveLimits additiveLimits} is on and the player has a
-         * party, in which case usage and the cap are pooled across the party instead.
+         * party, in which case usage and the cap are pooled across the party instead. Resolves
+         * the party via the active {@link PartyProviderRegistry} provider (not a raw
+         * {@code PartyManagerData} lookup) so a BQu-linked player with no BLPC-side {@link Party}
+         * record of their own still gets pooled with their real party instead of falling back to
+         * a solo per-player cap.
          */
         private boolean isLimitReached(ChunkManagerData data, UUID playerId, EntityPlayerMP player,
                                        Function<UUID, Integer> perPlayerCount, Function<Party, Integer> perPartyCount,
                                        Function<Party, Integer> perPartyMax, int perPlayerMax, String reason) {
             Party party = ModConfig.claims.additiveLimits ?
-                    PartyManagerData.getInstance().getPartyByPlayer(playerId) : null;
+                    PartyProviderRegistry.get().getEffectiveParty(playerId) : null;
             int used = party != null ? perPartyCount.apply(party) : perPlayerCount.apply(playerId);
             int max = party != null ? perPartyMax.apply(party) : perPlayerMax;
             if (used >= max) {

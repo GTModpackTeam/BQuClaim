@@ -4,6 +4,7 @@ config.blpc.party=Party
 config.blpc.server_party=Server Party
 config.blpc.data=Data
 config.blpc.protection=Protection
+config.blpc.fair_play=Fair Play
 
 # Key bindings
 key.blpc.open_map=Open Chunk Map
@@ -196,7 +197,13 @@ blpc.addons.journeymap.title=JourneyMap
 blpc.addons.journeymap.overlays_on=Claim Overlays: ON
 blpc.addons.journeymap.overlays_off=Claim Overlays: OFF
 blpc.addons.journeymap.overlays_tooltip=Show BLPC claim regions on JourneyMap
-blpc.addons.journeymap.waypoints_soon=Team Waypoint Sharing (coming soon)
+blpc.addons.journeymap.waypoints_on=Team Waypoint Sharing: ON
+blpc.addons.journeymap.waypoints_off=Team Waypoint Sharing: OFF
+blpc.addons.journeymap.waypoints_tooltip=Show your party owner's shared waypoints on JourneyMap. Only the party owner can add, edit, or remove them.
+blpc.addons.journeymap.force_loaded_suffix=  (Force Loaded)
+
+# HUD
+blpc.hud.protected_area=Protected: %s
 
 # Transit Notifications
 blpc.transit.member.enter=%s returned home
@@ -222,3 +229,4 @@ blpc.toast.join_failed=Could not join the party
 # Claim Failed Notifications
 blpc.toast.claim_limit=Claim limit reached (%d/%d)
 blpc.toast.forceload_limit=Force load limit reached (%d/%d)
+blpc.toast.no_party=You must be in a party to claim chunks

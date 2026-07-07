@@ -14,12 +14,10 @@ import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyProviderRegistry;
 import com.github.gtexpert.blpc.api.util.PartyQueryUtil;
 import com.github.gtexpert.blpc.common.party.DefaultPartyProvider;
-import com.github.gtexpert.blpc.common.party.PartyManagerData;
 
 /**
  * Internal command-layer helpers. Query methods delegate to {@link PartyQueryUtil};
- * only {@link #activeProviderFor} stays here because it depends on the BQu-link flag
- * stored in {@link PartyManagerData}.
+ * only {@link #activeProviderFor} stays here because it depends on {@link IPartyProvider#isLinkedParty}.
  */
 public final class BLPCCommandHelper {
 
@@ -62,11 +60,13 @@ public final class BLPCCommandHelper {
     }
 
     /**
-     * Returns the provider that should handle a player-initiated mutation.
-     * BQu-linked players use the registered BQu provider; others use the self-managed default.
+     * Returns the provider that should handle a player-initiated mutation. Players in a linked
+     * BQu party (checked live via {@link IPartyProvider#isLinkedParty}, not a per-player flag —
+     * see {@code PartyAction.Handler#dispatch}) use the registered BQu provider; others use the
+     * self-managed default.
      */
     public static IPartyProvider activeProviderFor(EntityPlayerMP player) {
-        boolean linked = PartyManagerData.getInstance().isBQuLinked(player.getUniqueID());
-        return linked ? PartyProviderRegistry.get() : SELF_PROVIDER;
+        IPartyProvider provider = PartyProviderRegistry.get();
+        return provider.isLinkedParty(player.getUniqueID()) ? provider : SELF_PROVIDER;
     }
 }

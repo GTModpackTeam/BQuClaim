@@ -66,6 +66,22 @@ public class DefaultPartyProvider implements IPartyProvider {
 
     @Override
     @Nullable
+    public UUID getPartyId(UUID playerUUID) {
+        PartyManagerData data = getPartyData();
+        if (data == null) return null;
+        Party party = data.getPartyByPlayer(playerUUID);
+        return party != null ? party.getPartyId() : null;
+    }
+
+    @Override
+    @Nullable
+    public Party getEffectiveParty(UUID playerUUID) {
+        PartyManagerData data = getPartyData();
+        return data != null ? data.getPartyByPlayer(playerUUID) : null;
+    }
+
+    @Override
+    @Nullable
     public Party findByName(String name) {
         PartyManagerData data = getPartyData();
         if (data == null) return null;
