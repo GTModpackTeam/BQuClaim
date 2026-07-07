@@ -1,5 +1,9 @@
 package com.github.gtexpert.blpc.integration.jmap;
 
+import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -24,12 +28,14 @@ import journeymap.client.model.Waypoint;
  * edit would send a spurious REMOVE immediately followed by an ADD_OR_UPDATE. Instead, a
  * detected remove is held until the end of the current client tick; if a save for the same
  * waypoint arrives before then, the pending remove is dropped and only the update is sent.
+ * Removes are held per waypoint id (not a single slot), so deleting several waypoints within
+ * one tick still forwards every one of them.
  */
 @SideOnly(Side.CLIENT)
 public final class JMapWaypointOutgoing {
 
     private static volatile boolean applyingRemoteChange = false;
-    private static volatile String pendingRemoveId = null;
+    private static final Set<String> pendingRemoveIds = ConcurrentHashMap.newKeySet();
 
     private JMapWaypointOutgoing() {}
 
@@ -48,7 +54,8 @@ public final class JMapWaypointOutgoing {
         if (waypoint.getType() == Waypoint.Type.Death) return;
         if (!isPartyOwner()) return;
 
-        pendingRemoveId = null;
+        // Drop only this waypoint's pending remove, leaving other waypoints' removes queued.
+        pendingRemoveIds.remove(waypoint.getId());
 
         Integer color = waypoint.getColor();
         // A waypoint can span multiple dimensions in JourneyMap's UI, but BLPC's wire format
@@ -68,7 +75,7 @@ public final class JMapWaypointOutgoing {
 
         // Held until end-of-tick — see class javadoc. A same-waypoint save() arriving first
         // clears this via onLocalSave, so a pure edit never sends a REMOVE at all.
-        pendingRemoveId = waypoint.getId();
+        pendingRemoveIds.add(waypoint.getId());
     }
 
     /**
@@ -87,9 +94,12 @@ public final class JMapWaypointOutgoing {
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
-        String toRemove = pendingRemoveId;
-        if (toRemove == null) return;
-        pendingRemoveId = null;
-        ModNetwork.INSTANCE.sendToServer(WaypointAction.remove(toRemove));
+        if (pendingRemoveIds.isEmpty()) return;
+        // Drain via iterator.remove() so a remove queued mid-drain isn't lost.
+        for (Iterator<String> it = pendingRemoveIds.iterator(); it.hasNext();) {
+            String toRemove = it.next();
+            it.remove();
+            ModNetwork.INSTANCE.sendToServer(WaypointAction.remove(toRemove));
+        }
     }
 }

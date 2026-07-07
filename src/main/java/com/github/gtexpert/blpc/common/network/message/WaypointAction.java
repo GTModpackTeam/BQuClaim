@@ -146,6 +146,7 @@ public class WaypointAction implements IMessage {
                         }
                         if (data.countWaypoints(partyId) >= MAX_WAYPOINTS_PER_PARTY &&
                                 data.getWaypoint(partyId, message.waypointId) == null) {
+                            rollback(data, partyId, message.waypointId, player);
                             return;
                         }
                         var waypoint = new PartyWaypointData(message.waypointId, playerId, message.name,

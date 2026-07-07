@@ -67,6 +67,10 @@ public final class ClientCachePersistence {
     private static final Runnable claimListener = ClientCachePersistence::scheduleSave;
     private static final Runnable partyListener = ClientCachePersistence::scheduleSave;
 
+    // Captured at connect and reused by saves: a save deferred past disconnect can't rely on
+    // ClientCacheKey.current(), which may already read null (e.g. singleplayer world unload).
+    private static volatile String connectedKey;
+
     private ClientCachePersistence() {}
 
     /** Registers the debounced auto-save listeners. Must be called on the main thread. */
@@ -79,18 +83,20 @@ public final class ClientCachePersistence {
     public static void unregister() {
         ClientClaimCache.removeChangeListener(claimListener);
         ClientPartyCache.removeSyncListener(partyListener);
+        connectedKey = null;
     }
 
     /**
      * Loads any previously saved cache for the current connection. Must be called on the main
      * thread, before the server's fresh sync arrives (so the fresh sync naturally overwrites
-     * this best-effort snapshot).
+     * this best-effort snapshot). Also captures the current cache key for the lifetime of the
+     * connection, so subsequent saves don't depend on live connection state.
      */
     public static void loadForCurrentServer() {
-        String key = ClientCacheKey.current();
-        if (key == null) return;
+        connectedKey = ClientCacheKey.current();
+        if (connectedKey == null) return;
 
-        File dir = serverDir(key);
+        File dir = serverDir(connectedKey);
         loadClaims(new File(dir, CLAIMS_FILE));
         loadParties(new File(dir, PARTIES_FILE));
     }
@@ -125,7 +131,7 @@ public final class ClientCachePersistence {
 
     /** Builds the NBT snapshot on the calling (main) thread, then hands file I/O to a background thread. */
     private static void snapshotAndWrite() {
-        String key = ClientCacheKey.current();
+        String key = connectedKey;
         if (key == null) return;
 
         NBTTagCompound claimsNbt = buildClaimsNBT();

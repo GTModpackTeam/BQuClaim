@@ -55,7 +55,6 @@ public class ClientWaypointCache {
 
     public static void clearAll() {
         cache.clear();
-        changeListeners.clear();
     }
 
     public static Collection<PartyWaypointData> getAll() {
