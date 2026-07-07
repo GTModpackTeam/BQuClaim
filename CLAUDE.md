@@ -17,8 +17,8 @@ RetroFuturaGradle (RFG) + GTNH Buildscripts. **Do not edit `build.gradle`** (aut
 
 ## Key Rules
 
-- **Java 17 syntax mandatory** (Jabel → JVM 8): switch expressions (`->`), pattern matching `instanceof`, `var` for obvious types. Details in `.claude/skills/blpc-overview/SKILL.md`.
-- **Local builds need JDK 17**: spotless' googlejavaformat can't parse switch expressions on an older daemon JVM. If the Gradle daemon is Java 11/8, run with `-Dorg.gradle.java.home=<jdk17>` (e.g. `/usr/lib/jvm/zulu-17`). Compilation uses the Java 17 toolchain regardless.
+- **Java 25 syntax mandatory** (Jabel → JVM 8): switch expressions (`->`), pattern matching `instanceof`, `var` for obvious types. Details in `.claude/skills/blpc-overview/SKILL.md`.
+- **Local builds need JDK 25**: spotless' googlejavaformat can't parse switch expressions on an older daemon JVM. If the Gradle daemon is an older Java, run with `-Dorg.gradle.java.home=<jdk25>` (e.g. `/usr/lib/jvm/zulu-25`). Compilation uses the Java 25 toolchain regardless.
 - **Imports**: Always use `import` statements, not FQCN. Spotless enforces ordering.
 - **GUI entry points**: open screens through `client/gui/Screens` (the single catalog — `openMap()`, `partyMain(...)`), never `ClientGUI.open(new …)` ad-hoc. Reuse shared drawables from `client/gui/BLPCGuiTextures` (incl. `ICON_*` from ModularUI's `GuiTextures` atlas) instead of inlining drawables.
 - **GUI colors**: No ModularUI theme system — BLPC ships a single **light** look with colors defined directly in Java. `client/gui/BLPCColors` holds the **semantic** party/map colors (`text()`, `owner()`, `admin()`, `warning()`, `subtext()`, `inactive()`, `divider()`, `mapBackground()`, `mapBorder()`, `textShadow()`) as fixed constants. `client/gui/GuiColors` holds **fixed vanilla-context** colors (`WHITE`/`GOLD`/`GREEN`/`RED`/`GRAY` for toasts, map counters, tooltips, map grid). Use these holders — never inline `0x…` literals (the only exceptions are dynamic per-party `getColor()` ARGB composition). Buttons use ModularUI's default theme; black party text reads against it. Visual changes need `runClient` to verify.

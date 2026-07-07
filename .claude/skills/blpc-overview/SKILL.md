@@ -19,9 +19,9 @@ RetroFuturaGradle (RFG) with GTNH Buildscripts. **Do not edit `build.gradle`** (
 | JourneyMap API | Overlay integration | Optional |
 | JourneyMap mod jar (`compileOnly`, not runtime-required) | Compile-time target for `WaypointStoreMixin`'s internal (non-API) class references | Optional |
 
-## Java 17 Syntax (Mandatory)
+## Java 25 Syntax (Mandatory)
 
-Jabel (`enableModernJavaSyntax = true`) compiles Java 17 features to JVM 8 bytecode. **目的:** NPE削減(pattern matching で安全なキャスト)とコード量削減(switch expressions で冗長なbreak/castを排除)。
+Jabel (`enableModernJavaSyntax = true`) compiles Java 25 features to JVM 8 bytecode. **Purpose:** fewer NPEs (safe casts via pattern matching) and less code (switch expressions drop redundant `break`/casts).
 
 | Feature | Requirement | Example |
 |---|---|---|
