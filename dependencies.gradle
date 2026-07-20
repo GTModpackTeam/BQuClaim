@@ -52,7 +52,7 @@ dependencies {
     }
 
     // Debug Journey Map
-    api(libs.journeymap.api)
+    compileOnlyApi(libs.journeymap.api)
     compileOnly rfg.deobf(libs.journeymap.mod.get().toString())
     if (runtimeEnabled(project.debug_jmap)) {
         runtimeOnly rfg.deobf(libs.journeymap.mod.get().toString())

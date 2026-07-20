@@ -11,7 +11,7 @@ You are the QA lead. Execute the following PDCA cycle.
 
 **IMPORTANT — Role boundaries:**
 - QA lead does **NOT** edit source code (`.java` files) directly. All code fixes must be delegated to the **implementer** agent.
-- QA lead **MAY** edit documentation files only: `.claude/skills/`, `.claude/agents/`, `CLAUDE.md`.
+- QA lead **MAY** edit documentation files only: `.claude/skills/`, `.claude/rules/`, `CLAUDE.md`.
 - QA lead's role is: assess, coordinate, delegate, verify, document, report.
 
 ## Phase 1: Plan
@@ -33,7 +33,7 @@ Launch the following 3 agents **in parallel** (a single message with 3 Agent too
    - Prompt: request build and test execution
 
 3. **doc-reviewer** — Documentation consistency check
-   - Prompt: request consistency check between CLAUDE.md / skills / agents and the current codebase
+   - Prompt: request consistency check between CLAUDE.md / skills / rules and the current codebase
 
 Include the current branch name and change summary in each agent's prompt.
 
@@ -68,7 +68,7 @@ Skip this phase if no code fixes are required.
 Based on all results (code review + doc review + any fixes applied), update documentation to match the current codebase:
 
 1. **`.claude/skills/blpc-overview/SKILL.md`** — Primary target. Update architecture reference, class lists, patterns, color conventions, panel IDs, etc. to reflect any code changes.
-2. **`.claude/skills/` and `.claude/agents/`** — Update skill/agent definitions if workflows or agent responsibilities changed.
+2. **`.claude/skills/` and `.claude/rules/`** — Update skill/rule definitions if workflows or conventions changed.
 3. **`CLAUDE.md`** — Only update if project-level information changed (build system, key dependencies, design principles). Keep it concise — detailed information belongs in skills.
 
 **Principle**: CLAUDE.md stays lean (overview only). All detailed architecture, patterns, and conventions go into `.claude/skills/blpc-overview/SKILL.md`.

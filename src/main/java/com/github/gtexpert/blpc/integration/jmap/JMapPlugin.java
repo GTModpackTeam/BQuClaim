@@ -3,7 +3,6 @@ package com.github.gtexpert.blpc.integration.jmap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -13,6 +12,7 @@ import java.util.UUID;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 
 import com.github.gtexpert.blpc.Tags;
@@ -21,22 +21,35 @@ import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
 import com.github.gtexpert.blpc.common.chunk.ClientClaimCache;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
-import journeymap.client.api.ClientPlugin;
-import journeymap.client.api.IClientAPI;
-import journeymap.client.api.IClientPlugin;
-import journeymap.client.api.display.DisplayType;
-import journeymap.client.api.display.PolygonOverlay;
-import journeymap.client.api.event.ClientEvent;
-import journeymap.client.api.model.MapPolygon;
-import journeymap.client.api.model.ShapeProperties;
-import journeymap.client.api.model.TextProperties;
+import journeymap.api.v2.client.IClientAPI;
+import journeymap.api.v2.client.IClientPlugin;
+import journeymap.api.v2.client.display.DisplayType;
+import journeymap.api.v2.client.display.PolygonOverlay;
+import journeymap.api.v2.client.event.DisplayUpdateEvent;
+import journeymap.api.v2.client.event.FullscreenDisplayEvent;
+import journeymap.api.v2.client.event.MappingEvent;
+import journeymap.api.v2.client.fullscreen.ThemeButtonDisplay;
+import journeymap.api.v2.client.model.MapPolygon;
+import journeymap.api.v2.client.model.ShapeProperties;
+import journeymap.api.v2.client.model.TextProperties;
+import journeymap.api.v2.common.JourneyMapPlugin;
+import journeymap.api.v2.common.event.ClientEventRegistry;
+import journeymap.api.v2.common.event.CommonEventRegistry;
+import journeymap.api.v2.common.event.FullscreenEventRegistry;
+import journeymap.api.v2.common.event.common.WaypointEvent;
+import journeymap.api.v2.common.event.common.WaypointGroupEvent;
+import journeymap.api.v2.common.option.BooleanOption;
+import journeymap.api.v2.common.option.IntegerOption;
+import journeymap.api.v2.common.option.OptionCategory;
+import journeymap.api.v2.common.option.OptionsRegistry;
 
 /**
- * Draws claim overlays on JourneyMap. Contiguous chunks owned by the same player are
- * merged into a single polygon (outer perimeter + holes) with one label, instead of one
- * bordered-and-labelled box per chunk.
+ * Draws claim overlays on JourneyMap and provides a fullscreen toggle button.
+ * Contiguous chunks owned by the same player are merged into a single polygon
+ * (outer perimeter + holes) with one label, instead of one bordered-and-labelled
+ * box per chunk.
  */
-@ClientPlugin
+@JourneyMapPlugin(apiVersion = "2.0.0", dependencies = {})
 public class JMapPlugin implements IClientPlugin {
 
     private static final String OVERLAY_GROUP = "BLPC Claims";
@@ -51,18 +64,38 @@ public class JMapPlugin implements IClientPlugin {
     private static final float FORCE_LOADED_STROKE_OPACITY = 1.0f;
     private static final float FORCE_LOADED_STROKE_WIDTH = 3.0f;
 
+    private static final ResourceLocation BUTTON_ICON = new ResourceLocation(Tags.MODID,
+            "textures/gui/claim_overlay_icon.png");
+
     private IClientAPI api;
     private static JMapPlugin instance;
+    private BooleanOption overlaysOption;
     private final Map<String, PolygonOverlay> activeOverlays = new HashMap<>();
 
     @Override
     public void initialize(IClientAPI jmClientApi) {
         this.api = jmClientApi;
         instance = this;
-        api.subscribe(getModId(), EnumSet.of(
-                ClientEvent.Type.DISPLAY_UPDATE,
-                ClientEvent.Type.MAPPING_STARTED,
-                ClientEvent.Type.MAPPING_STOPPED));
+        ClientEventRegistry.DISPLAY_UPDATE_EVENT.subscribe(getModId(), this::onDisplayUpdate);
+        ClientEventRegistry.MAPPING_EVENT.subscribe(getModId(), this::onMappingEvent);
+        FullscreenEventRegistry.ADDON_BUTTON_DISPLAY_EVENT.subscribe(getModId(), this::onAddonButtons);
+        CommonEventRegistry.WAYPOINT_GROUP_EVENT.subscribe(getModId(), this::onWaypointGroupEvent);
+        CommonEventRegistry.WAYPOINT_EVENT.subscribe(getModId(), this::onWaypointEvent);
+        registerOptions();
+    }
+
+    private void registerOptions() {
+        var category = new OptionCategory(getModId(), "BLPC", "Better Link Party Claim");
+        overlaysOption = new BooleanOption(category, "showClaimOverlays",
+                I18n.format("blpc.addons.journeymap.overlays_option"), true);
+        var waypointSharing = new BooleanOption(category, "waypointSharing",
+                I18n.format("blpc.addons.journeymap.waypoints_option"), true);
+        var syncInterval = new IntegerOption(category, "waypointSyncInterval",
+                I18n.format("blpc.addons.journeymap.sync_interval_option"), 100, 0, 6000);
+        OptionsRegistry.register(getModId(), overlaysOption);
+        OptionsRegistry.register(getModId(), waypointSharing);
+        OptionsRegistry.register(getModId(), syncInterval);
+        JMapClientConfig.init(overlaysOption, waypointSharing, syncInterval);
     }
 
     @Override
@@ -70,17 +103,52 @@ public class JMapPlugin implements IClientPlugin {
         return Tags.MODID;
     }
 
-    @Override
-    public void onEvent(ClientEvent event) {
-        switch (event.type) {
-            case DISPLAY_UPDATE, MAPPING_STARTED -> refreshOverlays(event.dimension);
+    private void onDisplayUpdate(DisplayUpdateEvent event) {
+        refreshOverlays(event.dimension);
+    }
+
+    private void onMappingEvent(MappingEvent event) {
+        switch (event.getStage()) {
+            case MAPPING_STARTED -> refreshOverlays(event.dimension);
             case MAPPING_STOPPED -> clearOverlays();
-            default -> {}
         }
+    }
+
+    private void onAddonButtons(FullscreenDisplayEvent.AddonButtonDisplayEvent event) {
+        ThemeButtonDisplay display = event.getThemeButtonDisplay();
+        display.addThemeToggleButton(
+                I18n.format("blpc.addons.journeymap.overlays_on"),
+                I18n.format("blpc.addons.journeymap.overlays_off"),
+                BUTTON_ICON,
+                JMapClientConfig.isShowClaimOverlays(),
+                button -> {
+                    boolean toggled = Boolean.TRUE.equals(button.getToggled());
+                    try {
+                        overlaysOption.set(toggled);
+                    } catch (Exception ignored) {}
+                    refreshFromSettings();
+                });
+    }
+
+    private void onWaypointGroupEvent(WaypointGroupEvent event) {
+        if (event.getContext() != WaypointGroupEvent.Context.DELETED) return;
+        if (!Tags.MODID.equals(event.getGroup().getModId())) return;
+        if (!JMapWaypointSyncHandler.GROUP_NAME.equals(event.getGroup().getName())) return;
+        JMapWaypointSyncHandler.refreshFromSettings();
+    }
+
+    private void onWaypointEvent(WaypointEvent event) {
+        if (event.getContext() != WaypointEvent.Context.DELETED) return;
+        if (!Tags.MODID.equals(event.getWaypoint().getModId())) return;
+        JMapWaypointSyncHandler.refreshFromSettings();
     }
 
     static JMapPlugin getInstance() {
         return instance;
+    }
+
+    static IClientAPI getApi() {
+        return instance != null ? instance.api : null;
     }
 
     /** Re-applies overlays after a settings toggle: redraws when enabled, clears when disabled. */
@@ -94,7 +162,6 @@ public class JMapPlugin implements IClientPlugin {
     void refreshOverlays(int dimension) {
         if (api == null) return;
 
-        // Client toggle (Addons → JourneyMap): drop existing overlays when disabled.
         if (!JMapClientConfig.isShowClaimOverlays()) {
             if (!activeOverlays.isEmpty()) clearOverlays();
             return;
@@ -105,7 +172,6 @@ public class JMapPlugin implements IClientPlugin {
 
         UUID playerUUID = mc.player.getUniqueID();
 
-        // Group claims by owner so each owner's contiguous chunks can be merged.
         Map<UUID, List<ClaimedChunkData>> byOwner = new HashMap<>();
         for (ClaimedChunkData claim : ClientClaimCache.getAll()) {
             byOwner.computeIfAbsent(claim.ownerUUID, k -> new ArrayList<>()).add(claim);
@@ -116,7 +182,6 @@ public class JMapPlugin implements IClientPlugin {
             buildOwnerRegions(entry.getValue(), playerUUID, dimension, currentKeys);
         }
 
-        // Remove overlays for regions that no longer exist.
         activeOverlays.entrySet().removeIf(e -> {
             if (!currentKeys.contains(e.getKey())) {
                 api.remove(e.getValue());
@@ -128,7 +193,6 @@ public class JMapPlugin implements IClientPlugin {
 
     private void buildOwnerRegions(List<ClaimedChunkData> claims, UUID playerUUID, int dimension,
                                    Set<String> currentKeys) {
-        // Index the owner's chunks by packed cell key for connectivity lookup.
         Map<Long, ClaimedChunkData> cells = new HashMap<>();
         for (ClaimedChunkData c : claims) {
             cells.put(cell(c.x, c.z), c);
@@ -154,7 +218,6 @@ public class JMapPlugin implements IClientPlugin {
 
             List<MapPolygon> loops = traceLoops(component);
             if (loops.isEmpty()) continue;
-            // The largest loop is the outer perimeter; the rest are holes.
             MapPolygon outer = loops.remove(largestLoopIndex(loops));
 
             String key = sample.ownerUUID + ":" + minX + "," + minZ;
@@ -179,13 +242,12 @@ public class JMapPlugin implements IClientPlugin {
             return;
         }
 
-        PolygonOverlay overlay = new PolygonOverlay(getModId(), "claim_region_" + key, dimension,
+        PolygonOverlay overlay = new PolygonOverlay(getModId(), dimension,
                 createShapeProperties(areaColor, forceLoaded), outer, holes.isEmpty() ? null : holes);
         overlay.setOverlayGroupName(OVERLAY_GROUP);
         overlay.setTitle(title);
+        overlay.setDisplayOrder(1000);
         overlay.setTextProperties(new TextProperties()
-                .setMinZoom(4)
-                .setMaxZoom(8)
                 .setColor(textColor)
                 .setBackgroundOpacity(0.6f)
                 .setFontShadow(true));
@@ -201,13 +263,12 @@ public class JMapPlugin implements IClientPlugin {
         activeOverlays.clear();
     }
 
-    // --- Geometry: merge contiguous chunks into outline polygons ---
+    // --- Geometry ---
 
     private static long cell(int cx, int cz) {
         return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
     }
 
-    /** 4-connected flood fill; removes visited cells from {@code remaining}. */
     private static Set<Long> floodFill(long start, Set<Long> remaining) {
         Set<Long> component = new HashSet<>();
         Deque<Long> queue = new ArrayDeque<>();
@@ -226,30 +287,20 @@ public class JMapPlugin implements IClientPlugin {
         return component;
     }
 
-    /**
-     * Traces the boundary of a connected cell set into closed loops. The largest loop is the
-     * outer perimeter; the rest are holes. Each cell edge whose neighbor is outside the set is a
-     * directed boundary edge (oriented to match JourneyMap's single-chunk winding).
-     */
     private static List<MapPolygon> traceLoops(Set<Long> cells) {
-        // start corner -> ends of boundary edges
         Map<Long, Deque<Long>> edges = new HashMap<>();
         for (long c : cells) {
             int cx = (int) (c >> 32);
             int cz = (int) c;
-            // south edge: (cx, cz+1) -> (cx+1, cz+1), neighbor (cx, cz+1)
             if (!cells.contains(cell(cx, cz + 1))) addEdge(edges, corner(cx, cz + 1), corner(cx + 1, cz + 1));
-            // east edge: (cx+1, cz+1) -> (cx+1, cz), neighbor (cx+1, cz)
             if (!cells.contains(cell(cx + 1, cz))) addEdge(edges, corner(cx + 1, cz + 1), corner(cx + 1, cz));
-            // north edge: (cx+1, cz) -> (cx, cz), neighbor (cx, cz-1)
             if (!cells.contains(cell(cx, cz - 1))) addEdge(edges, corner(cx + 1, cz), corner(cx, cz));
-            // west edge: (cx, cz) -> (cx, cz+1), neighbor (cx-1, cz)
             if (!cells.contains(cell(cx - 1, cz))) addEdge(edges, corner(cx, cz), corner(cx, cz + 1));
         }
 
         List<MapPolygon> loops = new ArrayList<>();
         while (!edges.isEmpty()) {
-            long startCorner = firstStart(edges);
+            long startCorner = edges.keySet().iterator().next();
             List<long[]> corners = new ArrayList<>();
             long cur = startCorner;
             do {
@@ -271,11 +322,6 @@ public class JMapPlugin implements IClientPlugin {
         edges.computeIfAbsent(start, k -> new ArrayDeque<>()).add(end);
     }
 
-    private static long firstStart(Map<Long, Deque<Long>> edges) {
-        return edges.keySet().iterator().next();
-    }
-
-    /** Returns index of the loop with the largest absolute area (the outer perimeter). */
     private static int largestLoopIndex(List<MapPolygon> loops) {
         int best = 0;
         double bestArea = -1;
@@ -300,7 +346,6 @@ public class JMapPlugin implements IClientPlugin {
         return area / 2.0;
     }
 
-    /** Removes points that are collinear with their neighbors (axis-aligned loop). */
     private static List<long[]> dropCollinear(List<long[]> corners) {
         int n = corners.size();
         List<long[]> out = new ArrayList<>();
@@ -315,7 +360,6 @@ public class JMapPlugin implements IClientPlugin {
     }
 
     private static MapPolygon toPolygon(List<long[]> corners) {
-        // Rotate so the south-west-most corner (min X, then max Z) comes first, as JourneyMap expects.
         int startIdx = 0;
         for (int i = 1; i < corners.size(); i++) {
             long[] c = corners.get(i);

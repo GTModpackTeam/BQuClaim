@@ -38,7 +38,7 @@ import com.github.gtexpert.blpc.modules.Modules;
      acceptedMinecraftVersions = "[1.12.2]",
      dependencies = "required-after:" + Mods.Names.MODULAR_UI + ";" +
              "after:" + Mods.Names.BETTER_QUESTING + ";" +
-             "after:" + Mods.Names.JOURNEY_MAP + ";")
+             "after:" + Mods.Names.JOURNEY_MAP + "@[1.12.2-6.0.0-beta.2,);")
 public class BLPCMod {
 
     public static BLPCMod INSTANCE;

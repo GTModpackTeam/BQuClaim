@@ -32,6 +32,7 @@ public final class IntegrationPanelRegistry {
         private final String tooltipKey;
         private final BooleanSupplier available;
         private final Function<UUID, ModularPanel> factory;
+        private final Runnable action;
 
         Entry(String labelKey, String tooltipKey, BooleanSupplier available,
               Function<UUID, ModularPanel> factory) {
@@ -39,6 +40,15 @@ public final class IntegrationPanelRegistry {
             this.tooltipKey = tooltipKey;
             this.available = available;
             this.factory = factory;
+            this.action = null;
+        }
+
+        Entry(String labelKey, String tooltipKey, BooleanSupplier available, Runnable action) {
+            this.labelKey = labelKey;
+            this.tooltipKey = tooltipKey;
+            this.available = available;
+            this.factory = null;
+            this.action = action;
         }
 
         public String labelKey() {
@@ -54,8 +64,18 @@ public final class IntegrationPanelRegistry {
             return available.getAsBoolean();
         }
 
+        /** True when this entry opens a sub-panel; false when it runs an action instead. */
+        public boolean hasPanel() {
+            return factory != null;
+        }
+
         public ModularPanel createPanel(UUID playerId) {
-            return factory.apply(playerId);
+            return factory != null ? factory.apply(playerId) : null;
+        }
+
+        /** Runs the entry's action (e.g. opening an external settings screen). */
+        public void runAction() {
+            if (action != null) action.run();
         }
     }
 
@@ -74,6 +94,15 @@ public final class IntegrationPanelRegistry {
     public static void register(String labelKey, String tooltipKey, BooleanSupplier available,
                                 Function<UUID, ModularPanel> factory) {
         ENTRIES.add(new Entry(labelKey, tooltipKey, available, factory));
+    }
+
+    /**
+     * Registers an action-only entry (no sub-panel). Clicking the button runs {@code action}
+     * directly — useful for opening an external screen (e.g. JourneyMap's own settings UI).
+     */
+    public static void registerAction(String labelKey, String tooltipKey, BooleanSupplier available,
+                                      Runnable action) {
+        ENTRIES.add(new Entry(labelKey, tooltipKey, available, action));
     }
 
     /** Currently-available entries, in registration order. */

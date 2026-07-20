@@ -1,41 +1,36 @@
 package com.github.gtexpert.blpc.integration.jmap;
 
-import java.util.Iterator;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.api.party.Party;
 import com.github.gtexpert.blpc.api.party.PartyRole;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.WaypointAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
 
-import journeymap.client.model.Waypoint;
+import journeymap.api.v2.common.event.CommonEventRegistry;
+import journeymap.api.v2.common.event.common.WaypointEvent;
+import journeymap.api.v2.common.waypoint.Waypoint;
 
 /**
- * Detects local waypoint changes ({@link WaypointStoreMixin}) and forwards them to the server
- * so they reach the rest of the local player's party. Not registered/loaded unless JourneyMap
- * is present (gated by {@code mixins.blpc.journeymap.json}).
+ * Detects local waypoint changes via the v2 {@link WaypointEvent} API and forwards them to the
+ * server so they reach the rest of the local player's party.
  * <p>
- * {@code WaypointEditor.save()} always calls {@code WaypointStore.remove(original)} then
- * {@code WaypointStore.save(edited)}, even for a brand-new waypoint. Without debouncing, every
- * edit would send a spurious REMOVE immediately followed by an ADD_OR_UPDATE. Instead, a
- * detected remove is held until the end of the current client tick; if a save for the same
- * waypoint arrives before then, the pending remove is dropped and only the update is sent.
- * Removes are held per waypoint id (not a single slot), so deleting several waypoints within
- * one tick still forwards every one of them.
+ * Death waypoints are excluded by the API itself: {@code CommonEventRegistry.WAYPOINT_EVENT}
+ * suppresses {@code CREATE} for death waypoints; they fire only on the dedicated
+ * {@code DEATH_WAYPOINT_EVENT}.
+ * <p>
+ * Only the party OWNER's edits are sent (see {@code WaypointAction} javadoc). This is purely
+ * to avoid pointless traffic and rollback flicker for non-owners; the server enforces the real
+ * check regardless of what a modified client might send.
  */
 @SideOnly(Side.CLIENT)
 public final class JMapWaypointOutgoing {
 
     private static volatile boolean applyingRemoteChange = false;
-    private static final Set<String> pendingRemoveIds = ConcurrentHashMap.newKeySet();
 
     private JMapWaypointOutgoing() {}
 
@@ -48,58 +43,43 @@ public final class JMapWaypointOutgoing {
         applyingRemoteChange = false;
     }
 
-    public static void onLocalSave(Waypoint waypoint) {
-        if (applyingRemoteChange) return;
-        if (!JMapClientConfig.isWaypointSharingEnabled()) return;
-        if (waypoint.getType() == Waypoint.Type.Death) return;
-        if (!isPartyOwner()) return;
-
-        // Drop only this waypoint's pending remove, leaving other waypoints' removes queued.
-        pendingRemoveIds.remove(waypoint.getId());
-
-        Integer color = waypoint.getColor();
-        // A waypoint can span multiple dimensions in JourneyMap's UI, but BLPC's wire format
-        // only carries one; picking any single entry is fine since shared waypoints are almost
-        // always dimension-specific in practice.
-        int dimension = waypoint.getDimensions().isEmpty() ? 0 : waypoint.getDimensions().iterator().next();
-        ModNetwork.INSTANCE.sendToServer(WaypointAction.addOrUpdate(
-                waypoint.getId(), waypoint.getName(), dimension,
-                waypoint.getX(), waypoint.getY(), waypoint.getZ(), color != null ? color : 0xFFFFFF));
+    static void register() {
+        CommonEventRegistry.WAYPOINT_EVENT.subscribe(Tags.MODID, JMapWaypointOutgoing::onWaypointEvent);
     }
 
-    public static void onLocalRemove(Waypoint waypoint) {
+    private static void onWaypointEvent(WaypointEvent event) {
         if (applyingRemoteChange) return;
         if (!JMapClientConfig.isWaypointSharingEnabled()) return;
-        if (waypoint.getType() == Waypoint.Type.Death) return;
         if (!isPartyOwner()) return;
 
-        // Held until end-of-tick — see class javadoc. A same-waypoint save() arriving first
-        // clears this via onLocalSave, so a pure edit never sends a REMOVE at all.
-        pendingRemoveIds.add(waypoint.getId());
+        Waypoint waypoint = event.getWaypoint();
+        if (Tags.MODID.equals(waypoint.getModId())) return;
+
+        switch (event.getContext()) {
+            case CREATE, UPDATE -> {
+                int dimension = parseDimension(waypoint.getPrimaryDimension());
+                ModNetwork.INSTANCE.sendToServer(WaypointAction.addOrUpdate(
+                        waypoint.getId(), waypoint.getName(), dimension,
+                        waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getColor()));
+            }
+            case DELETED -> ModNetwork.INSTANCE.sendToServer(WaypointAction.remove(waypoint.getId()));
+            default -> {}
+        }
     }
 
-    /**
-     * Client-side mirror of the server's authorization check (see {@code WaypointAction}
-     * javadoc) — only the party OWNER's edits are sent. This is purely to avoid pointless
-     * traffic and rollback flicker for non-owners; the server enforces the real check
-     * regardless of what a modified client might send.
-     */
+    private static int parseDimension(String dim) {
+        if (dim == null || dim.isEmpty()) return 0;
+        try {
+            return Integer.parseInt(dim);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     private static boolean isPartyOwner() {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.player == null) return false;
         Party party = ClientPartyCache.getPartyByPlayer(mc.player.getUniqueID());
         return party != null && party.getRole(mc.player.getUniqueID()) == PartyRole.OWNER;
-    }
-
-    @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        if (pendingRemoveIds.isEmpty()) return;
-        // Drain via iterator.remove() so a remove queued mid-drain isn't lost.
-        for (Iterator<String> it = pendingRemoveIds.iterator(); it.hasNext();) {
-            String toRemove = it.next();
-            it.remove();
-            ModNetwork.INSTANCE.sendToServer(WaypointAction.remove(toRemove));
-        }
     }
 }

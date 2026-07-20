@@ -8,6 +8,7 @@ config.blpc.fair_play=Fair Play
 
 # Key bindings
 key.blpc.open_map=Open Chunk Map
+key.blpc.open_party=Open Party Menu
 key.categories.blpc=Better Link Party Claim
 
 # Commands
@@ -201,6 +202,9 @@ blpc.addons.journeymap.waypoints_on=Team Waypoint Sharing: ON
 blpc.addons.journeymap.waypoints_off=Team Waypoint Sharing: OFF
 blpc.addons.journeymap.waypoints_tooltip=Show your party owner's shared waypoints on JourneyMap. Only the party owner can add, edit, or remove them.
 blpc.addons.journeymap.force_loaded_suffix=  (Force Loaded)
+blpc.addons.journeymap.overlays_option=Show Claim Overlays
+blpc.addons.journeymap.waypoints_option=Team Waypoint Sharing
+blpc.addons.journeymap.sync_interval_option=Waypoint Sync Interval (ticks)
 
 # HUD
 blpc.hud.protected_area=Protected: %s

@@ -8,6 +8,7 @@ config.blpc.fair_play=フェアプレイ
 
 # Key bindings
 key.blpc.open_map=チャンクマップを開く
+key.blpc.open_party=パーティメニューを開く
 key.categories.blpc=Better Link Party Claim
 
 # Commands
@@ -201,6 +202,9 @@ blpc.addons.journeymap.waypoints_on=チームウェイポイント共有: ON
 blpc.addons.journeymap.waypoints_off=チームウェイポイント共有: OFF
 blpc.addons.journeymap.waypoints_tooltip=パーティオーナーが共有したウェイポイントをJourneyMap上に表示します。追加・編集・削除はオーナーのみ可能です。
 blpc.addons.journeymap.force_loaded_suffix=  (強制ロード中)
+blpc.addons.journeymap.overlays_option=保護領域オーバーレイ表示
+blpc.addons.journeymap.waypoints_option=チームウェイポイント共有
+blpc.addons.journeymap.sync_interval_option=ウェイポイント同期間隔 (tick)
 
 # HUD
 blpc.hud.protected_area=保護区域: %s

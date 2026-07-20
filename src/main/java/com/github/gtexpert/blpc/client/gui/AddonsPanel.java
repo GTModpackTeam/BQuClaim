@@ -59,14 +59,21 @@ public final class AddonsPanel {
 
     private static ButtonWidget<?> buildEntryButton(ModularPanel panel,
                                                     IntegrationPanelRegistry.Entry entry, UUID playerId) {
-        // One handler per entry, created once with the panel — IPanelHandler.simple
-        // registers into panel.clientSubPanels (no removal API), and this panel is a
-        // fresh instance on every open, so there is nothing to leak across opens.
-        IPanelHandler handler = IPanelHandler.simple(
-                panel, (pp, player) -> entry.createPanel(playerId), true);
-        ButtonWidget<?> btn = PartyWidgets.dialogButton(
-                IKey.lang(entry.labelKey()).alignment(Alignment.CenterLeft), handler)
-                .widthRel(1f).height(PartyWidgets.BTN_H)
+        ButtonWidget<?> btn;
+        if (entry.hasPanel()) {
+            IPanelHandler handler = IPanelHandler.simple(
+                    panel, (pp, player) -> entry.createPanel(playerId), true);
+            btn = PartyWidgets.dialogButton(
+                    IKey.lang(entry.labelKey()).alignment(Alignment.CenterLeft), handler);
+        } else {
+            btn = new ButtonWidget<>()
+                    .overlay(IKey.lang(entry.labelKey()).alignment(Alignment.CenterLeft))
+                    .onMousePressed(mouseButton -> {
+                        entry.runAction();
+                        return true;
+                    });
+        }
+        btn.widthRel(1f).height(PartyWidgets.BTN_H)
                 .padding(PartyWidgets.ROW_INDENT, 0, 0, 0);
         if (entry.tooltipKey() != null) {
             btn.addTooltipLine(IKey.lang(entry.tooltipKey()));

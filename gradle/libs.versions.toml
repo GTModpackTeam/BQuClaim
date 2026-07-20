@@ -1,11 +1,11 @@
 [versions]
 modularui = "3.1.6"
 betterquesting = "8097689" # 4.3.2
-journeymap-api = "1.12-1.4"
-journeymap-mod = "5172461" # 1.12.2-5.7.1p3
+journeymap-api = "1.12.2-2.0.0"
+journeymap-mod = "8448395" # 1.12.2-6.0.0-beta.2
 
 [libraries]
 modularui = { module = "com.cleanroommc:modularui", version.ref = "modularui" }
 betterquesting = { module = "curse.maven:better-questing-unofficial-629629", version.ref = "betterquesting" }
-journeymap-api = { module = "info.journeymap:journeymap-api", version.ref = "journeymap-api" }
+journeymap-api = { module = "info.journeymap:journeymap-api-forge", version.ref = "journeymap-api" }
 journeymap-mod = { module = "curse.maven:journeymap-32274", version.ref = "journeymap-mod" }

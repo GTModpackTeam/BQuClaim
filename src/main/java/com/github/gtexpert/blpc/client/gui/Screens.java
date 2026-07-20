@@ -8,8 +8,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.factory.ClientGUI;
+import com.cleanroommc.modularui.screen.CustomModularScreen;
 import com.cleanroommc.modularui.screen.ModularPanel;
+import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 
+import com.github.gtexpert.blpc.Tags;
 import com.github.gtexpert.blpc.client.gui.party.CreatePanel;
 import com.github.gtexpert.blpc.client.gui.party.MainPanel;
 import com.github.gtexpert.blpc.client.gui.party.MembersPanel;
@@ -59,6 +62,19 @@ public final class Screens {
         if (Minecraft.getMinecraft().currentScreen == null) {
             ClientGUI.open(new ChunkMapScreen());
         }
+    }
+
+    /** Opens the party main panel directly via keybind. No-op when another screen is already open. */
+    public static void openPartyDirect() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.currentScreen != null || mc.player == null) return;
+        ClientGUI.open(new CustomModularScreen(Tags.MODID) {
+
+            @Override
+            public ModularPanel buildUI(ModularGuiContext context) {
+                return partyMain(mc.player.getUniqueID(), null);
+            }
+        });
     }
 
     /**

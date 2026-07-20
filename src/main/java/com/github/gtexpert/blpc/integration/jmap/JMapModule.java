@@ -23,10 +23,10 @@ import com.github.gtexpert.blpc.modules.Modules;
  * JourneyMap integration module.
  * <p>
  * Loaded only when {@code journeymap} is installed. On the client, hooks the
- * claim sync stream so JourneyMap displays per-chunk claim overlays, and (when the
- * Mixin-based waypoint bridge is active) mirrors party-shared waypoints onto the local
- * JourneyMap waypoint store. Sync handlers are re-registered on every reconnect to recover
- * from JourneyMap resetting its overlay state on disconnect.
+ * claim sync stream so JourneyMap displays per-chunk claim overlays, and mirrors
+ * party-shared waypoints onto the local JourneyMap waypoint store via the v2 API.
+ * Sync handlers are re-registered on every reconnect to recover from JourneyMap
+ * resetting its overlay state on disconnect.
  */
 @TModule(
          moduleID = Modules.MODULE_JMAP,
@@ -49,10 +49,11 @@ public class JMapModule extends IntegrationSubmodule {
             syncHandler.register();
             waypointSyncHandler = new JMapWaypointSyncHandler();
             waypointSyncHandler.register();
+            MinecraftForge.EVENT_BUS.register(waypointSyncHandler);
+            JMapWaypointOutgoing.register();
             MinecraftForge.EVENT_BUS.register(this);
-            MinecraftForge.EVENT_BUS.register(JMapWaypointOutgoing.class);
-            IntegrationPanelRegistry.register(
-                    "blpc.addons.journeymap", null, () -> true, JMapSettingsPanel::build);
+            IntegrationPanelRegistry.registerAction(
+                    "blpc.addons.journeymap", null, () -> true, JMapSettingsPanel::open);
         }
     }
 

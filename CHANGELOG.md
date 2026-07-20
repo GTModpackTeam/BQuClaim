@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.15.0]
+
+> **JourneyMap v5 is no longer supported.** JourneyMap 6.0.0-beta.2 or later is now required.
+
+### Added
+
+- **Key bindings now appear in Minecraft's Controls screen**
+  - A new "Better Link Party Claim" category shows up in Options → Controls, with two rebindable keys:
+  - Open Chunk Map (default: M)
+  - Open Party Menu (default: P) — jump straight to the party menu without opening the map first.
+  - Keys coexist safely with JourneyMap and other mods — they only fire while in-game, not inside GUIs.
+- **Claim overlay toggle button on JourneyMap's fullscreen map**
+  - Opening JourneyMap's fullscreen map now shows a toggle button in the Addon area to show or hide claim overlays.
+- **BLPC settings accessible from JourneyMap's own options**
+  - Claim overlay visibility, team waypoint sharing, and sync interval can all be changed directly from JourneyMap's Addon Options screen.
+  - The BLPC party menu → Addons → JourneyMap button now takes you straight to JourneyMap's settings instead of a separate panel.
+- **Shared waypoints organized into a "BLPC Party" group**
+  - The group cannot be deleted through JourneyMap's UI — if somehow removed, it is automatically restored.
+  - Turning off waypoint sharing hides the group instead of deleting it, so turning it back on restores everything instantly. The group is only fully removed when you leave or disband the party.
+- **Periodic waypoint sync**
+  - Team waypoints are re-synced to JourneyMap every 5 seconds (100 ticks) by default. The interval is adjustable in JourneyMap's Addon Options — set to 0 for event-driven sync only.
+
+### Changed
+
+- **JourneyMap v6 support**
+  - Fully updated to JourneyMap v6's new plugin API. JourneyMap v5 and earlier are no longer compatible.
+
+### Fixed
+
+- **Key bindings not showing in Minecraft's Controls screen**
+
+[0.15.0]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.15.0
+
+* * *
+
 ## [0.14.0]
 
 ### Added

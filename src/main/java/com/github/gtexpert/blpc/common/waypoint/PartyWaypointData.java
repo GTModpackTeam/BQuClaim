@@ -6,8 +6,8 @@ import net.minecraft.nbt.NBTTagCompound;
 
 /**
  * A single party-shared waypoint. {@code waypointId} is the JourneyMap-side identifier of the
- * waypoint on the creator's client ({@code journeymap.client.model.Waypoint#getId()}), reused
- * as the shared key so add/update/remove messages from any member address the same entry.
+ * waypoint on the creator's client ({@code journeymap.api.v2.common.waypoint.Waypoint#getId()}),
+ * reused as the shared key so add/update/remove messages from any member address the same entry.
  */
 public class PartyWaypointData {
 

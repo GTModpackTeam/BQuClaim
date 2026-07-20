@@ -203,8 +203,25 @@ if (event.getSide().isClient()) {
 
 The entry appears automatically under the party menu's Addons entry once `available`
 returns `true` — no changes to BLPC's own UI code are needed. See
-`integration/jmap/JMapSettingsPanel.java` or `integration/bqu/BQuSettingsPanel.java` in
-BLPC's own source for a complete reference implementation.
+`integration/bqu/BQuSettingsPanel.java` in BLPC's own source for a complete reference
+implementation of a panel-backed entry.
+
+If your integration doesn't need its own `ModularPanel` — e.g. it just opens another
+mod's native settings screen — register an action-only entry instead with
+`registerAction(...)`:
+
+```java
+IntegrationPanelRegistry.registerAction(
+    "mymod.addons.label",
+    null,                       // tooltip lang key, or null
+    () -> true,                 // availability predicate
+    MySettingsOpener::open);    // Runnable — no UUID/ModularPanel involved
+```
+
+`AddonsPanel` distinguishes the two via `Entry.hasPanel()`: panel entries open a
+sub-panel through `IPanelHandler`, action entries just invoke `Runnable.run()` on click.
+See `integration/jmap/JMapSettingsPanel.java`, which uses `registerAction(...)` to jump
+straight to JourneyMap's own Addon Options screen.
 
 ---
 
@@ -248,6 +265,16 @@ require sibling modules by `ResourceLocation`; `modDependencies()` requires Forg
 ID. Users can still disable any module via `config/<modid>/modules.cfg` unless
 `coreModule() = true`.
 
+**Important:** if you use your own `containerID` (e.g. `containerID = "mymod"` instead
+of `"blpc"`), that container **must** include exactly one module with
+`coreModule = true` — otherwise `ModuleManager` throws an `IllegalStateException` at
+FML Construction and the game will not start. If you only have one module, mark it as
+the core module. If you register under `containerID = "blpc"` (BLPC's own container),
+BLPC's own `CoreModule` already satisfies this requirement.
+
+`@TModule(coreModule = true)` also means the module cannot be disabled via
+`modules.cfg`, so use it deliberately, not by default.
+
 ---
 
 ## Utility helpers
@@ -256,7 +283,10 @@ ID. Users can still disable any module via `config/<modid>/modules.cfg` unless
   `ResourceLocation` namespaced under BLPC's mod ID.
 - **`Mods`** — lazy-cached `Loader.isModLoaded()` checks for BLPC's own soft
   dependencies (`BetterQuesting`, `ModularUI`, `JourneyMap`); `Mods.Names` holds the raw
-  mod-ID strings.
+  mod-ID strings. `Mods.Names.JOURNEY_MAP` presence alone isn't a version guarantee —
+  BLPC's JourneyMap integration targets the v2 API and requires JourneyMap **v6+**
+  (`@Mod`'s `after:journeymap@[1.12.2-6.0.0-beta.2,)` constraint); an older JourneyMap
+  install loads as absent from the integration's perspective.
 - **`EnumUtils.parseOrDefault(Class<E>, name, default)`** — `Enum.valueOf` that falls
   back to a default instead of throwing on an unrecognized or `null` name. Used
   throughout `api.party`'s `fromName` parsers; reach for it instead of writing another
