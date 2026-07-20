@@ -10,37 +10,61 @@
     <a href="https://github.com/GTModpackTeam/BetterLinkPartyClaim/releases"><img src="https://img.shields.io/github/downloads/GTModpackTeam/BetterLinkPartyClaim/total?sort=semver&logo=github&label=&style=for-the-badge&color=2d2d2d&labelColor=545454&logoColor=FFFFFF" alt="GitHub"></a>
 </h1>
 
-## Info
-1. BetterLinkPartyClaim(BLPC) is a chunk claiming mod with its own party system, with optional integration into Better Questing Unofficial's parties. Players can claim chunks, share access with party members, and optionally force-load claimed chunks.
-2. Includes a full-screen claim map (ModularUI) with async chunk rendering and texture caching, plus an Addons menu for optional mod integrations.
-3. **Check with [Curseforge](https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim) or [Modrinth](https://modrinth.com/mod/better-link-party-claim) to see what changes have been made!!**
+## About
+
+BetterLinkPartyClaim (BLPC) is a chunk claiming mod with a server-authoritative party system for Minecraft 1.12.2. Optional integration with BetterQuesting Unofficial and JourneyMap.
+
+See [CurseForge](https://www.curseforge.com/minecraft/mc-mods/better-link-party-claim) or [Modrinth](https://modrinth.com/mod/better-link-party-claim) for full details and downloads.
 
 ## Features
 
 ### Chunk Claiming
-- Claim and unclaim chunks via an in-game map UI
-- Force-load claimed chunks (respecting per-player limits)
-- Bulk operations by dragging across chunks
+- Full-screen chunk map (**M** key) with async terrain rendering and party color overlays
+- Drag selection for bulk claim/unclaim/force-load operations
+- One-click "unclaim all" / "unload all" buttons
 
-### Party Integration
-- Server-authoritative parties with Owner/Admin/Member roles, allies, and enemies
-- Allies are visualized on the claim map
-- Role-based tab UI for invited/joined party members
-- Optional link to a Better Questing Unofficial party, managed from the Addons menu
+### Party System
+- Server-authoritative parties with Owner/Admin/Member roles
+- Per-action trust levels (block edit, block interact, attack entity, item use)
+- Party-vs-party allies and enemies
+- Free-to-join toggle, party color, description, explosion protection
 
-### Map
-- Full-screen chunk map (default keybind: `M`)
-- Async chunk map rendering with texture caching for performance
+### Party Menu
+- Tabbed ModularUI party manager with searchable player lists
+- Open directly via **P** key — no need to open the map first
+- Addons hub for per-mod integration settings
 
-### Addons Menu (optional integrations)
-- A searchable "Addons" screen in the party menu gathers settings for optional mod integrations in one place
-- **BetterQuesting** — link/unlink your BLPC party to a BQu party, with a shortcut to BQu's own party manager
-- **JourneyMap** — shows claimed chunks as overlays directly on JourneyMap's map, merging adjacent same-owner chunks into a single labeled area
+### JourneyMap Integration (v6+)
+- Claim overlays drawn directly on JourneyMap's map
+- Toggle button on JourneyMap's fullscreen map
+- BLPC settings adjustable from JourneyMap's Addon Options screen
+- Team waypoint sharing — the party owner's waypoints appear as a locked "BLPC Party" group for all members
+
+### BetterQuesting Integration
+- Link your BLPC party to a BQu party with a single toggle
+- Quest sharing works unchanged
+
+### Notifications
+- Toast notifications for party events and claim-limit failures
+- Transit notifications for member returns, ally visits, enemy entry/exit
+- Area effects for enemies and defenders (configurable)
+- Protection status HUD indicator
+
+### Chat Commands
+- `/blpc list`, `info`, `me`, `here`, `claims`, `invites`, `accept`, `decline`, `leave`
+- Admin: `/blpc admin move-owner`, `kick`, `disband`
+
+## Requirements
+
+- Minecraft 1.12.2, Forge
+- **Required:** [ModularUI](https://www.curseforge.com/minecraft/mc-mods/modularui) 3.1.5+
+- **Optional:** [BetterQuesting Unofficial](https://www.curseforge.com/minecraft/mc-mods/better-questing-unofficial)
+- **Optional:** [JourneyMap](https://www.curseforge.com/minecraft/mc-mods/journeymap) 6.0.0-beta.2+
 
 ## For Developers
 
-BLPC exposes an addon-facing API (custom party backends, party/claim lifecycle events,
-Addons-menu settings panels, and more) — see [`DEVELOPER.md`](DEVELOPER.md).
+BLPC exposes an addon-facing API — custom party backends, party/claim lifecycle events,
+Addons-menu settings panels, and more. See [`DEVELOPER.md`](DEVELOPER.md).
 
 ## Credits
 
