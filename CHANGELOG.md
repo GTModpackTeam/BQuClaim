@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.15.1]
+
+> **Wire-protocol break.** Chunk claims now carry a dimension ID. Client and server must run the same version.
+
+### Added
+
+- **Chunk claims are now dimension-aware**
+  - Claims in the Nether, End, and modded dimensions are tracked separately. A claim at (0, 0) in the Overworld no longer conflicts with (0, 0) in the Nether.
+  - Protection checks, transit notifications, and area effects all respect the dimension the player is actually in.
+- **Blocked claiming dimensions**
+  - Server admins can now block chunk claiming in specific dimensions (e.g. The End) via the "Blocked Claiming Dimensions" config option. Players attempting to claim in a blocked dimension receive an in-game notification.
+- **Nether/ceiling world map rendering**
+  - The chunk map now renders correctly in the Nether and other dimensions with a ceiling. Instead of showing the bedrock ceiling as a black screen, the map scans downward from the player's Y level to show the actual terrain — matching FTB Utilities' approach.
+
+### Changed
+
+- **JourneyMap overlays are now dimension-filtered**
+  - Claim overlays on JourneyMap only show claims for the dimension you're currently in. Nether claims no longer bleed onto the Overworld map.
+
+### Fixed
+
+- **Chunk protection not working correctly across dimensions**
+  - All protection events (block edit, block interact, attack entity, item use, explosions, fire spread, fluid flow, mob griefing) now check the dimension of the event, not just the chunk coordinates.
+
+[0.15.1]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.15.1
+
+* * *
+
 ## [0.15.0]
 
 > **JourneyMap v5 is no longer supported.** JourneyMap 6.0.0-beta.2 or later is now required.

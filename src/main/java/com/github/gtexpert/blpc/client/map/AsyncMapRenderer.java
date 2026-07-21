@@ -2,6 +2,7 @@ package com.github.gtexpert.blpc.client.map;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -17,17 +18,40 @@ public class AsyncMapRenderer {
         t.setDaemon(true);
         return t;
     });
-    private static final Map<Long, int[]> COLOR_CACHE = new ConcurrentHashMap<>();
-    private static final Set<Long> PROCESSING = ConcurrentHashMap.newKeySet();
+    private static final Map<ChunkKey, int[]> COLOR_CACHE = new ConcurrentHashMap<>();
+    private static final Set<ChunkKey> PROCESSING = ConcurrentHashMap.newKeySet();
 
-    private static long chunkKey(int cx, int cz) {
-        return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+    /**
+     * Composite cache key: chunk x/z plus dimension id, so traveling to another dimension at
+     * overlapping chunk coordinates doesn't render stale terrain carried over from the previous
+     * dimension.
+     */
+    private static final class ChunkKey {
+
+        final int cx, cz, dim;
+
+        ChunkKey(int cx, int cz, int dim) {
+            this.cx = cx;
+            this.cz = cz;
+            this.dim = dim;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof ChunkKey other && other.cx == cx && other.cz == cz && other.dim == dim;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(cx, cz, dim);
+        }
     }
 
     public static void requestChunk(World world, int cx, int cz) {
         MapColorHelper.init();
 
-        long key = chunkKey(cx, cz);
+        int dim = world.provider.getDimension();
+        ChunkKey key = new ChunkKey(cx, cz, dim);
         if (COLOR_CACHE.containsKey(key) || PROCESSING.contains(key)) return;
 
         Chunk chunk = world.getChunkProvider().getLoadedChunk(cx, cz);
@@ -48,17 +72,15 @@ public class AsyncMapRenderer {
         });
     }
 
-    public static int[] getColors(int cx, int cz) {
-        return COLOR_CACHE.get(chunkKey(cx, cz));
+    public static int[] getColors(int cx, int cz, int dim) {
+        return COLOR_CACHE.get(new ChunkKey(cx, cz, dim));
     }
 
-    public static void evict(int centerCX, int centerCZ, int radius) {
-        Iterator<Long> it = COLOR_CACHE.keySet().iterator();
+    public static void evict(int centerCX, int centerCZ, int dim, int radius) {
+        Iterator<ChunkKey> it = COLOR_CACHE.keySet().iterator();
         while (it.hasNext()) {
-            long key = it.next();
-            int cx = (int) (key >> 32);
-            int cz = (int) key;
-            if (Math.abs(cx - centerCX) > radius || Math.abs(cz - centerCZ) > radius) {
+            ChunkKey key = it.next();
+            if (key.dim != dim || Math.abs(key.cx - centerCX) > radius || Math.abs(key.cz - centerCZ) > radius) {
                 it.remove();
             }
         }

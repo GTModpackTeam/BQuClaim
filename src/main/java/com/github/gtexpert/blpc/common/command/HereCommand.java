@@ -31,8 +31,9 @@ public class HereCommand extends PlayerCommand {
         BlockPos pos = player.getPosition();
         int chunkX = pos.getX() >> 4;
         int chunkZ = pos.getZ() >> 4;
+        int dim = player.world.provider.getDimension();
 
-        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(chunkX, chunkZ);
+        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(chunkX, chunkZ, dim);
         if (claim == null) {
             sender.sendMessage(new TextComponentTranslation("command.blpc.here.wilderness", chunkX, chunkZ));
             return;

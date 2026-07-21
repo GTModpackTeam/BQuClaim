@@ -12,7 +12,7 @@ public final class SyncClaimsClientHandler extends MainThreadMessageHandler<Sync
 
     @Override
     protected void handleOnMainThread(SyncClaims msg) {
-        ClientClaimCache.update(msg.getX(), msg.getZ(), msg.getOwner(), msg.getName(),
+        ClientClaimCache.update(msg.getX(), msg.getZ(), msg.getDim(), msg.getOwner(), msg.getName(),
                 msg.getPartyName(), msg.isForceLoaded());
     }
 }

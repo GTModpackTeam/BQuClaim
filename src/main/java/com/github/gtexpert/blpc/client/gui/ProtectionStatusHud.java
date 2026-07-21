@@ -61,7 +61,8 @@ public final class ProtectionStatusHud {
 
     /** Re-arms the 5-second display window whenever the player enters a newly-claimed chunk. */
     private void onChunkChanged(Minecraft mc) {
-        ClaimedChunkData claim = ClientClaimCache.get(mc.player.chunkCoordX, mc.player.chunkCoordZ);
+        int dim = mc.player.world.provider.getDimension();
+        ClaimedChunkData claim = ClientClaimCache.get(mc.player.chunkCoordX, mc.player.chunkCoordZ, dim);
         if (claim == null) {
             hideAtTick = -1;
             return;

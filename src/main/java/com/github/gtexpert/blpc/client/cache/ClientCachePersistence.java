@@ -159,7 +159,7 @@ public final class ClientCachePersistence {
             for (int i = 0; i < list.tagCount(); i++) {
                 ClaimedChunkData d = ClaimedChunkData.fromNBT(list.getCompoundTagAt(i));
                 if (d == null) continue;
-                ClientClaimCache.update(d.x, d.z, d.ownerUUID, d.ownerName, d.partyName, d.isForceLoaded);
+                ClientClaimCache.update(d.x, d.z, d.dim, d.ownerUUID, d.ownerName, d.partyName, d.isForceLoaded);
             }
         } catch (IOException e) {
             ModLog.IO.warn("Failed to load cached claims from {}", file.getName(), e);

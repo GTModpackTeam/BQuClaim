@@ -14,7 +14,7 @@
       "WebFetch(domain:deepwiki.com)"
     ],
     "deny": [
-      "Bash(git:*)"
+      "Bash(git commit:)"
     ]
   }
 }

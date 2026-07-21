@@ -33,6 +33,7 @@ public class MapColorHelper {
     private static final float SHADE_STRENGTH = 0.04f;
     private static final float SHADE_LIMIT = 0.15f;
     private static final float MIN_DEPTH_FACTOR = 0.4f;
+    private static final int CEILING_SCAN_MARGIN = 5;
 
     private static final Map<IBlockState, CachedColor> colorCache = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;
@@ -83,16 +84,27 @@ public class MapColorHelper {
     /**
      * Computes the color array for a single chunk.
      * Directly accesses the Chunk object to avoid per-block chunk lookups.
+     * For dimensions with a ceiling (e.g. Nether), scans downward from the player's Y level
+     * instead of the heightmap, so the map shows the surface the player is standing on
+     * rather than the bedrock ceiling.
      */
     public static int[] computeChunkColors(World world, Chunk chunk, Chunk northChunk, int cx, int cz) {
         int[] colors = new int[256];
         var pos = new BlockPos.MutableBlockPos();
         int bx = cx << 4;
         int bz = cz << 4;
+        boolean hasCeiling = !world.provider.isSurfaceWorld();
+        int scanStartY = hasCeiling ? Minecraft.getMinecraft().player.getPosition().getY() + CEILING_SCAN_MARGIN : -1;
 
         for (int lz = 0; lz < 16; lz++) {
             for (int lx = 0; lx < 16; lx++) {
-                int topY = chunk.getHeightValue(lx, lz);
+                int topY;
+                if (hasCeiling) {
+                    topY = findTopBlockUnderCeiling(chunk, lx, lz, scanStartY);
+                } else {
+                    topY = chunk.getHeightValue(lx, lz);
+                }
+
                 if (topY <= 0) {
                     colors[lx + lz * 16] = COLOR_VOID;
                     continue;
@@ -113,15 +125,13 @@ public class MapColorHelper {
                     color = computeSolidColor(state, world, pos);
                 }
 
-                // Height-difference shading against north neighbor (direct access within chunk, neighbor chunk at
-                // boundary)
                 int northY;
-                if (lz > 0) {
-                    northY = chunk.getHeightValue(lx, lz - 1);
-                } else if (northChunk != null) {
-                    northY = northChunk.getHeightValue(lx, 15);
+                if (hasCeiling) {
+                    northY = lz > 0 ? findTopBlockUnderCeiling(chunk, lx, lz - 1, scanStartY) :
+                            (northChunk != null ? findTopBlockUnderCeiling(northChunk, lx, 15, scanStartY) : topY);
                 } else {
-                    northY = topY;
+                    northY = lz > 0 ? chunk.getHeightValue(lx, lz - 1) :
+                            (northChunk != null ? northChunk.getHeightValue(lx, 15) : topY);
                 }
 
                 float shadow = 1.0f + MathHelper.clamp((topY - northY) * SHADE_STRENGTH, -SHADE_LIMIT, SHADE_LIMIT);
@@ -129,6 +139,23 @@ public class MapColorHelper {
             }
         }
         return colors;
+    }
+
+    /**
+     * Scans downward from {@code startY} (player Y + margin) to find the first solid
+     * block, skipping air and tall grass. Same approach as FTB Utilities' chunk map.
+     */
+    private static int findTopBlockUnderCeiling(Chunk chunk, int lx, int lz, int startY) {
+        int maxY = Math.min(startY, 255);
+        for (int y = maxY; y >= 1; y--) {
+            IBlockState state = chunk.getBlockState(lx, y, lz);
+            Block block = state.getBlock();
+            if (block == Blocks.TALLGRASS) continue;
+            if (!block.isAir(state, null, BlockPos.ORIGIN)) {
+                return y + 1;
+            }
+        }
+        return 0;
     }
 
     private static int computeSolidColor(IBlockState state, World world, BlockPos pos) {

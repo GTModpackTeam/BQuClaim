@@ -3,6 +3,7 @@ package com.github.gtexpert.blpc.client.map;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -10,15 +11,36 @@ import net.minecraft.util.ResourceLocation;
 
 public class TextureCache {
 
-    private static final Map<Long, ChunkTexture> CACHE = new HashMap<>();
-    private static final Map<Long, Integer> HASH_CACHE = new HashMap<>();
+    private static final Map<ChunkKey, ChunkTexture> CACHE = new HashMap<>();
+    private static final Map<ChunkKey, Integer> HASH_CACHE = new HashMap<>();
 
-    private static long chunkKey(int cx, int cz) {
-        return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+    /**
+     * Composite cache key: chunk x/z plus dimension id, so overlapping chunk coordinates in
+     * different dimensions don't share a cached texture.
+     */
+    private static final class ChunkKey {
+
+        final int cx, cz, dim;
+
+        ChunkKey(int cx, int cz, int dim) {
+            this.cx = cx;
+            this.cz = cz;
+            this.dim = dim;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof ChunkKey other && other.cx == cx && other.cz == cz && other.dim == dim;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(cx, cz, dim);
+        }
     }
 
-    public static ChunkTexture getOrCreate(int cx, int cz, int[] colors) {
-        long key = chunkKey(cx, cz);
+    public static ChunkTexture getOrCreate(int cx, int cz, int dim, int[] colors) {
+        ChunkKey key = new ChunkKey(cx, cz, dim);
         int newHash = Arrays.hashCode(colors);
 
         if (HASH_CACHE.getOrDefault(key, -1) == newHash && CACHE.containsKey(key)) {

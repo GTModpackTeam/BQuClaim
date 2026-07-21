@@ -18,8 +18,11 @@ Forge `@Config` at `common/ModConfig.java`. Auto-syncs on in-game change.
 | `maxForceLoadsPerPlayer` | int (0–10000) | 64 | Max force-loaded chunks per player |
 | `additiveLimits` | boolean | true | Party claim limit = sum of members' limits |
 | `allowOfflineChunkLoading` | boolean | true | Keep force-loaded chunks when all offline |
+| `blockedClaimingDimensions` | int[] | [] | Dimension IDs where chunk claiming is disallowed (e.g. 1 for The End) |
 
 **Party required to claim:** `ClaimChunk.Handler.isPartyMissing` rejects claims without a party. Rejection sends `ClientNotify.claimFailed(REASON_NO_PARTY, ...)`.
+
+**Blocked dimensions:** `ClaimChunk.Handler.isDimensionBlocked` rejects new claims/force-loads whose `dim` is listed in `blockedClaimingDimensions`. Rejection sends `ClientNotify.claimFailed(REASON_DIMENSION_BLOCKED, ...)`.
 
 ### Party (`ModConfig.party`)
 

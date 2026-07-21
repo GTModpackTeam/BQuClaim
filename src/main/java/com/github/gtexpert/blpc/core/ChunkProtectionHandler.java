@@ -48,8 +48,8 @@ import com.github.gtexpert.blpc.common.chunk.ClaimedChunkData;
  */
 public class ChunkProtectionHandler {
 
-    private static boolean isChunkClaimed(int chunkX, int chunkZ) {
-        return ChunkManagerData.getInstance().getClaim(chunkX, chunkZ) != null;
+    private static boolean isChunkClaimed(int chunkX, int chunkZ, int dim) {
+        return ChunkManagerData.getInstance().getClaim(chunkX, chunkZ, dim) != null;
     }
 
     /**
@@ -88,14 +88,15 @@ public class ChunkProtectionHandler {
      * @param player the acting player, or {@code null} for non-player entities
      * @param pos    the block position to check
      * @param action the action being attempted
+     * @param dim    the dimension id the position is in
      * @return {@code true} if the action is allowed
      */
-    private static boolean canPlayerActAt(@Nullable EntityPlayer player, BlockPos pos, TrustAction action) {
+    private static boolean canPlayerActAt(@Nullable EntityPlayer player, BlockPos pos, TrustAction action, int dim) {
         if (!ModConfig.Defaults.enableProtection) return true;
 
         int chunkX = pos.getX() >> 4;
         int chunkZ = pos.getZ() >> 4;
-        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(chunkX, chunkZ);
+        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(chunkX, chunkZ, dim);
 
         if (claim == null) return true;
         if (player == null) return false;
@@ -125,7 +126,8 @@ public class ChunkProtectionHandler {
         if (isNameInList(event.getState().getBlock().getRegistryName(),
                 ModConfig.protection.blockEditWhitelist))
             return;
-        if (!canPlayerActAt(event.getPlayer(), event.getPos(), TrustAction.BLOCK_EDIT)) {
+        int dim = event.getWorld().provider.getDimension();
+        if (!canPlayerActAt(event.getPlayer(), event.getPos(), TrustAction.BLOCK_EDIT, dim)) {
             event.setCanceled(true);
         }
     }
@@ -135,7 +137,8 @@ public class ChunkProtectionHandler {
         if (event.getWorld().isRemote) return;
         Entity entity = event.getEntity();
         EntityPlayer player = (entity instanceof EntityPlayer ep) ? ep : null;
-        if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT)) {
+        int dim = event.getWorld().provider.getDimension();
+        if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT, dim)) {
             event.setCanceled(true);
         }
     }
@@ -147,7 +150,8 @@ public class ChunkProtectionHandler {
         if (isNameInList(state.getBlock().getRegistryName(),
                 ModConfig.protection.blockInteractWhitelist))
             return;
-        if (!canPlayerActAt(event.getEntityPlayer(), event.getPos(), TrustAction.BLOCK_INTERACT)) {
+        int dim = event.getWorld().provider.getDimension();
+        if (!canPlayerActAt(event.getEntityPlayer(), event.getPos(), TrustAction.BLOCK_INTERACT, dim)) {
             event.setCanceled(true);
         }
     }
@@ -158,7 +162,8 @@ public class ChunkProtectionHandler {
         BlockPos playerPos = event.getEntityPlayer().getPosition();
         int cx = playerPos.getX() >> 4;
         int cz = playerPos.getZ() >> 4;
-        if (isChunkClaimed(cx, cz)) {
+        int dim = event.getWorld().provider.getDimension();
+        if (isChunkClaimed(cx, cz, dim)) {
             ItemStack held = event.getItemStack();
             if (!held.isEmpty() && isNameInList(held.getItem().getRegistryName(),
                     ModConfig.protection.itemUseBlacklist)) {
@@ -166,7 +171,7 @@ public class ChunkProtectionHandler {
                 return;
             }
         }
-        if (!canPlayerActAt(event.getEntityPlayer(), playerPos, TrustAction.USE_ITEM)) {
+        if (!canPlayerActAt(event.getEntityPlayer(), playerPos, TrustAction.USE_ITEM, dim)) {
             event.setCanceled(true);
         }
     }
@@ -176,30 +181,35 @@ public class ChunkProtectionHandler {
         if (event.getWorld().isRemote) return;
         if (!ModConfig.Defaults.enableProtection) return;
 
+        int dim = event.getWorld().provider.getDimension();
         Map<Long, Boolean> chunkProtectCache = new HashMap<>();
 
         List<BlockPos> affectedBlocks = event.getAffectedBlocks();
         affectedBlocks.removeIf(pos -> {
-            long key = ChunkManagerData.chunkKey(pos.getX() >> 4, pos.getZ() >> 4);
-            return chunkProtectCache.computeIfAbsent(key, k -> shouldProtectChunk(k));
+            long key = packChunkXZ(pos.getX() >> 4, pos.getZ() >> 4);
+            return chunkProtectCache.computeIfAbsent(key, k -> shouldProtectChunk(k, dim));
         });
 
         Iterator<Entity> entityIt = event.getAffectedEntities().iterator();
         while (entityIt.hasNext()) {
             Entity entity = entityIt.next();
-            long key = ChunkManagerData.chunkKey(
+            long key = packChunkXZ(
                     MathHelper.floor(entity.posX) >> 4,
                     MathHelper.floor(entity.posZ) >> 4);
-            if (chunkProtectCache.computeIfAbsent(key, k -> shouldProtectChunk(k))) {
+            if (chunkProtectCache.computeIfAbsent(key, k -> shouldProtectChunk(k, dim))) {
                 entityIt.remove();
             }
         }
     }
 
-    private static boolean shouldProtectChunk(long key) {
+    private static long packChunkXZ(int cx, int cz) {
+        return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+    }
+
+    private static boolean shouldProtectChunk(long key, int dim) {
         int cx = (int) (key >> 32);
         int cz = (int) key;
-        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(cx, cz);
+        ClaimedChunkData claim = ChunkManagerData.getInstance().getClaim(cx, cz, dim);
         if (claim == null) return false;
         Party party = getPartyForClaim(claim);
         return party == null || party.protectsExplosions();
@@ -208,8 +218,9 @@ public class ChunkProtectionHandler {
     @SubscribeEvent
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (event.getWorld().isRemote) return;
+        int dim = event.getWorld().provider.getDimension();
         if (!canPlayerActAt(event.getEntityPlayer(), event.getTarget().getPosition(),
-                TrustAction.BLOCK_INTERACT)) {
+                TrustAction.BLOCK_INTERACT, dim)) {
             event.setCanceled(true);
         }
     }
@@ -217,8 +228,9 @@ public class ChunkProtectionHandler {
     @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         if (event.getWorld().isRemote) return;
+        int dim = event.getWorld().provider.getDimension();
         if (!canPlayerActAt(event.getEntityPlayer(), event.getTarget().getPosition(),
-                TrustAction.BLOCK_INTERACT)) {
+                TrustAction.BLOCK_INTERACT, dim)) {
             event.setCanceled(true);
         }
     }
@@ -227,7 +239,8 @@ public class ChunkProtectionHandler {
     public static void onAttackEntity(AttackEntityEvent event) {
         if (event.getEntityPlayer().world.isRemote) return;
         Entity target = event.getTarget();
-        if (!canPlayerActAt(event.getEntityPlayer(), target.getPosition(), TrustAction.ATTACK_ENTITY)) {
+        int dim = event.getEntityPlayer().world.provider.getDimension();
+        if (!canPlayerActAt(event.getEntityPlayer(), target.getPosition(), TrustAction.ATTACK_ENTITY, dim)) {
             event.setCanceled(true);
         }
     }
@@ -240,7 +253,8 @@ public class ChunkProtectionHandler {
 
         int chunkX = MathHelper.floor(entity.posX) >> 4;
         int chunkZ = MathHelper.floor(entity.posZ) >> 4;
-        if (isChunkClaimed(chunkX, chunkZ)) {
+        int dim = entity.world.provider.getDimension();
+        if (isChunkClaimed(chunkX, chunkZ, dim)) {
             event.setResult(Event.Result.DENY);
         }
     }
@@ -252,16 +266,17 @@ public class ChunkProtectionHandler {
 
         Entity entity = event.getEntity();
         EntityPlayer player = (entity instanceof EntityPlayer ep) ? ep : null;
+        int dim = event.getWorld().provider.getDimension();
 
         if (player != null) {
-            if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT)) {
+            if (!canPlayerActAt(player, event.getPos(), TrustAction.BLOCK_EDIT, dim)) {
                 event.setCanceled(true);
             }
         } else {
             if (!ModConfig.Defaults.protectMobGriefing) return;
             int chunkX = event.getPos().getX() >> 4;
             int chunkZ = event.getPos().getZ() >> 4;
-            if (isChunkClaimed(chunkX, chunkZ)) {
+            if (isChunkClaimed(chunkX, chunkZ, dim)) {
                 event.setCanceled(true);
             }
         }
@@ -272,6 +287,7 @@ public class ChunkProtectionHandler {
         if (event.getWorld().isRemote) return;
         if (!ModConfig.Defaults.enableProtection || !ModConfig.Defaults.protectFluidFlow) return;
 
+        int dim = event.getWorld().provider.getDimension();
         BlockPos targetPos = event.getPos();
         BlockPos liquidPos = event.getLiquidPos();
 
@@ -280,8 +296,8 @@ public class ChunkProtectionHandler {
         int sourceChunkX = liquidPos.getX() >> 4;
         int sourceChunkZ = liquidPos.getZ() >> 4;
 
-        ClaimedChunkData targetClaim = ChunkManagerData.getInstance().getClaim(targetChunkX, targetChunkZ);
-        ClaimedChunkData sourceClaim = ChunkManagerData.getInstance().getClaim(sourceChunkX, sourceChunkZ);
+        ClaimedChunkData targetClaim = ChunkManagerData.getInstance().getClaim(targetChunkX, targetChunkZ, dim);
+        ClaimedChunkData sourceClaim = ChunkManagerData.getInstance().getClaim(sourceChunkX, sourceChunkZ, dim);
 
         boolean targetClaimed = targetClaim != null;
         boolean sourceClaimed = sourceClaim != null;
@@ -299,16 +315,17 @@ public class ChunkProtectionHandler {
         IBlockState state = event.getState();
         if (state.getBlock() != Blocks.FIRE) return;
 
+        int dim = event.getWorld().provider.getDimension();
         BlockPos firePos = event.getPos();
         int fireChunkX = firePos.getX() >> 4;
         int fireChunkZ = firePos.getZ() >> 4;
 
-        if (!isChunkClaimed(fireChunkX, fireChunkZ)) {
+        if (!isChunkClaimed(fireChunkX, fireChunkZ, dim)) {
             for (EnumFacing side : event.getNotifiedSides()) {
                 BlockPos neighbor = firePos.offset(side);
                 int nChunkX = neighbor.getX() >> 4;
                 int nChunkZ = neighbor.getZ() >> 4;
-                if (isChunkClaimed(nChunkX, nChunkZ)) {
+                if (isChunkClaimed(nChunkX, nChunkZ, dim)) {
                     event.setCanceled(true);
                     return;
                 }

@@ -152,7 +152,7 @@ public class ChunkMapScreen extends CustomModularScreen {
         for (ClaimedChunkData d : ClientClaimCache.getAll()) {
             if (d.ownerUUID.equals(myId)) {
                 if (action == 1 || d.isForceLoaded) {
-                    ModNetwork.INSTANCE.sendToServer(new ClaimChunk(d.x, d.z, mode));
+                    ModNetwork.INSTANCE.sendToServer(new ClaimChunk(d.x, d.z, d.dim, mode));
                 }
             }
         }

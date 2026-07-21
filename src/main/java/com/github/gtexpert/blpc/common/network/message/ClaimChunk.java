@@ -34,13 +34,15 @@ public class ClaimChunk implements IMessage {
 
     private int x;
     private int z;
+    private int dim;
     private int mode;
 
     public ClaimChunk() {}
 
-    public ClaimChunk(int x, int z, int mode) {
+    public ClaimChunk(int x, int z, int dim, int mode) {
         this.x = x;
         this.z = z;
+        this.dim = dim;
         this.mode = mode;
     }
 
@@ -48,6 +50,7 @@ public class ClaimChunk implements IMessage {
     public void fromBytes(ByteBuf buf) {
         this.x = buf.readInt();
         this.z = buf.readInt();
+        this.dim = buf.readInt();
         this.mode = buf.readInt();
     }
 
@@ -55,6 +58,7 @@ public class ClaimChunk implements IMessage {
     public void toBytes(ByteBuf buf) {
         buf.writeInt(this.x);
         buf.writeInt(this.z);
+        buf.writeInt(this.dim);
         buf.writeInt(this.mode);
     }
 
@@ -74,7 +78,7 @@ public class ClaimChunk implements IMessage {
                 }
 
                 ChunkManagerData data = ChunkManagerData.getInstance();
-                ClaimedChunkData existing = data.getClaim(message.x, message.z);
+                ClaimedChunkData existing = data.getClaim(message.x, message.z, message.dim);
                 UUID playerId = player.getUniqueID();
 
                 switch (message.mode) {
@@ -89,6 +93,7 @@ public class ClaimChunk implements IMessage {
         private void handleClaim(ClaimChunk msg, EntityPlayerMP player,
                                  ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing != null) return;
+            if (isDimensionBlocked(msg.dim, player)) return;
             if (isPartyMissing(playerId, player)) return;
             if (isClaimLimitReached(data, playerId, player)) return;
             if (MinecraftForge.EVENT_BUS.post(
@@ -97,9 +102,9 @@ public class ClaimChunk implements IMessage {
             }
 
             String partyName = resolveTeamName(playerId);
-            var claimed = new ClaimedChunkData(msg.x, msg.z, playerId, player.getName(), partyName, false);
+            var claimed = new ClaimedChunkData(msg.x, msg.z, msg.dim, playerId, player.getName(), partyName, false);
             data.enqueueClaim(claimed);
-            syncToAll(msg.x, msg.z, playerId, player.getName(), partyName, false);
+            syncToAll(msg.x, msg.z, msg.dim, playerId, player.getName(), partyName, false);
             BLPCSaveHandler.INSTANCE.markDirty();
             MinecraftForge.EVENT_BUS.post(new ChunkModifiedEvent.Post.Claim(msg.x, msg.z, playerId));
         }
@@ -116,8 +121,8 @@ public class ClaimChunk implements IMessage {
             if (existing.isForceLoaded) {
                 TicketManager.unforceChunk(player.world, msg.x, msg.z);
             }
-            data.setClaim(msg.x, msg.z, null, "", "", false);
-            syncToAll(msg.x, msg.z, null, "", "", false);
+            data.setClaim(msg.x, msg.z, msg.dim, null, "", "", false);
+            syncToAll(msg.x, msg.z, msg.dim, null, "", "", false);
             BLPCSaveHandler.INSTANCE.markDirty();
             MinecraftForge.EVENT_BUS.post(new ChunkModifiedEvent.Post.Unclaim(msg.x, msg.z, existing.ownerUUID));
         }
@@ -125,6 +130,7 @@ public class ClaimChunk implements IMessage {
         private void handleToggleForce(ClaimChunk msg, EntityPlayerMP player,
                                        ChunkManagerData data, ClaimedChunkData existing, UUID playerId) {
             if (existing == null) {
+                if (isDimensionBlocked(msg.dim, player)) return;
                 if (isPartyMissing(playerId, player)) return;
                 if (isClaimLimitReached(data, playerId, player)) return;
                 if (isForceLoadLimitReached(data, playerId, player)) return;
@@ -135,9 +141,10 @@ public class ClaimChunk implements IMessage {
 
                 String partyName = resolveTeamName(playerId);
                 boolean forced = TicketManager.forceChunk(player.world, msg.x, msg.z, null);
-                var claimed = new ClaimedChunkData(msg.x, msg.z, playerId, player.getName(), partyName, forced);
+                var claimed = new ClaimedChunkData(
+                        msg.x, msg.z, msg.dim, playerId, player.getName(), partyName, forced);
                 data.enqueueClaim(claimed);
-                syncToAll(msg.x, msg.z, playerId, player.getName(), partyName, forced);
+                syncToAll(msg.x, msg.z, msg.dim, playerId, player.getName(), partyName, forced);
                 BLPCSaveHandler.INSTANCE.markDirty();
                 MinecraftForge.EVENT_BUS.post(new ChunkModifiedEvent.Post.Claim(msg.x, msg.z, playerId));
                 if (forced) {
@@ -171,7 +178,7 @@ public class ClaimChunk implements IMessage {
                 MinecraftForge.EVENT_BUS.post(
                         new ChunkModifiedEvent.Post.ForceLoad(msg.x, msg.z, existing.ownerUUID));
             }
-            syncToAll(msg.x, msg.z, existing.ownerUUID, existing.ownerName, existing.partyName,
+            syncToAll(msg.x, msg.z, msg.dim, existing.ownerUUID, existing.ownerName, existing.partyName,
                     existing.isForceLoaded);
             BLPCSaveHandler.INSTANCE.markDirty();
         }
@@ -181,6 +188,18 @@ public class ClaimChunk implements IMessage {
             if (PartyProviderRegistry.get().getPartyId(playerId) != null) return false;
             ModNetwork.INSTANCE.sendTo(ClientNotify.claimFailed(ClientNotify.REASON_NO_PARTY, 0, 0), player);
             return true;
+        }
+
+        /** Some dimensions (e.g. The End) may be configured as off-limits for chunk claiming. */
+        private boolean isDimensionBlocked(int dim, EntityPlayerMP player) {
+            for (int blocked : ModConfig.claims.blockedClaimingDimensions) {
+                if (blocked == dim) {
+                    ModNetwork.INSTANCE.sendTo(
+                            ClientNotify.claimFailed(ClientNotify.REASON_DIMENSION_BLOCKED, 0, 0), player);
+                    return true;
+                }
+            }
+            return false;
         }
 
         private boolean isClaimLimitReached(ChunkManagerData data, UUID playerId, EntityPlayerMP player) {
@@ -233,8 +252,10 @@ public class ClaimChunk implements IMessage {
             return name != null ? name : "";
         }
 
-        private void syncToAll(int x, int z, UUID owner, String name, String partyName, boolean forceLoaded) {
-            ModNetwork.INSTANCE.sendToAll(new SyncClaims(x, z, owner, name, partyName, forceLoaded));
+        private void syncToAll(
+                               int x, int z, int dim, UUID owner, String name, String partyName,
+                               boolean forceLoaded) {
+            ModNetwork.INSTANCE.sendToAll(new SyncClaims(x, z, dim, owner, name, partyName, forceLoaded));
         }
     }
 }

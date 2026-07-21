@@ -19,7 +19,7 @@ public final class SyncAllClaimsClientHandler extends MainThreadMessageHandler<S
         for (String key : data.getKeySet()) {
             ClaimedChunkData d = ClaimedChunkData.fromNBT(data.getCompoundTag(key));
             if (d == null) continue;
-            ClientClaimCache.update(d.x, d.z, d.ownerUUID, d.ownerName, d.partyName, d.isForceLoaded);
+            ClientClaimCache.update(d.x, d.z, d.dim, d.ownerUUID, d.ownerName, d.partyName, d.isForceLoaded);
         }
     }
 }

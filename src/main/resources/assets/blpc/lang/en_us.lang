@@ -234,3 +234,4 @@ blpc.toast.join_failed=Could not join the party
 blpc.toast.claim_limit=Claim limit reached (%d/%d)
 blpc.toast.forceload_limit=Force load limit reached (%d/%d)
 blpc.toast.no_party=You must be in a party to claim chunks
+blpc.toast.dimension_blocked=Chunk claiming is not allowed in this dimension

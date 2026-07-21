@@ -177,7 +177,7 @@ public class BLPCToast implements IToast {
         /**
          * Configures the toast for a claim failure notification.
          *
-         * @param reason  failure reason ("CLAIM_LIMIT", "FORCELOAD_LIMIT", or "NO_PARTY")
+         * @param reason  failure reason ("CLAIM_LIMIT", "FORCELOAD_LIMIT", "NO_PARTY", or "DIMENSION_BLOCKED")
          * @param current current count (unused for "NO_PARTY")
          * @param max     maximum allowed count (unused for "NO_PARTY")
          */
@@ -195,6 +195,11 @@ public class BLPCToast implements IToast {
                 }
                 case "NO_PARTY" -> {
                     this.titleKey = "blpc.toast.no_party";
+                    this.titleArgs = new Object[] {};
+                    this.color = GuiColors.RED;
+                }
+                case "DIMENSION_BLOCKED" -> {
+                    this.titleKey = "blpc.toast.dimension_blocked";
                     this.titleArgs = new Object[] {};
                     this.color = GuiColors.RED;
                 }

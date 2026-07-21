@@ -49,6 +49,7 @@ public class ChunkMapRenderer {
                                      boolean showClaimBorder) {
         int gridLen = radius * 2 + 1;
         int mapPx = gridLen * chunkSize;
+        int dim = world.provider.getDimension();
 
         for (int x = -radius; x <= radius; x++) {
             for (int z = -radius; z <= radius; z++) {
@@ -57,11 +58,11 @@ public class ChunkMapRenderer {
                 int dx = ox + (x + radius) * chunkSize;
                 int dy = oy + (z + radius) * chunkSize;
 
-                drawChunkTerrain(rx, rz, dx, dy, chunkSize, world);
-                drawClaimOverlay(rx, rz, dx, dy, chunkSize, playerUUID, showClaimBorder);
+                drawChunkTerrain(rx, rz, dx, dy, chunkSize, world, dim);
+                drawClaimOverlay(rx, rz, dx, dy, chunkSize, playerUUID, showClaimBorder, dim);
 
                 if (showForceLoad) {
-                    ClaimedChunkData d = ClientClaimCache.get(rx, rz);
+                    ClaimedChunkData d = ClientClaimCache.get(rx, rz, dim);
                     if (d != null && d.isForceLoaded) {
                         drawHatching(dx, dy, chunkSize, chunkSize, BLPCColors.claimHatching());
                     }
@@ -78,10 +79,10 @@ public class ChunkMapRenderer {
         }
     }
 
-    public static void drawChunkTerrain(int chunkX, int chunkZ, float dx, float dy, int size, World world) {
-        int[] colors = AsyncMapRenderer.getColors(chunkX, chunkZ);
+    public static void drawChunkTerrain(int chunkX, int chunkZ, float dx, float dy, int size, World world, int dim) {
+        int[] colors = AsyncMapRenderer.getColors(chunkX, chunkZ, dim);
         if (colors != null) {
-            TextureCache.ChunkTexture tex = TextureCache.getOrCreate(chunkX, chunkZ, colors);
+            TextureCache.ChunkTexture tex = TextureCache.getOrCreate(chunkX, chunkZ, dim, colors);
             Platform.setupDrawTex(tex.resourceLocation);
             GuiDraw.drawTexture(dx, dy, 0, 0, size, size, CHUNK_BLOCKS, CHUNK_BLOCKS);
         } else {
@@ -91,8 +92,8 @@ public class ChunkMapRenderer {
     }
 
     public static void drawClaimOverlay(int chunkX, int chunkZ, float dx, float dy, int size,
-                                        UUID playerUUID, boolean showBorder) {
-        ClaimedChunkData d = ClientClaimCache.get(chunkX, chunkZ);
+                                        UUID playerUUID, boolean showBorder, int dim) {
+        ClaimedChunkData d = ClientClaimCache.get(chunkX, chunkZ, dim);
         if (d == null) return;
 
         int color;
@@ -108,7 +109,7 @@ public class ChunkMapRenderer {
 
         GuiDraw.drawRect(dx, dy, size, size, color);
         if (showBorder) {
-            drawClaimBorder(chunkX, chunkZ, dx, dy, size, d.ownerUUID);
+            drawClaimBorder(chunkX, chunkZ, dx, dy, size, d.ownerUUID, dim);
         }
     }
 
@@ -126,20 +127,20 @@ public class ChunkMapRenderer {
         GlStateManager.popMatrix();
     }
 
-    private static void drawClaimBorder(int chunkX, int chunkZ, float dx, float dy, int size, UUID owner) {
+    private static void drawClaimBorder(int chunkX, int chunkZ, float dx, float dy, int size, UUID owner, int dim) {
         int border = BLPCColors.claimBorder();
-        if (!isSameOwner(chunkX, chunkZ - 1, owner))
+        if (!isSameOwner(chunkX, chunkZ - 1, owner, dim))
             GuiDraw.drawRect(dx, dy, size, 1, border);
-        if (!isSameOwner(chunkX, chunkZ + 1, owner))
+        if (!isSameOwner(chunkX, chunkZ + 1, owner, dim))
             GuiDraw.drawRect(dx, dy + size - 1, size, 1, border);
-        if (!isSameOwner(chunkX - 1, chunkZ, owner))
+        if (!isSameOwner(chunkX - 1, chunkZ, owner, dim))
             GuiDraw.drawRect(dx, dy, 1, size, border);
-        if (!isSameOwner(chunkX + 1, chunkZ, owner))
+        if (!isSameOwner(chunkX + 1, chunkZ, owner, dim))
             GuiDraw.drawRect(dx + size - 1, dy, 1, size, border);
     }
 
-    private static boolean isSameOwner(int chunkX, int chunkZ, UUID owner) {
-        ClaimedChunkData neighbor = ClientClaimCache.get(chunkX, chunkZ);
+    private static boolean isSameOwner(int chunkX, int chunkZ, UUID owner, int dim) {
+        ClaimedChunkData neighbor = ClientClaimCache.get(chunkX, chunkZ, dim);
         return neighbor != null && neighbor.ownerUUID.equals(owner);
     }
 

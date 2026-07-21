@@ -15,6 +15,7 @@ public class SyncClaims implements IMessage {
 
     private int x;
     private int z;
+    private int dim;
     private UUID owner;
     private String name;
     private String partyName;
@@ -22,9 +23,10 @@ public class SyncClaims implements IMessage {
 
     public SyncClaims() {}
 
-    public SyncClaims(int x, int z, UUID owner, String name, String partyName, boolean isForceLoaded) {
+    public SyncClaims(int x, int z, int dim, UUID owner, String name, String partyName, boolean isForceLoaded) {
         this.x = x;
         this.z = z;
+        this.dim = dim;
         this.owner = owner;
         this.name = name;
         this.partyName = partyName;
@@ -37,6 +39,10 @@ public class SyncClaims implements IMessage {
 
     public int getZ() {
         return z;
+    }
+
+    public int getDim() {
+        return dim;
     }
 
     public UUID getOwner() {
@@ -59,6 +65,7 @@ public class SyncClaims implements IMessage {
     public void fromBytes(ByteBuf buf) {
         this.x = buf.readInt();
         this.z = buf.readInt();
+        this.dim = buf.readInt();
         // Skip UUID fields when owner is null (unclaim)
         if (buf.readBoolean()) {
             this.owner = new UUID(buf.readLong(), buf.readLong());
@@ -72,6 +79,7 @@ public class SyncClaims implements IMessage {
     public void toBytes(ByteBuf buf) {
         buf.writeInt(x);
         buf.writeInt(z);
+        buf.writeInt(dim);
         boolean hasOwner = owner != null;
         buf.writeBoolean(hasOwner);
         if (hasOwner) {

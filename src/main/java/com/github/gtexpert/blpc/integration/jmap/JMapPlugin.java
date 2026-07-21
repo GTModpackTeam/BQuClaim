@@ -85,7 +85,7 @@ public class JMapPlugin implements IClientPlugin {
     }
 
     private void registerOptions() {
-        var category = new OptionCategory(getModId(), "BLPC", "Better Link Party Claim");
+        var category = new OptionCategory(getModId(), Tags.MODID.toUpperCase(), Tags.MODNAME);
         overlaysOption = new BooleanOption(category, "showClaimOverlays",
                 I18n.format("blpc.addons.journeymap.overlays_option"), true);
         var waypointSharing = new BooleanOption(category, "waypointSharing",
@@ -174,6 +174,7 @@ public class JMapPlugin implements IClientPlugin {
 
         Map<UUID, List<ClaimedChunkData>> byOwner = new HashMap<>();
         for (ClaimedChunkData claim : ClientClaimCache.getAll()) {
+            if (claim.dim != dimension) continue;
             byOwner.computeIfAbsent(claim.ownerUUID, k -> new ArrayList<>()).add(claim);
         }
 

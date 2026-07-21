@@ -7,13 +7,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.github.gtexpert.blpc.common.chunk.ChunkManagerData.ChunkKey;
+
 /**
  * Client-side in-memory cache of chunk claim data.
  * Populated via {@code SyncClaims} / {@code SyncAllClaims} from the server.
  */
 public class ClientClaimCache {
 
-    private static final Map<Long, ClaimedChunkData> cache = new HashMap<>();
+    private static final Map<ChunkKey, ClaimedChunkData> cache = new HashMap<>();
     private static final List<Runnable> changeListeners = new ArrayList<>();
 
     public static void addChangeListener(Runnable listener) {
@@ -30,18 +32,19 @@ public class ClientClaimCache {
         }
     }
 
-    public static void update(int x, int z, UUID owner, String name, String partyName, boolean isForceLoaded) {
-        long key = ChunkManagerData.chunkKey(x, z);
+    public static void update(
+                              int x, int z, int dim, UUID owner, String name, String partyName, boolean isForceLoaded) {
+        ChunkKey key = ChunkManagerData.chunkKey(x, z, dim);
         if (owner == null) {
             cache.remove(key);
         } else {
-            cache.put(key, new ClaimedChunkData(x, z, owner, name, partyName, isForceLoaded));
+            cache.put(key, new ClaimedChunkData(x, z, dim, owner, name, partyName, isForceLoaded));
         }
         fireChangeListeners();
     }
 
-    public static ClaimedChunkData get(int x, int z) {
-        return cache.get(ChunkManagerData.chunkKey(x, z));
+    public static ClaimedChunkData get(int x, int z, int dim) {
+        return cache.get(ChunkManagerData.chunkKey(x, z, dim));
     }
 
     public static void clear() {

@@ -34,7 +34,9 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
     public ChunkMapWidget() {
         tooltipDynamic(tooltip -> {
-            ClaimedChunkData d = ClientClaimCache.get(selectedRX, selectedRZ);
+            Minecraft mc = Minecraft.getMinecraft();
+            int dim = mc.player != null ? mc.player.world.provider.getDimension() : 0;
+            ClaimedChunkData d = ClientClaimCache.get(selectedRX, selectedRZ, dim);
             if (d == null) return;
             Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
             if (ownerParty != null) {
@@ -80,8 +82,9 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
         int oy = getOriginY();
         int pX = mc.player.chunkCoordX;
         int pZ = mc.player.chunkCoordZ;
+        int dim = mc.player.dimension;
 
-        AsyncMapRenderer.evict(pX, pZ, RADIUS + 2);
+        AsyncMapRenderer.evict(pX, pZ, dim, RADIUS + 2);
         updateSelectedChunk(context.getMouseX(), context.getMouseY(), ox, oy, cs, pX, pZ);
 
         Stencil.apply(ox, oy, mapPx, mapPx, context);
@@ -148,9 +151,9 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
         if (mouseButton == 0) {
             int mode = Interactable.hasShiftDown() ? ClaimChunk.MODE_TOGGLE_FORCE : ClaimChunk.MODE_CLAIM;
-            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, mode));
+            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, mc.player.dimension, mode));
         } else if (mouseButton == 1) {
-            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, ClaimChunk.MODE_UNCLAIM));
+            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, mc.player.dimension, ClaimChunk.MODE_UNCLAIM));
         }
 
         if (mouseButton == 0 || mouseButton == 1) {

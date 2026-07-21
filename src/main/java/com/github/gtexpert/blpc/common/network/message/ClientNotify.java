@@ -49,6 +49,7 @@ public class ClientNotify implements IMessage {
     public static final String REASON_CLAIM_LIMIT = "CLAIM_LIMIT";
     public static final String REASON_FORCELOAD_LIMIT = "FORCELOAD_LIMIT";
     public static final String REASON_NO_PARTY = "NO_PARTY";
+    public static final String REASON_DIMENSION_BLOCKED = "DIMENSION_BLOCKED";
 
     private int kind;
 

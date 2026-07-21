@@ -93,7 +93,9 @@ public class PlayerLoginHandler {
                     for (ClaimedChunkData claim : ChunkManagerData.getInstance().getAllClaims()) {
                         if (claim.isForceLoaded && memberIds.contains(claim.ownerUUID)) {
                             for (WorldServer ws : server.worlds) {
-                                TicketManager.forceChunk(ws, claim.x, claim.z, null);
+                                if (ws.provider.getDimension() == claim.dim) {
+                                    TicketManager.forceChunk(ws, claim.x, claim.z, null);
+                                }
                             }
                         }
                     }

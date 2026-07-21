@@ -234,3 +234,4 @@ blpc.toast.join_failed=パーティに参加できませんでした
 blpc.toast.claim_limit=確保上限に達しました (%d/%d)
 blpc.toast.forceload_limit=常時読込上限に達しました (%d/%d)
 blpc.toast.no_party=チャンクを確保するにはパーティに所属する必要があります
+blpc.toast.dimension_blocked=このディメンションではチャンクを確保できません

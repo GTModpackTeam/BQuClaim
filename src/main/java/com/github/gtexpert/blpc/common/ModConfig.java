@@ -63,6 +63,10 @@ public class ModConfig {
         @Config.Name("Allow Offline Chunk Loading")
         @Config.Comment("Keep force-loaded chunks active even when all party members are offline.")
         public boolean allowOfflineChunkLoading = true;
+
+        @Config.Name("Blocked Claiming Dimensions")
+        @Config.Comment("Dimension IDs where chunk claiming is not allowed (e.g. 1 for The End).")
+        public int[] blockedClaimingDimensions = {};
     }
 
     public static class Protection {

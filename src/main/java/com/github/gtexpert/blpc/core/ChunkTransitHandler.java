@@ -32,6 +32,7 @@ import com.github.gtexpert.blpc.common.network.message.ClientNotify;
 public class ChunkTransitHandler {
 
     private static final Map<UUID, Long> previousChunk = new ConcurrentHashMap<>();
+    private static final Map<UUID, Integer> previousDim = new ConcurrentHashMap<>();
     private static final Map<UUID, Set<UUID>> activeInvasions = new ConcurrentHashMap<>();
     private static final int POTION_DURATION = 100;
     private static final int EFFECT_TICK_INTERVAL = 20;
@@ -41,18 +42,22 @@ public class ChunkTransitHandler {
         if (event.phase != TickEvent.Phase.END) return;
         if (!(event.player instanceof EntityPlayerMP player)) return;
         if (player.world.isRemote) return;
-        if (player.dimension != 0) return; // Claims are overworld only
 
+        int dim = player.world.provider.getDimension();
         int cx = player.chunkCoordX;
         int cz = player.chunkCoordZ;
         long packed = pack(cx, cz);
         UUID playerId = player.getUniqueID();
 
+        // Dimension changes (e.g. Nether portal) always count as a chunk transition, even when
+        // the packed x/z happens to match the previous dimension's coordinates.
+        Integer prevDim = previousDim.put(playerId, dim);
         Long prev = previousChunk.put(playerId, packed);
-        if (prev != null && prev == packed) {
+        boolean dimChanged = prevDim != null && prevDim != dim;
+        if (!dimChanged && prev != null && prev == packed) {
             // Same chunk — only handle periodic area effects
             if (ModConfig.fairPlay.enableAreaEffects && player.ticksExisted % EFFECT_TICK_INTERVAL == 0) {
-                applyAreaEffects(player, cx, cz);
+                applyAreaEffects(player, cx, cz, dim);
             }
             return;
         }
@@ -63,7 +68,8 @@ public class ChunkTransitHandler {
         if (prev != null) {
             int prevX = unpackX(prev);
             int prevZ = unpackZ(prev);
-            ClaimedChunkData prevClaim = chunkData.getClaim(prevX, prevZ);
+            int prevChunkDim = prevDim != null ? prevDim : dim;
+            ClaimedChunkData prevClaim = chunkData.getClaim(prevX, prevZ, prevChunkDim);
             if (prevClaim != null) {
                 Party prevParty = activeProvider.getEffectiveParty(prevClaim.ownerUUID);
                 if (prevParty != null) {
@@ -80,7 +86,7 @@ public class ChunkTransitHandler {
             }
         }
 
-        ClaimedChunkData curClaim = chunkData.getClaim(cx, cz);
+        ClaimedChunkData curClaim = chunkData.getClaim(cx, cz, dim);
         if (curClaim != null) {
             Party curParty = activeProvider.getEffectiveParty(curClaim.ownerUUID);
             if (curParty != null) {
@@ -97,12 +103,13 @@ public class ChunkTransitHandler {
         }
 
         if (ModConfig.fairPlay.enableAreaEffects) {
-            applyAreaEffects(player, cx, cz);
+            applyAreaEffects(player, cx, cz, dim);
         }
     }
 
     public static void onPlayerLogout(UUID playerId) {
         previousChunk.remove(playerId);
+        previousDim.remove(playerId);
         // Drop the entry entirely when the logout empties an invader set, so
         // activeInvasions doesn't accumulate empty Sets across long sessions.
         activeInvasions.values().removeIf(invaders -> {
@@ -162,10 +169,10 @@ public class ChunkTransitHandler {
         }
     }
 
-    private static void applyAreaEffects(EntityPlayerMP player, int cx, int cz) {
+    private static void applyAreaEffects(EntityPlayerMP player, int cx, int cz, int dim) {
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
         IPartyProvider activeProvider = PartyProviderRegistry.get();
-        ClaimedChunkData claim = chunkData.getClaim(cx, cz);
+        ClaimedChunkData claim = chunkData.getClaim(cx, cz, dim);
         if (claim == null) return;
 
         Party claimParty = activeProvider.getEffectiveParty(claim.ownerUUID);

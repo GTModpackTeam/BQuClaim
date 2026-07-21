@@ -1,7 +1,7 @@
 package com.github.gtexpert.blpc.integration.jmap;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
+import java.util.TreeSet;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.math.BlockPos;
@@ -17,8 +17,13 @@ import com.github.gtexpert.blpc.common.waypoint.PartyWaypointData;
 
 import journeymap.api.v2.client.IClientAPI;
 import journeymap.api.v2.common.waypoint.Waypoint;
-import journeymap.api.v2.common.waypoint.WaypointFactory;
 import journeymap.api.v2.common.waypoint.WaypointGroup;
+import journeymap.client.waypoint.ClientWaypointImpl;
+import journeymap.common.waypoint.WaypointGroupImpl;
+import journeymap.common.waypoint.WaypointIcon;
+import journeymap.common.waypoint.WaypointPos;
+import journeymap.common.waypoint.WaypointSettings;
+import journeymap.common.waypoint.WaypointStore;
 
 /**
  * Mirrors {@link ClientWaypointCache} (party-shared waypoints synced from the server) onto a
@@ -43,20 +48,25 @@ import journeymap.api.v2.common.waypoint.WaypointGroup;
 public class JMapWaypointSyncHandler {
 
     static final String GROUP_NAME = "BLPC Party";
+    private static final String GROUP_GUID = Tags.MODID + "_party";
+    private static final String WP_ID_PREFIX = Tags.MODID + "_";
 
     private static JMapWaypointSyncHandler instance;
 
-    private final Runnable listener = this::onCacheChanged;
+    private final Runnable waypointListener = this::onCacheChanged;
+    private final Runnable partyListener = this::onCacheChanged;
     private int tickCounter;
 
     public void register() {
         instance = this;
         tickCounter = 0;
-        ClientWaypointCache.addChangeListener(listener);
+        ClientWaypointCache.addChangeListener(waypointListener);
+        ClientPartyCache.addSyncListener(partyListener);
     }
 
     public void unregister() {
-        ClientWaypointCache.removeChangeListener(listener);
+        ClientWaypointCache.removeChangeListener(waypointListener);
+        ClientPartyCache.removeSyncListener(partyListener);
         if (instance == this) instance = null;
     }
 
@@ -108,46 +118,71 @@ public class JMapWaypointSyncHandler {
         WaypointGroup group = ensureGroup(api);
         group.setEnabled(enabled);
 
-        Map<String, Waypoint> existing = new HashMap<>();
-        for (Waypoint wp : api.getWaypoints(Tags.MODID)) {
-            if (group.getGuid().equals(wp.getGroupId())) {
-                existing.put(wp.getId(), wp);
+        var existingIds = new java.util.HashSet<>(group.getWaypointIds());
+        var wantedIds = new java.util.HashSet<String>();
+
+        for (PartyWaypointData shared : sharedWaypoints) {
+            var stableId = WP_ID_PREFIX + shared.waypointId;
+            wantedIds.add(stableId);
+            Waypoint ex = api.getWaypoint(Tags.MODID, stableId);
+            if (ex != null) {
+                ex.setName(shared.name);
+                ex.setBlockPos(new BlockPos(shared.x, shared.y, shared.z));
+                ex.setPrimaryDimension(shared.dimension);
+                ex.setColor(shared.color);
+            } else {
+                var wp = createWaypoint(shared, stableId, group.getGuid());
+                group.addWaypoint(wp);
+                WaypointStore.getInstance().putLocal(wp, false);
             }
         }
 
-        for (PartyWaypointData shared : sharedWaypoints) {
-            var waypoint = WaypointFactory.createWaypoint(
-                    Tags.MODID,
-                    new BlockPos(shared.x, shared.y, shared.z),
-                    shared.name,
-                    String.valueOf(shared.dimension),
-                    true);
-            waypoint.setColor(shared.color);
-            group.addWaypoint(waypoint);
-            api.addWaypoint(Tags.MODID, waypoint);
-            existing.remove(waypoint.getId());
-        }
-
-        for (Waypoint leftover : existing.values()) {
-            api.removeWaypoint(Tags.MODID, leftover);
+        for (String oldId : existingIds) {
+            if (!wantedIds.contains(oldId)) {
+                Waypoint old = api.getWaypoint(Tags.MODID, oldId);
+                if (old != null) api.removeWaypoint(Tags.MODID, old);
+            }
         }
     }
 
     private WaypointGroup ensureGroup(IClientAPI api) {
-        WaypointGroup group = api.getWaypointGroupByName(Tags.MODID, GROUP_NAME);
-        if (group != null) return group;
+        for (var g : api.getWaypointGroups(Tags.MODID)) {
+            if (GROUP_GUID.equals(g.getGuid())) return g;
+        }
 
-        group = WaypointFactory.createWaypointGroup(Tags.MODID, GROUP_NAME);
+        var group = new WaypointGroupImpl(Tags.MODID, GROUP_NAME, GROUP_GUID);
         group.setLocked(true);
-        group.setPersistent(false);
+        group.setPersistent(true);
         api.addWaypointGroup(group);
         return group;
     }
 
+    private static ClientWaypointImpl createWaypoint(PartyWaypointData data, String guid, String groupGuid) {
+        var pos = new WaypointPos(new BlockPos(data.x, data.y, data.z), String.valueOf(data.dimension));
+        var dims = new TreeSet<>(java.util.Collections.singleton(String.valueOf(data.dimension)));
+        return new ClientWaypointImpl(
+                data.name,
+                "1",
+                Tags.MODID,
+                guid,
+                Tags.MODID,
+                groupGuid,
+                pos,
+                data.color,
+                new WaypointIcon(),
+                new WaypointSettings(true, false, true),
+                dims,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
     private void removeGroupIfPresent(IClientAPI api) {
-        WaypointGroup group = api.getWaypointGroupByName(Tags.MODID, GROUP_NAME);
-        if (group != null) {
-            api.removeWaypointGroup(group, true);
+        for (var g : api.getWaypointGroups(Tags.MODID)) {
+            if (GROUP_GUID.equals(g.getGuid())) {
+                api.removeWaypointGroup(g, true);
+                return;
+            }
         }
     }
 }

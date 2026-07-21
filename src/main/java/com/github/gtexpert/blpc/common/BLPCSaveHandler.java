@@ -166,7 +166,7 @@ public class BLPCSaveHandler {
                 for (int i = 0; i < list.tagCount(); i++) {
                     ClaimedChunkData claim = ClaimedChunkData.fromNBT(list.getCompoundTagAt(i));
                     if (claim == null) continue;
-                    data.setClaim(claim.x, claim.z, claim.ownerUUID, claim.ownerName, claim.partyName,
+                    data.setClaim(claim.x, claim.z, claim.dim, claim.ownerUUID, claim.ownerName, claim.partyName,
                             claim.isForceLoaded);
                 }
             } catch (IOException e) {

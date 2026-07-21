@@ -67,7 +67,9 @@ public class CoreEventHandler {
         for (ClaimedChunkData claim : ChunkManagerData.getInstance().getAllClaims()) {
             if (claim.isForceLoaded && memberIds.contains(claim.ownerUUID)) {
                 for (WorldServer ws : server.worlds) {
-                    TicketManager.unforceChunk(ws, claim.x, claim.z);
+                    if (ws.provider.getDimension() == claim.dim) {
+                        TicketManager.unforceChunk(ws, claim.x, claim.z);
+                    }
                 }
             }
         }
