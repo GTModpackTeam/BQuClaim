@@ -7,7 +7,6 @@ import java.util.UUID;
 
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentTranslation;
@@ -56,14 +55,8 @@ public class DisbandCommand extends AdminSubCommand {
         PartyProviderRegistry.get().syncToAll();
         BLPCSaveHandler.INSTANCE.markDirty();
 
-        for (UUID memberId : members) {
-            EntityPlayerMP member = server.getPlayerList().getPlayerByUUID(memberId);
-            if (member != null) {
-                ModNetwork.INSTANCE.sendTo(
-                        ClientNotify.partyEvent(ClientNotify.EVENT_DISBANDED, "", ""),
-                        member);
-            }
-        }
+        ModNetwork.broadcastToMembers(members, null, server,
+                ClientNotify.partyEvent(ClientNotify.EVENT_DISBANDED, "", ""));
         sender.sendMessage(new TextComponentTranslation("command.blpc.disband.success", partyName));
     }
 

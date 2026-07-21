@@ -191,9 +191,9 @@ public class DefaultPartyProvider implements IPartyProvider {
             targetId = actor.getUniqueID();
             if (party.getRole(targetId) == PartyRole.OWNER) return false;
         } else {
-            EntityPlayerMP target = server.getPlayerList().getPlayerByUsername(targetUsername);
-            if (target == null) return false;
-            targetId = target.getUniqueID();
+            UUID resolved = party.findMemberByUsername(server, targetUsername);
+            if (resolved == null) return false;
+            targetId = resolved;
             PartyRole actorRole = party.getRole(actor.getUniqueID());
             PartyRole targetRole = party.getRole(targetId);
             if (actorRole == null || targetRole == null) return false;
@@ -211,9 +211,9 @@ public class DefaultPartyProvider implements IPartyProvider {
         if (party == null) return false;
         MinecraftServer server = actor.getServer();
         if (server == null) return false;
-        EntityPlayerMP target = server.getPlayerList().getPlayerByUsername(targetUsername);
-        if (target == null) return false;
-        if (!party.isMember(target.getUniqueID())) return false;
+
+        UUID targetId = party.findMemberByUsername(server, targetUsername);
+        if (targetId == null) return false;
         PartyRole actorRole = party.getRole(actor.getUniqueID());
         if (actorRole == null || !actorRole.canChangeRole()) return false;
         PartyRole role;
@@ -222,7 +222,7 @@ public class DefaultPartyProvider implements IPartyProvider {
         } catch (IllegalArgumentException e) {
             return false;
         }
-        party.setRole(target.getUniqueID(), role);
+        party.setRole(targetId, role);
         return true;
     }
 

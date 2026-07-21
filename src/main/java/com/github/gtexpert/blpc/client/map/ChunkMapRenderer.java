@@ -1,6 +1,7 @@
 package com.github.gtexpert.blpc.client.map;
 
 import java.util.UUID;
+import java.util.function.BiPredicate;
 
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
@@ -42,11 +43,13 @@ public class ChunkMapRenderer {
      * @param playerUUID      local player UUID
      * @param showForceLoad   show force-load hatching
      * @param showClaimBorder show borders between different claim owners
+     * @param isSelected      returns true for a chunk (x, z) that should render the hover/drag
+     *                        selection highlight; pass {@code null} to disable it
      */
     public static void drawChunkGrid(int ox, int oy, int chunkSize, int radius,
                                      int centerCX, int centerCZ, int gridColor,
                                      World world, UUID playerUUID, boolean showForceLoad,
-                                     boolean showClaimBorder) {
+                                     boolean showClaimBorder, BiPredicate<Integer, Integer> isSelected) {
         int gridLen = radius * 2 + 1;
         int mapPx = gridLen * chunkSize;
         int dim = world.provider.getDimension();
@@ -66,6 +69,10 @@ public class ChunkMapRenderer {
                     if (d != null && d.isForceLoaded) {
                         drawHatching(dx, dy, chunkSize, chunkSize, BLPCColors.claimHatching());
                     }
+                }
+
+                if (isSelected != null && isSelected.test(rx, rz)) {
+                    GuiDraw.drawRect(dx, dy, chunkSize, chunkSize, BLPCColors.mapSelection());
                 }
             }
         }

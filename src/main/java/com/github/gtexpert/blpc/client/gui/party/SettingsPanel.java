@@ -2,6 +2,8 @@ package com.github.gtexpert.blpc.client.gui.party;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -30,6 +32,7 @@ import com.github.gtexpert.blpc.api.party.TrustAction;
 import com.github.gtexpert.blpc.api.party.TrustLevel;
 import com.github.gtexpert.blpc.client.gui.BLPCColors;
 import com.github.gtexpert.blpc.client.gui.party.widget.InputDialog;
+import com.github.gtexpert.blpc.client.gui.party.widget.LiveSearchableList;
 import com.github.gtexpert.blpc.common.network.ModNetwork;
 import com.github.gtexpert.blpc.common.network.message.PartyAction;
 import com.github.gtexpert.blpc.common.party.ClientPartyCache;
@@ -52,6 +55,7 @@ public class SettingsPanel {
 
         UUID partyId = initialParty.getPartyId();
         Supplier<Party> partyRef = PartyWidgets.livePartyRef(partyId, initialParty);
+        List<Runnable> trustListRefreshables = new ArrayList<>();
 
         PartyWidgets.addHeader(panel, "blpc.party.settings_title");
 
@@ -66,13 +70,17 @@ public class SettingsPanel {
                 new IWidget[] {
                         buildPartyInfoPage(partyRef, panel),
                         buildProtectionPage(partyRef),
-                        buildAlliesPage(partyRef),
-                        buildEnemiesPage(partyRef)
+                        buildAlliesPage(partyRef, trustListRefreshables),
+                        buildEnemiesPage(partyRef, trustListRefreshables)
                 });
 
         PartyWidgets.addSyncRefreshListener(panel, () -> {
             if (ClientPartyCache.getParty(partyId) == null) {
                 PartyWidgets.closeIfTopMost(panel);
+                return;
+            }
+            for (Runnable refresh : trustListRefreshables) {
+                refresh.run();
             }
         });
 
@@ -208,96 +216,102 @@ public class SettingsPanel {
         return list;
     }
 
-    private static IWidget buildAlliesPage(Supplier<Party> partyRef) {
-        return buildTrustPage(partyRef, false);
+    private static IWidget buildAlliesPage(Supplier<Party> partyRef, List<Runnable> refreshables) {
+        return buildTrustPage(partyRef, false, refreshables);
     }
 
-    private static IWidget buildEnemiesPage(Supplier<Party> partyRef) {
-        return buildTrustPage(partyRef, true);
+    private static IWidget buildEnemiesPage(Supplier<Party> partyRef, List<Runnable> refreshables) {
+        return buildTrustPage(partyRef, true, refreshables);
     }
 
     /**
      * Builds the inner two-tab (Parties / Players) layout for ally or enemy management.
      * Toggle buttons update color in-place via {@link IKey#dynamicKey} — panel stays open.
+     * Both lists are wired to {@code refreshables} so a caller-owned sync listener can call
+     * {@code rebuild} on every party sync — the trust tabs used to be a one-shot snapshot that
+     * never picked up newly-created parties or players logging in/out.
      */
-    private static IWidget buildTrustPage(Supplier<Party> partyRef, boolean isEnemy) {
+    private static IWidget buildTrustPage(Supplier<Party> partyRef, boolean isEnemy,
+                                          List<Runnable> refreshables) {
+        LiveSearchableList<Party> partyList = new LiveSearchableList<>(
+                other -> createTrustPartyRow(other, partyRef, isEnemy),
+                Party::getName, "blpc.party.no_other_parties");
+        LiveSearchableList<NetworkPlayerInfo> playerList = new LiveSearchableList<>(
+                info -> createTrustPlayerRow(info, partyRef, isEnemy),
+                info -> info.getGameProfile().getName(), "blpc.party.no_players_online");
+
+        partyList.rebuild(collectTrustableParties(partyRef.get()));
+        playerList.rebuild(collectTrustablePlayers(partyRef.get()));
+        refreshables.add(() -> {
+            partyList.rebuild(collectTrustableParties(partyRef.get()));
+            playerList.rebuild(collectTrustablePlayers(partyRef.get()));
+        });
+
         return PartyWidgets.buildInnerTabs(
                 new String[] { "blpc.party.tab.parties", "blpc.party.tab.players" },
-                new IWidget[] { buildTrustPartyList(partyRef, isEnemy),
-                        buildTrustPlayerList(partyRef, isEnemy) });
+                new IWidget[] { partyList.buildContainer(), playerList.buildContainer() });
     }
 
-    private static IWidget buildTrustPartyList(Supplier<Party> partyRef, boolean isEnemy) {
-        var list = newList();
-        final UUID myPartyId = partyRef.get().getPartyId();
-        Collection<Party> allParties = ClientPartyCache.getAllParties();
-        var widgets = new ArrayList<IWidget>();
-        var searchNames = new ArrayList<String>();
-
-        for (Party other : allParties) {
-            if (other.getPartyId().equals(myPartyId)) continue;
-            final UUID pid = other.getPartyId();
-            final String name = other.getName();
-
-            var btn = new ButtonWidget<>()
-                    .widthRel(1f).height(BTN_H).padding(PartyWidgets.ROW_INDENT, 0, 0, 0)
-                    .overlay(IKey
-                            .dynamicKey(() -> PartyWidgets.rowLabel(IKey.str(name), trustColor(partyRef.get(), pid))))
-                    .addTooltipLine(trustTooltip(isEnemy))
-                    .onMousePressed(b -> {
-                        toggleTrust(partyRef.get(), pid, isEnemy);
-                        return true;
-                    });
-
-            widgets.add(btn);
-            searchNames.add(name.toLowerCase(Locale.ROOT));
-            list.child(btn);
+    private static Collection<Party> collectTrustableParties(Party myParty) {
+        UUID myPartyId = myParty.getPartyId();
+        List<Party> result = new ArrayList<>();
+        for (Party other : ClientPartyCache.getAllParties()) {
+            if (!other.getPartyId().equals(myPartyId)) result.add(other);
         }
-        return PartyWidgets.finalizeSearchableList(list, widgets, searchNames, "blpc.party.no_other_parties");
+        return result;
     }
 
-    private static IWidget buildTrustPlayerList(Supplier<Party> partyRef, boolean isEnemy) {
-        var list = newList();
-        final UUID myPartyId = partyRef.get().getPartyId();
+    private static IWidget createTrustPartyRow(Party other, Supplier<Party> partyRef, boolean isEnemy) {
+        final UUID pid = other.getPartyId();
+        final String name = other.getName();
+        return new ButtonWidget<>()
+                .widthRel(1f).height(BTN_H).padding(PartyWidgets.ROW_INDENT, 0, 0, 0)
+                .overlay(IKey.dynamicKey(() -> PartyWidgets.rowLabel(IKey.str(name), trustColor(partyRef.get(), pid))))
+                .addTooltipLine(trustTooltip(isEnemy))
+                .onMousePressed(b -> {
+                    toggleTrust(partyRef.get(), pid, isEnemy);
+                    return true;
+                });
+    }
+
+    private static Collection<NetworkPlayerInfo> collectTrustablePlayers(Party myParty) {
         var conn = Minecraft.getMinecraft().getConnection();
-        if (conn == null) return list;
+        if (conn == null) return Collections.emptyList();
 
-        var widgets = new ArrayList<IWidget>();
-        var searchNames = new ArrayList<String>();
-
+        UUID myPartyId = myParty.getPartyId();
+        List<NetworkPlayerInfo> result = new ArrayList<>();
         for (NetworkPlayerInfo info : conn.getPlayerInfoMap()) {
-            UUID playerUUID = info.getGameProfile().getId();
-            String playerName = info.getGameProfile().getName();
-            Party playerParty = ClientPartyCache.getPartyByPlayer(playerUUID);
-
-            if (playerParty != null && playerParty.getPartyId().equals(myPartyId)) continue;
-
-            if (playerParty == null) {
-                String noPartyLabel = playerName + " (" + IKey.lang("blpc.party.tab.no_party").get() + ")";
-                var row = PartyWidgets.faceRow(playerUUID,
-                        IKey.str(noPartyLabel).color(BLPCColors.subtext()).alignment(Alignment.CenterLeft))
-                        .height(BTN_H);
-                widgets.add(row);
-                searchNames.add(playerName.toLowerCase(Locale.ROOT));
-                list.child(row);
-            } else {
-                final UUID pid = playerParty.getPartyId();
-                final String partyLabel = playerName + " (" + playerParty.getName() + ")";
-                var btn = new ButtonWidget<>()
-                        .widthRel(1f).height(BTN_H).padding(0)
-                        .child(PartyWidgets.faceRow(playerUUID, IKey.dynamicKey(
-                                () -> PartyWidgets.rowLabel(IKey.str(partyLabel), trustColor(partyRef.get(), pid)))))
-                        .addTooltipLine(trustTooltip(isEnemy))
-                        .onMousePressed(b -> {
-                            toggleTrust(partyRef.get(), pid, isEnemy);
-                            return true;
-                        });
-                widgets.add(btn);
-                searchNames.add(playerName.toLowerCase(Locale.ROOT));
-                list.child(btn);
+            Party playerParty = ClientPartyCache.getPartyByPlayer(info.getGameProfile().getId());
+            if (playerParty == null || !playerParty.getPartyId().equals(myPartyId)) {
+                result.add(info);
             }
         }
-        return PartyWidgets.finalizeSearchableList(list, widgets, searchNames, "blpc.party.no_players_online");
+        return result;
+    }
+
+    private static IWidget createTrustPlayerRow(NetworkPlayerInfo info, Supplier<Party> partyRef, boolean isEnemy) {
+        UUID playerUUID = info.getGameProfile().getId();
+        String playerName = info.getGameProfile().getName();
+        Party playerParty = ClientPartyCache.getPartyByPlayer(playerUUID);
+
+        if (playerParty == null) {
+            String noPartyLabel = playerName + " (" + IKey.lang("blpc.party.tab.no_party").get() + ")";
+            return PartyWidgets.faceRow(playerUUID,
+                    IKey.str(noPartyLabel).color(BLPCColors.subtext()).alignment(Alignment.CenterLeft))
+                    .height(BTN_H);
+        }
+
+        final UUID pid = playerParty.getPartyId();
+        final String partyLabel = playerName + " (" + playerParty.getName() + ")";
+        return new ButtonWidget<>()
+                .widthRel(1f).height(BTN_H).padding(0)
+                .child(PartyWidgets.faceRow(playerUUID, IKey.dynamicKey(
+                        () -> PartyWidgets.rowLabel(IKey.str(partyLabel), trustColor(partyRef.get(), pid)))))
+                .addTooltipLine(trustTooltip(isEnemy))
+                .onMousePressed(b -> {
+                    toggleTrust(partyRef.get(), pid, isEnemy);
+                    return true;
+                });
     }
 
     private static void toggleTrust(Party party, UUID pid, boolean isEnemy) {

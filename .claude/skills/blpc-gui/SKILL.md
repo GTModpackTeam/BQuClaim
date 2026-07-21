@@ -27,7 +27,7 @@ user-invocable: false
 
 Two holders, split by surface:
 
-- **`BLPCColors`** — semantic party/map colors. Single source of truth via accessor methods. `text()`, `buttonText()`, `owner()`, `admin()`, `warning()`, `subtext()`, `inactive()`, `divider()`, `mapBackground()`, `mapBorder()`, claim overlays, `partyArgb()`.
+- **`BLPCColors`** — semantic party/map colors. Single source of truth via accessor methods. `text()`, `buttonText()`, `owner()`, `admin()`, `warning()`, `subtext()`, `inactive()`, `divider()`, `mapBackground()`, `mapBorder()`, `mapSelection()`, `mapUnloaded()`, claim overlays (`claimOwn`/`claimParty`/`claimOther`/`claimHatching`/`claimBorder`), `partyArgb()`.
 - **`GuiColors`** — fixed vanilla-context ARGB: `WHITE`, `GOLD`, `GREEN`, `RED`, `GRAY`, `DIVIDER`.
 
 **Never inline `0x…` color literals** — only exception: dynamic per-party `getColor()` ARGB composition.
@@ -52,7 +52,7 @@ Two holders, split by surface:
 |---|---|---|
 | `CycleButtonWidget` + `IntValue.Dynamic` | Multi-state settings (trust levels) | `length()` + `stateChild(i, ...)` |
 | `ToggleButton` + `BoolValue.Dynamic` | Boolean settings | `overlay(false/true, ...)` |
-| `ListWidget` + `LiveSearchableList` | Scrollable lists | `rebuild(Collection<T>)` for live-update |
+| `ListWidget` + `LiveSearchableList` | Scrollable lists | `rebuild(Collection<T>)` for live-update — used by `MembersPanel`, `ModeratorsPanel`, `TransferOwnerPanel`, and `SettingsPanel`'s ally/enemy tabs |
 | `Dialog<T>` | Modal confirmations | `closeWith(result)` |
 | `Flow.col()` / `Flow.row()` | Layout | `childPadding(n)` |
 | `IKey.dynamic` / `*Value.Dynamic` | Per-frame reactive state | Preferred over widget tree rebuild |

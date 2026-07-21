@@ -78,7 +78,11 @@ party-ID parameter is needed except `acceptInvite(player, partyId)`, which targe
 active:
 
 - **`Party`** — members (`Map<UUID, PartyRole>`), trust settings, allies/enemies,
-  invites, free-to-join/description/color/max-members.
+  invites, free-to-join/description/color/max-members. `findMemberByName(String)` /
+  `findMemberByUsername(MinecraftServer, String)` resolve a member's UUID from their
+  cached display name (falling back to the live player list) — the same lookup BLPC's
+  own kick/re-rank/transfer-ownership actions use, so a custom `IPartyProvider` can
+  target offline members the same way instead of requiring them online.
 - **`PartyRole`** — `MEMBER < ADMIN < OWNER`, with `canInvite()`, `canKick(target)`,
   `canDisband()`, `toTrustLevel()`.
 - **`TrustLevel`** — `NONE < ALLY < MEMBER < MODERATOR < OWNER`, checked via

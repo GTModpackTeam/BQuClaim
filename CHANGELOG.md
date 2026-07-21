@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * * *
 
+## [0.15.2]
+
+### Added
+
+- **Claiming/unclaiming a large area by dragging is now much smoother**
+  - While you drag across the map, the chunks you're about to claim or unclaim are now highlighted so you can see exactly what will change before you let go — no more guessing.
+  - Holding Ctrl while hovering the map now shows the chunk's coordinates in the tooltip, and hovering an unclaimed chunk shows "Wilderness" instead of a blank tooltip.
+- **Chunk-crossing toasts now show up for everyone, not just invaders**
+  - You'll now get a toast when you come home to your own land, visit an ally's land, or wander into a stranger's claim — not just when an enemy invades. Toasts about your own movements are worded for you ("You returned home") instead of reading like a report about someone else, and show the other player's face when relevant.
+  - Walking around inside your own densely packed claims (e.g. a 3x3 base) no longer spams a toast at every single chunk border — only real crossings between different owners trigger one now.
+- **Kicking, re-ranking, or transferring ownership to offline party members now works**
+  - Previously you could only do this to someone currently online. Now it works the same whether they're logged in or not — no need to wait around for an inactive member to show up just to remove them.
+
+### Changed
+
+- **The always-on "Protected" text above your hunger bar is gone — the same info now comes through as a toast**
+  - You'll still be told when you're standing on protected land (and now also when it's an ally's or a stranger's), just via the same toast notifications used for everything else instead of a separate on-screen indicator.
+- **Opening the chunk map for the first time no longer causes a brief freeze**
+  - On modpacks with a huge number of blocks, the very first time you opened the map screen could hang the game for a few seconds while it prepared the terrain colors. That preparation now happens quietly in the background instead.
+
+[0.15.2]: https://github.com/gtexpert/BetterLinkPartyClaim/releases/tag/v0.15.2
+
+* * *
+
 ## [0.15.1]
 
 > **Wire-protocol break.** Chunk claims now carry a dimension ID. Client and server must run the same version.

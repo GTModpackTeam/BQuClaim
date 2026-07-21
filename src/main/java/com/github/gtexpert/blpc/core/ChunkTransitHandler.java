@@ -65,40 +65,51 @@ public class ChunkTransitHandler {
         ChunkManagerData chunkData = ChunkManagerData.getInstance();
         IPartyProvider activeProvider = PartyProviderRegistry.get();
 
+        Party prevParty = null;
+        ClaimedChunkData prevClaim = null;
         if (prev != null) {
             int prevX = unpackX(prev);
             int prevZ = unpackZ(prev);
             int prevChunkDim = prevDim != null ? prevDim : dim;
-            ClaimedChunkData prevClaim = chunkData.getClaim(prevX, prevZ, prevChunkDim);
+            prevClaim = chunkData.getClaim(prevX, prevZ, prevChunkDim);
             if (prevClaim != null) {
-                Party prevParty = activeProvider.getEffectiveParty(prevClaim.ownerUUID);
-                if (prevParty != null) {
-                    RelationType rel = resolveRelation(prevParty, player, activeProvider);
-                    if (rel != RelationType.NONE) {
-                        if (ModConfig.fairPlay.enableTransitNotify) {
-                            sendNotifications(prevParty, player, rel, false);
-                        }
-                        if (rel == RelationType.ENEMY) {
-                            onEnemyLeave(prevParty.getPartyId(), playerId, player);
-                        }
-                    }
-                }
+                prevParty = activeProvider.getEffectiveParty(prevClaim.ownerUUID);
             }
         }
 
         ClaimedChunkData curClaim = chunkData.getClaim(cx, cz, dim);
-        if (curClaim != null) {
-            Party curParty = activeProvider.getEffectiveParty(curClaim.ownerUUID);
-            if (curParty != null) {
-                RelationType rel = resolveRelation(curParty, player, activeProvider);
-                if (rel != RelationType.NONE) {
-                    if (ModConfig.fairPlay.enableTransitNotify) {
-                        sendNotifications(curParty, player, rel, true);
-                    }
-                    if (rel == RelationType.ENEMY && ModConfig.fairPlay.enableAreaEffects) {
-                        onEnemyEnter(curParty.getPartyId(), playerId);
-                    }
+        Party curParty = curClaim != null ? activeProvider.getEffectiveParty(curClaim.ownerUUID) : null;
+
+        // Moving between two chunks claimed by the same party (e.g. inside a dense claim
+        // cluster) isn't a real boundary crossing — skip leave/enter notifications entirely.
+        boolean samePartyThroughout = prevParty != null && curParty != null &&
+                prevParty.getPartyId().equals(curParty.getPartyId());
+
+        if (!samePartyThroughout && prevClaim != null && prevParty != null) {
+            RelationType rel = resolveRelation(prevParty, player, activeProvider);
+            if (rel != RelationType.NONE) {
+                if (ModConfig.fairPlay.enableTransitNotify) {
+                    sendNotifications(prevParty, player, rel, false);
                 }
+                if (rel == RelationType.ENEMY) {
+                    onEnemyLeave(prevParty.getPartyId(), playerId, player);
+                }
+            } else if (ModConfig.fairPlay.enableTransitNotify) {
+                sendOutsiderNotification(player, prevClaim, prevParty, false);
+            }
+        }
+
+        if (!samePartyThroughout && curClaim != null && curParty != null) {
+            RelationType rel = resolveRelation(curParty, player, activeProvider);
+            if (rel != RelationType.NONE) {
+                if (ModConfig.fairPlay.enableTransitNotify) {
+                    sendNotifications(curParty, player, rel, true);
+                }
+                if (rel == RelationType.ENEMY && ModConfig.fairPlay.enableAreaEffects) {
+                    onEnemyEnter(curParty.getPartyId(), playerId);
+                }
+            } else if (ModConfig.fairPlay.enableTransitNotify) {
+                sendOutsiderNotification(player, curClaim, curParty, true);
             }
         }
 
@@ -136,18 +147,33 @@ public class ChunkTransitHandler {
 
     private static void sendNotifications(Party claimParty, EntityPlayerMP transitPlayer,
                                           RelationType relation, boolean entered) {
-        ClientNotify packet = ClientNotify.chunkTransit(
-                transitPlayer.getName(), relation, entered);
+        ClientNotify othersPacket = ClientNotify.chunkTransit(
+                transitPlayer.getName(), transitPlayer.getUniqueID(), relation, entered, "", false);
 
         for (UUID memberId : claimParty.getMembers().keySet()) {
             EntityPlayerMP member = getOnlinePlayer(memberId);
             if (member != null && !member.getUniqueID().equals(transitPlayer.getUniqueID())) {
-                ModNetwork.INSTANCE.sendTo(packet, member);
+                ModNetwork.INSTANCE.sendTo(othersPacket, member);
             }
         }
-        if (relation == RelationType.ENEMY) {
-            ModNetwork.INSTANCE.sendTo(packet, transitPlayer);
-        }
+        // The transiting player always gets their own toast too (e.g. "You returned home"),
+        // not just enemies invading someone else's claim — with second-person wording. The
+        // claim's own party name is passed as ownerName so ALLY/ENEMY self-toasts can say whose
+        // territory it is (MEMBER's self toast ignores it — it's always "your own" land).
+        ClientNotify selfPacket = ClientNotify.chunkTransit(
+                transitPlayer.getName(), transitPlayer.getUniqueID(), relation, entered, claimParty.getName(), true);
+        ModNetwork.INSTANCE.sendTo(selfPacket, transitPlayer);
+    }
+
+    /**
+     * Tells an unrelated player (no member/ally/enemy relation to the claim owner) whose claim
+     * they just crossed into or out of — informational only, no defender/invader side-effects.
+     */
+    private static void sendOutsiderNotification(EntityPlayerMP transitPlayer, ClaimedChunkData claim,
+                                                 Party claimParty, boolean entered) {
+        String ownerName = claimParty.getName().isEmpty() ? claim.ownerName : claimParty.getName();
+        ClientNotify packet = ClientNotify.chunkTransit(null, null, RelationType.NONE, entered, ownerName, true);
+        ModNetwork.INSTANCE.sendTo(packet, transitPlayer);
     }
 
     private static void onEnemyEnter(UUID partyId, UUID enemyId) {

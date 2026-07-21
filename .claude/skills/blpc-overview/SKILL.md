@@ -84,7 +84,7 @@ Modules discovered at FML Construction via `@TModule`. `modDependencies` gates o
 
 ## Localization
 
-Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust, protection, allies/enemies, tooltips, search, transit notifications, party event/claim failure notifications, addon panels, Fair Play config, and Protection Status HUD.
+Lang files in `src/main/resources/assets/blpc/lang/`: `en_us.lang` and `ja_jp.lang`. Both cover keybindings, commands, map UI, party UI, roles, trust, protection, allies/enemies, tooltips, search, transit notifications, party event/claim failure notifications, addon panels, and Fair Play config.
 
 ## Adding a New Integration Module
 

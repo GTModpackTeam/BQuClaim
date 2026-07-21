@@ -295,6 +295,38 @@ public class Party {
     }
 
     /**
+     * Resolves a member's UUID from their cached display name — case-insensitive, matched
+     * against {@link #getMembers()} only. Used to target offline members by name (e.g. kick)
+     * since {@code UsernameCache}/{@code playerNames} persist across logout, unlike the live
+     * player list.
+     */
+    @Nullable
+    public UUID findMemberByName(String name) {
+        for (UUID uuid : members.keySet()) {
+            String cached = playerNames.get(uuid);
+            if (cached != null && cached.equalsIgnoreCase(name)) {
+                return uuid;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Like {@link #findMemberByName(String)}, but falls back to the live player list when the
+     * name isn't in the cache yet (e.g. a member who joined this tick, before the next
+     * {@link #resolvePlayerNames(Function)} sync pass). Preferred over calling
+     * {@code server.getPlayerList().getPlayerByUsername()} directly, since that alone can't
+     * target offline members at all.
+     */
+    @Nullable
+    public UUID findMemberByUsername(MinecraftServer server, String name) {
+        UUID cached = findMemberByName(name);
+        if (cached != null) return cached;
+        EntityPlayerMP online = server.getPlayerList().getPlayerByUsername(name);
+        return online != null && members.containsKey(online.getUniqueID()) ? online.getUniqueID() : null;
+    }
+
+    /**
      * Resolves display names for all known UUIDs (members) and party names for
      * allies/enemies. Call this server-side before serializing for client sync.
      *

@@ -37,7 +37,16 @@ public class MapColorHelper {
 
     private static final Map<IBlockState, CachedColor> colorCache = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;
+    private static volatile boolean initializing = false;
 
+    public static boolean isInitialized() {
+        return initialized;
+    }
+
+    /**
+     * Kicks off the (potentially slow) color-cache build on the calling thread. Callers must not
+     * invoke this on the main/render thread — use {@link #requestInitAsync()} from render code.
+     */
     public static synchronized void init() {
         if (initialized) return;
 
@@ -79,6 +88,16 @@ public class MapColorHelper {
                 Blocks.LAVA.getDefaultState(), Blocks.FLOWING_LAVA.getDefaultState());
 
         initialized = true;
+    }
+
+    /**
+     * Requests background initialization if not already initialized/in-progress. Safe to call
+     * every frame from the render thread — does nothing once initialization has started.
+     */
+    public static void requestInitAsync() {
+        if (initialized || initializing) return;
+        initializing = true;
+        AsyncMapRenderer.submitInit(MapColorHelper::init);
     }
 
     /**
@@ -263,6 +282,7 @@ public class MapColorHelper {
     public static synchronized void clearCache() {
         colorCache.clear();
         initialized = false;
+        initializing = false;
     }
 
     private static class CachedColor {

@@ -36,12 +36,13 @@ public class PlayerFaceDrawable implements IDrawable {
 
     @Override
     public void draw(GuiContext context, int x, int y, int width, int height, WidgetTheme widgetTheme) {
-        ResourceLocation skin = resolveSkin();
+        ResourceLocation skin = resolveSkin(playerUUID);
         GuiDraw.drawTexture(skin, x, y, x + width, y + height, FACE_U0, FACE_V0, FACE_U1, FACE_V1, true);
         GuiDraw.drawTexture(skin, x, y, x + width, y + height, HAT_U0, HAT_V0, HAT_U1, HAT_V1, true);
     }
 
-    private ResourceLocation resolveSkin() {
+    /** Resolves a player's skin texture, falling back to the default Steve/Alex skin if not yet loaded. */
+    public static ResourceLocation resolveSkin(UUID playerUUID) {
         var conn = Minecraft.getMinecraft().getConnection();
         if (conn != null) {
             NetworkPlayerInfo info = conn.getPlayerInfo(playerUUID);

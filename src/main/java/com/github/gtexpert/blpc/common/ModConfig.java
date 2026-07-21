@@ -93,13 +93,11 @@ public class ModConfig {
         public boolean enableAreaEffects = true;
 
         @Config.Name("Enable Transit Notifications")
-        @Config.Comment("Send toast notifications when a member/ally/enemy enters or leaves a claimed chunk.")
+        @Config.Comment("Send toast notifications when entering or leaving a claimed chunk: relation-aware " +
+                "wording for members/allies/enemies of the claim, or a plain owner-name toast for unrelated " +
+                "players passing through. This is also the only on-screen indicator of claim protection, " +
+                "so you always know whether you're currently protected during PvP.")
         public boolean enableTransitNotify = true;
-
-        @Config.Name("Show Protection Status HUD")
-        @Config.Comment("Show an on-screen indicator while standing in a claimed chunk, so you always know " +
-                "whether you're currently protected during PvP.")
-        public boolean showProtectionStatusHud = true;
     }
 
     public static class Party {

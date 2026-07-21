@@ -57,6 +57,7 @@ blpc.map.help_unclaim=右クリック: 解放
 blpc.map.help_force=Shift+左: 確保＆常時読込
 blpc.map.help_drag=ドラッグ: 一括操作
 blpc.map.party=パーティ
+blpc.map.wilderness=未開拓地
 
 # Party
 blpc.party.default_name=新しいパーティ
@@ -206,16 +207,21 @@ blpc.addons.journeymap.overlays_option=保護領域オーバーレイ表示
 blpc.addons.journeymap.waypoints_option=チームウェイポイント共有
 blpc.addons.journeymap.sync_interval_option=ウェイポイント同期間隔 (tick)
 
-# HUD
-blpc.hud.protected_area=保護区域: %s
-
 # 領域出入り通知
 blpc.transit.member.enter=%sが帰宅した
 blpc.transit.member.leave=%sが探索に出た
+blpc.transit.member.enter.self=保護区域に戻りました
+blpc.transit.member.leave.self=保護区域から出ました
 blpc.transit.ally.enter=%sが訪ねてきた
 blpc.transit.ally.leave=%sは帰った
+blpc.transit.ally.enter.self=%sの領地に入りました(同盟)
+blpc.transit.ally.leave.self=%sの領地から出ました(同盟)
 blpc.transit.enemy.enter=%sに侵入された
 blpc.transit.enemy.leave=%sは逃げた
+blpc.transit.enemy.enter.self=%sの領地に侵入しました
+blpc.transit.enemy.leave.self=%sの領地から退却しました
+blpc.transit.none.enter=%sの領地に入りました
+blpc.transit.none.leave=%sの領地から出ました
 
 # パーティイベント通知
 blpc.toast.member_joined=%sがパーティに参加しました

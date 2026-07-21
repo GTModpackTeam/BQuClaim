@@ -1,5 +1,7 @@
 package com.github.gtexpert.blpc.common.network.message;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -66,28 +68,32 @@ public class ClaimChunk implements IMessage {
 
         @Override
         public IMessage onMessage(ClaimChunk message, MessageContext ctx) {
-            FMLCommonHandler.instance().getWorldThread(ctx.netHandler).addScheduledTask(() -> {
-                EntityPlayerMP player = ctx.getServerHandler().player;
-
-                // Validate chunk coordinates - must be within reasonable distance
-                int playerChunkX = MathHelper.floor(player.posX) >> 4;
-                int playerChunkZ = MathHelper.floor(player.posZ) >> 4;
-                if (Math.abs(message.x - playerChunkX) > MAX_CHUNK_DISTANCE ||
-                        Math.abs(message.z - playerChunkZ) > MAX_CHUNK_DISTANCE) {
-                    return;
-                }
-
-                ChunkManagerData data = ChunkManagerData.getInstance();
-                ClaimedChunkData existing = data.getClaim(message.x, message.z, message.dim);
-                UUID playerId = player.getUniqueID();
-
-                switch (message.mode) {
-                    case MODE_CLAIM -> handleClaim(message, player, data, existing, playerId);
-                    case MODE_UNCLAIM -> handleUnclaim(message, player, data, existing, playerId);
-                    case MODE_TOGGLE_FORCE -> handleToggleForce(message, player, data, existing, playerId);
-                }
-            });
+            FMLCommonHandler.instance().getWorldThread(ctx.netHandler)
+                    .addScheduledTask(() -> processOne(message, ctx.getServerHandler().player));
             return null;
+        }
+
+        /**
+         * Validates and applies a single chunk mode change. Shared by {@link ClaimChunk} and {@link Batch}.
+         */
+        void processOne(ClaimChunk message, EntityPlayerMP player) {
+            // Validate chunk coordinates - must be within reasonable distance
+            int playerChunkX = MathHelper.floor(player.posX) >> 4;
+            int playerChunkZ = MathHelper.floor(player.posZ) >> 4;
+            if (Math.abs(message.x - playerChunkX) > MAX_CHUNK_DISTANCE ||
+                    Math.abs(message.z - playerChunkZ) > MAX_CHUNK_DISTANCE) {
+                return;
+            }
+
+            ChunkManagerData data = ChunkManagerData.getInstance();
+            ClaimedChunkData existing = data.getClaim(message.x, message.z, message.dim);
+            UUID playerId = player.getUniqueID();
+
+            switch (message.mode) {
+                case MODE_CLAIM -> handleClaim(message, player, data, existing, playerId);
+                case MODE_UNCLAIM -> handleUnclaim(message, player, data, existing, playerId);
+                case MODE_TOGGLE_FORCE -> handleToggleForce(message, player, data, existing, playerId);
+            }
         }
 
         private void handleClaim(ClaimChunk msg, EntityPlayerMP player,
@@ -256,6 +262,83 @@ public class ClaimChunk implements IMessage {
                                int x, int z, int dim, UUID owner, String name, String partyName,
                                boolean forceLoaded) {
             ModNetwork.INSTANCE.sendToAll(new SyncClaims(x, z, dim, owner, name, partyName, forceLoaded));
+        }
+    }
+
+    /**
+     * C→S: Request to claim/unclaim/force-load multiple chunks in one round trip. Used by the map
+     * GUI's drag-select instead of sending one {@link ClaimChunk} per chunk.
+     */
+    public static class Batch implements IMessage {
+
+        /** Drag-select on a GRID-sized map can't exceed this many chunks; also a sanity cap on inbound size. */
+        private static final int MAX_CHUNKS = 1024;
+
+        private int dim;
+        private int mode;
+        private int[] xs;
+        private int[] zs;
+
+        public Batch() {}
+
+        public Batch(int dim, int mode, int[] xs, int[] zs) {
+            this.dim = dim;
+            this.mode = mode;
+            this.xs = xs;
+            this.zs = zs;
+        }
+
+        @Override
+        public void fromBytes(ByteBuf buf) {
+            this.dim = buf.readInt();
+            this.mode = buf.readInt();
+            int sent = Math.max(0, buf.readInt());
+            int count = Math.min(sent, MAX_CHUNKS);
+            this.xs = new int[count];
+            this.zs = new int[count];
+            for (int i = 0; i < count; i++) {
+                xs[i] = buf.readInt();
+                zs[i] = buf.readInt();
+            }
+            // A well-behaved client never exceeds MAX_CHUNKS; drain any excess (capped to what's
+            // actually left in the buffer) so a malicious oversized count can't overflow the skip.
+            buf.skipBytes((int) Math.min((long) (sent - count) * 8L, buf.readableBytes()));
+        }
+
+        @Override
+        public void toBytes(ByteBuf buf) {
+            buf.writeInt(dim);
+            buf.writeInt(mode);
+            int count = Math.min(xs.length, MAX_CHUNKS);
+            buf.writeInt(count);
+            for (int i = 0; i < count; i++) {
+                buf.writeInt(xs[i]);
+                buf.writeInt(zs[i]);
+            }
+        }
+
+        public static class Handler implements IMessageHandler<Batch, IMessage> {
+
+            private final ClaimChunk.Handler delegate = new ClaimChunk.Handler();
+
+            @Override
+            public IMessage onMessage(Batch message, MessageContext ctx) {
+                EntityPlayerMP player = ctx.getServerHandler().player;
+                FMLCommonHandler.instance().getWorldThread(ctx.netHandler).addScheduledTask(() -> {
+                    for (ClaimChunk single : toSingleMessages(message)) {
+                        delegate.processOne(single, player);
+                    }
+                });
+                return null;
+            }
+
+            private List<ClaimChunk> toSingleMessages(Batch message) {
+                List<ClaimChunk> messages = new ArrayList<>(message.xs.length);
+                for (int i = 0; i < message.xs.length; i++) {
+                    messages.add(new ClaimChunk(message.xs[i], message.zs[i], message.dim, message.mode));
+                }
+                return messages;
+            }
         }
     }
 }

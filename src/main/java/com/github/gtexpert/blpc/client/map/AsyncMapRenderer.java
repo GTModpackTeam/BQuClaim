@@ -48,7 +48,10 @@ public class AsyncMapRenderer {
     }
 
     public static void requestChunk(World world, int cx, int cz) {
-        MapColorHelper.init();
+        if (!MapColorHelper.isInitialized()) {
+            MapColorHelper.requestInitAsync();
+            return;
+        }
 
         int dim = world.provider.getDimension();
         ChunkKey key = new ChunkKey(cx, cz, dim);
@@ -70,6 +73,10 @@ public class AsyncMapRenderer {
                 PROCESSING.remove(key);
             }
         });
+    }
+
+    public static void submitInit(Runnable initTask) {
+        EXECUTOR.submit(initTask);
     }
 
     public static int[] getColors(int cx, int cz, int dim) {

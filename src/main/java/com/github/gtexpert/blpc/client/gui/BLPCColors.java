@@ -46,6 +46,8 @@ public final class BLPCColors {
     private static final int CLAIM_OTHER = 0x55FF0000;
     /** Force-load hatching overlay (translucent red). */
     private static final int CLAIM_HATCHING = 0xAAFF0000;
+    /** Map hover/drag-selection overlay (translucent white — same cursor FTB's chunk map uses). */
+    private static final int MAP_SELECTION = 0x21FFFFFF;
 
     private BLPCColors() {}
 
@@ -127,6 +129,11 @@ public final class BLPCColors {
     /** Force-load hatching overlay color. */
     public static int claimHatching() {
         return CLAIM_HATCHING;
+    }
+
+    /** Map hover/drag-selection overlay color. */
+    public static int mapSelection() {
+        return MAP_SELECTION;
     }
 
     /** Border drawn between differently-owned claims (same accent as {@link #mapBorder()}). */

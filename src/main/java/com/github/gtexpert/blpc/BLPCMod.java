@@ -14,7 +14,6 @@ import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 
 import com.github.gtexpert.blpc.api.util.Mods;
-import com.github.gtexpert.blpc.client.gui.ProtectionStatusHud;
 import com.github.gtexpert.blpc.client.input.KeyInputHandler;
 import com.github.gtexpert.blpc.modules.ModuleManager;
 import com.github.gtexpert.blpc.modules.Modules;
@@ -27,7 +26,7 @@ import com.github.gtexpert.blpc.modules.Modules;
  * Functionality lives in modules ({@code CoreModule}, {@code BQuModule}, ...) —
  * this class only wires Forge into the module pipeline.
  * <p>
- * Client-only handlers ({@link KeyInputHandler}, {@link ProtectionStatusHud}) are registered
+ * Client-only handlers ({@link KeyInputHandler}) are registered
  * during {@link #init} on the client side. ModularUI is a hard
  * dependency; BetterQuesting and JourneyMap are soft dependencies whose
  * integrations live behind their own modules.
@@ -66,7 +65,6 @@ public class BLPCMod {
         if (event.getSide().isClient()) {
             KeyInputHandler.init();
             MinecraftForge.EVENT_BUS.register(new KeyInputHandler());
-            MinecraftForge.EVENT_BUS.register(new ProtectionStatusHud());
         }
     }
 

@@ -1,5 +1,7 @@
 package com.github.gtexpert.blpc.common.network.message;
 
+import java.util.UUID;
+
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
@@ -56,6 +58,12 @@ public class ClientNotify implements IMessage {
     // KIND_CHUNK_TRANSIT — also reuses playerName below
     private String relationName;
     private boolean entered;
+    /** Owner/party display name — only populated for {@link com.github.gtexpert.blpc.api.party.RelationType#NONE}. */
+    private String ownerName;
+    /** UUID of the transiting player, for rendering their head on the toast; may be {@code null}. */
+    private UUID playerUUID;
+    /** True when the recipient of this toast is the transiting player themself (second-person wording). */
+    private boolean self;
 
     // KIND_PARTY_EVENT
     private String eventType;
@@ -69,12 +77,22 @@ public class ClientNotify implements IMessage {
 
     public ClientNotify() {}
 
-    public static ClientNotify chunkTransit(String playerName, RelationType relation, boolean entered) {
+    /**
+     * @param ownerName owner/party display name shown to the transiting player when
+     *                  {@code relation} is {@link RelationType#NONE}; ignored otherwise.
+     * @param self      true if this packet is being sent to the transiting player themself,
+     *                  so the client renders second-person wording instead of third-person.
+     */
+    public static ClientNotify chunkTransit(String playerName, UUID playerId, RelationType relation, boolean entered,
+                                            String ownerName, boolean self) {
         var msg = new ClientNotify();
         msg.kind = KIND_CHUNK_TRANSIT;
         msg.playerName = playerName != null ? playerName : "";
+        msg.playerUUID = playerId;
         msg.relationName = relation.name();
         msg.entered = entered;
+        msg.ownerName = ownerName != null ? ownerName : "";
+        msg.self = self;
         return msg;
     }
 
@@ -112,6 +130,18 @@ public class ClientNotify implements IMessage {
         return entered;
     }
 
+    public String getOwnerName() {
+        return ownerName;
+    }
+
+    public UUID getPlayerUUID() {
+        return playerUUID;
+    }
+
+    public boolean isSelf() {
+        return self;
+    }
+
     public String getEventType() {
         return eventType;
     }
@@ -140,6 +170,9 @@ public class ClientNotify implements IMessage {
                 playerName = ByteBufUtils.readUTF8String(buf);
                 relationName = ByteBufUtils.readUTF8String(buf);
                 entered = buf.readBoolean();
+                ownerName = ByteBufUtils.readUTF8String(buf);
+                playerUUID = buf.readBoolean() ? new UUID(buf.readLong(), buf.readLong()) : null;
+                self = buf.readBoolean();
             }
             case KIND_PARTY_EVENT -> {
                 eventType = ByteBufUtils.readUTF8String(buf);
@@ -165,6 +198,13 @@ public class ClientNotify implements IMessage {
                 ByteBufUtils.writeUTF8String(buf, playerName);
                 ByteBufUtils.writeUTF8String(buf, relationName);
                 buf.writeBoolean(entered);
+                ByteBufUtils.writeUTF8String(buf, ownerName);
+                buf.writeBoolean(playerUUID != null);
+                if (playerUUID != null) {
+                    buf.writeLong(playerUUID.getMostSignificantBits());
+                    buf.writeLong(playerUUID.getLeastSignificantBits());
+                }
+                buf.writeBoolean(self);
             }
             case KIND_PARTY_EVENT -> {
                 ByteBufUtils.writeUTF8String(buf, eventType);

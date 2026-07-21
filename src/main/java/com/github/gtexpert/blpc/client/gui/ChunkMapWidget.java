@@ -1,6 +1,10 @@
 package com.github.gtexpert.blpc.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.math.ChunkPos;
 
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.Interactable;
@@ -32,21 +36,48 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
     private int lastDragX = Integer.MIN_VALUE;
     private int lastDragZ = Integer.MIN_VALUE;
 
+    /** Chunks queued during the current press→drag→release gesture, flushed as one batch on release. */
+    private final List<ChunkPos> dragQueue = new ArrayList<>();
+    private int dragMode = -1;
+    private int dragDim;
+
     public ChunkMapWidget() {
         tooltipDynamic(tooltip -> {
             Minecraft mc = Minecraft.getMinecraft();
-            int dim = mc.player != null ? mc.player.world.provider.getDimension() : 0;
+            if (mc.player == null || !isSelectedChunkOnMap(mc.player.chunkCoordX, mc.player.chunkCoordZ)) return;
+
+            int dim = mc.player.world.provider.getDimension();
             ClaimedChunkData d = ClientClaimCache.get(selectedRX, selectedRZ, dim);
-            if (d == null) return;
-            Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
-            if (ownerParty != null) {
-                int color = BLPCColors.partyArgb(ownerParty.getColor());
-                tooltip.addLine(IKey.str(ownerParty.getName()).color(color));
+            if (d == null) {
+                tooltip.addLine(IKey.lang("blpc.map.wilderness").color(BLPCColors.subtext()));
             } else {
-                tooltip.addLine(IKey.str(d.ownerName));
+                Party ownerParty = ClientPartyCache.getPartyByPlayer(d.ownerUUID);
+                if (ownerParty != null) {
+                    int color = BLPCColors.partyArgb(ownerParty.getColor());
+                    tooltip.addLine(IKey.str(ownerParty.getName()).color(color));
+                } else {
+                    tooltip.addLine(IKey.str(d.ownerName));
+                }
+            }
+
+            if (Interactable.hasControlDown()) {
+                tooltip.addLine(IKey.str(selectedRX + ", " + selectedRZ).color(BLPCColors.subtext()));
             }
         });
         tooltip().setAutoUpdate(true);
+    }
+
+    private boolean isSelectedChunkOnMap(int pX, int pZ) {
+        return Math.abs(selectedRX - pX) <= RADIUS && Math.abs(selectedRZ - pZ) <= RADIUS;
+    }
+
+    /** True for the hovered chunk or any chunk queued so far in the current drag gesture. */
+    private boolean isHighlighted(int rx, int rz) {
+        if (rx == selectedRX && rz == selectedRZ) return true;
+        for (ChunkPos pos : dragQueue) {
+            if (pos.x == rx && pos.z == rz) return true;
+        }
+        return false;
     }
 
     public int getSelectedRX() {
@@ -90,7 +121,7 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
         Stencil.apply(ox, oy, mapPx, mapPx, context);
 
         ChunkMapRenderer.drawChunkGrid(ox, oy, cs, RADIUS, pX, pZ,
-                GRID_LINE_COLOR, mc.world, mc.player.getUniqueID(), true, true);
+                GRID_LINE_COLOR, mc.world, mc.player.getUniqueID(), true, true, this::isHighlighted);
 
         GuiDraw.drawBorderOutsideXYWH(ox, oy, mapPx, mapPx, 1, BORDER_COLOR);
 
@@ -132,12 +163,14 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
     public boolean onMouseRelease(int mouseButton) {
         lastDragX = Integer.MIN_VALUE;
         lastDragZ = Integer.MIN_VALUE;
+        flushDragQueue();
         return true;
     }
 
     private void handleAction(int mouseButton) {
         int cs = getChunkSize();
         if (cs <= 0) return;
+        if (mouseButton != 0 && mouseButton != 1) return;
 
         Minecraft mc = Minecraft.getMinecraft();
         int ox = getOriginX();
@@ -149,17 +182,36 @@ public class ChunkMapWidget extends Widget<ChunkMapWidget> implements Interactab
 
         if (rx == lastDragX && rz == lastDragZ) return;
 
-        if (mouseButton == 0) {
-            int mode = Interactable.hasShiftDown() ? ClaimChunk.MODE_TOGGLE_FORCE : ClaimChunk.MODE_CLAIM;
-            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, mc.player.dimension, mode));
-        } else if (mouseButton == 1) {
-            ModNetwork.INSTANCE.sendToServer(new ClaimChunk(rx, rz, mc.player.dimension, ClaimChunk.MODE_UNCLAIM));
-        }
+        int mode = mouseButton == 0 ?
+                (Interactable.hasShiftDown() ? ClaimChunk.MODE_TOGGLE_FORCE : ClaimChunk.MODE_CLAIM) :
+                ClaimChunk.MODE_UNCLAIM;
 
-        if (mouseButton == 0 || mouseButton == 1) {
-            lastDragX = rx;
-            lastDragZ = rz;
-            Interactable.playButtonClickSound();
+        // A new gesture (or a mode change mid-drag) starts a fresh batch instead of mixing modes.
+        if (dragMode != mode || dragQueue.isEmpty()) {
+            flushDragQueue();
+            dragMode = mode;
+            dragDim = mc.player.dimension;
         }
+        dragQueue.add(new ChunkPos(rx, rz));
+
+        lastDragX = rx;
+        lastDragZ = rz;
+        Interactable.playButtonClickSound();
+    }
+
+    private void flushDragQueue() {
+        if (dragQueue.isEmpty()) return;
+
+        int[] xs = new int[dragQueue.size()];
+        int[] zs = new int[dragQueue.size()];
+        for (int i = 0; i < dragQueue.size(); i++) {
+            ChunkPos pos = dragQueue.get(i);
+            xs[i] = pos.x;
+            zs[i] = pos.z;
+        }
+        ModNetwork.INSTANCE.sendToServer(new ClaimChunk.Batch(dragDim, dragMode, xs, zs));
+
+        dragQueue.clear();
+        dragMode = -1;
     }
 }

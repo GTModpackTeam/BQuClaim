@@ -29,7 +29,8 @@ public final class ClientNotifyClientHandler extends MainThreadMessageHandler<Cl
     private static BLPCToast buildToast(ClientNotify msg) {
         return switch (msg.getKind()) {
             case ClientNotify.KIND_CHUNK_TRANSIT -> BLPCToast.builder()
-                    .fromTransit(RelationType.fromName(msg.getRelationName()), msg.isEntered(), msg.getPlayerName())
+                    .fromTransit(RelationType.fromName(msg.getRelationName()), msg.isEntered(), msg.getPlayerName(),
+                            msg.getPlayerUUID(), msg.getOwnerName(), msg.isSelf())
                     .build();
             case ClientNotify.KIND_PARTY_EVENT -> BLPCToast.builder()
                     .fromPartyEvent(msg.getEventType(), msg.getPlayerName(), msg.getExtraInfo())

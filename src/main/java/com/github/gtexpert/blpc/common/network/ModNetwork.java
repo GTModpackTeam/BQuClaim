@@ -1,5 +1,10 @@
 package com.github.gtexpert.blpc.common.network;
 
+import java.util.Collection;
+import java.util.UUID;
+
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -8,6 +13,7 @@ import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.relauncher.Side;
 
 import com.github.gtexpert.blpc.Tags;
+import com.github.gtexpert.blpc.api.party.IPartyProvider;
 import com.github.gtexpert.blpc.client.network.ClientPacketHandlers;
 import com.github.gtexpert.blpc.common.network.message.ClaimChunk;
 import com.github.gtexpert.blpc.common.network.message.ClientNotify;
@@ -42,6 +48,12 @@ public class ModNetwork {
     /** Wire protocol IDs. The order here is part of the on-wire contract — do not reorder. */
     private static final Class<? extends IMessage>[] CLIENT_BOUND_MESSAGES = clientBoundMessages();
 
+    /** Number of original C→S messages registered before the S→C block (IDs 0-2). */
+    private static final int ORIGINAL_SERVER_BOUND_COUNT = 3;
+
+    /** Next free discriminator after the original C→S + S→C messages — never changes once shipped. */
+    private static final int FIRST_APPENDED_ID = ORIGINAL_SERVER_BOUND_COUNT + CLIENT_BOUND_MESSAGES.length;
+
     @SuppressWarnings("unchecked")
     private static Class<? extends IMessage>[] clientBoundMessages() {
         return new Class[] { SyncClaims.class, SyncAllClaims.class, SyncConfig.class,
@@ -68,6 +80,11 @@ public class ModNetwork {
                 registerNoOp(messageClass, id++);
             }
         }
+        id = FIRST_APPENDED_ID;
+
+        // New top-level messages are appended after the existing C→S and S→C blocks so none
+        // of the discriminators above ever shift.
+        INSTANCE.registerMessage(ClaimChunk.Batch.Handler.class, ClaimChunk.Batch.class, id++, Side.SERVER);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -75,5 +92,37 @@ public class ModNetwork {
         Class handlerClass = NoOpHandler.class;
         INSTANCE.registerMessage((Class<? extends IMessageHandler<REQ, IMessage>>) handlerClass, messageClass,
                 discriminator, Side.CLIENT);
+    }
+
+    /**
+     * Sends {@code packet} to every online member of {@code actorId}'s party, excluding
+     * {@code actorId}. Resolved through {@link IPartyProvider} (not a possibly-stale BLPC
+     * {@code Party.getMembers()}) so a BQu-linked party's real current membership is used.
+     */
+    public static void broadcastToOtherMembers(IPartyProvider activeProvider, UUID actorId, MinecraftServer server,
+                                               IMessage packet) {
+        broadcastToMembers(activeProvider, actorId, actorId, server, packet);
+    }
+
+    /**
+     * Sends {@code packet} to every online member of {@code anyMemberId}'s party (resolved via
+     * {@code activeProvider}), excluding {@code excludeId} if non-null.
+     */
+    public static void broadcastToMembers(IPartyProvider activeProvider, UUID anyMemberId, UUID excludeId,
+                                          MinecraftServer server, IMessage packet) {
+        broadcastToMembers(activeProvider.getPartyMembers(anyMemberId), excludeId, server, packet);
+    }
+
+    /** Sends {@code packet} to every online member in {@code memberIds}, excluding {@code excludeId} if non-null. */
+    public static void broadcastToMembers(Collection<UUID> memberIds, UUID excludeId, MinecraftServer server,
+                                          IMessage packet) {
+        if (server == null) return;
+        for (UUID memberId : memberIds) {
+            if (excludeId != null && memberId.equals(excludeId)) continue;
+            EntityPlayerMP member = server.getPlayerList().getPlayerByUUID(memberId);
+            if (member != null) {
+                INSTANCE.sendTo(packet, member);
+            }
+        }
     }
 }

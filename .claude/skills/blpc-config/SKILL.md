@@ -51,8 +51,7 @@ Forge `@Config` at `common/ModConfig.java`. Auto-syncs on in-game change.
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `enableAreaEffects` | boolean | true | Potion effects for area control |
-| `enableTransitNotify` | boolean | true | Toast notifications on chunk entry/exit |
-| `showProtectionStatusHud` | boolean | true | On-screen claimed-chunk indicator |
+| `enableTransitNotify` | boolean | true | Toast notifications on chunk entry/exit — the only on-screen claim-protection indicator |
 
 ### Internal Defaults (`ModConfig.Defaults`)
 
@@ -77,20 +76,31 @@ Players receive toast notifications and potion effects when entering/leaving cla
 
 ### Notification Messages
 
+Third-party wording (seen by other party members watching someone cross their claim boundary):
+
 | Relation | Enter | Leave |
 |---|---|---|
 | MEMBER | "%s returned home" | "%s went exploring" |
 | ALLY | "%s came to visit" | "%s went home" |
 | ENEMY | "Invaded by %s" | "%s fled" |
 
+Second-person wording (`ClientNotify.isSelf()` — sent to the transiting player about their own crossing, `blpc.transit.<relation>.<direction>.self` keys) so the toast doesn't read like a report about someone else:
+
+| Relation | Enter | Leave |
+|---|---|---|
+| MEMBER | "You're back on protected land" | "You left your protected land" |
+| ALLY | "Entering %s's territory (Ally)" | "Leaving %s's territory (Ally)" |
+| ENEMY | "You invaded %s's territory" | "You left %s's territory" |
+| NONE (unrelated claim owner) | "Entering %s's territory" | "Leaving %s's territory" |
+
+Moving between two chunks claimed by the same party (e.g. inside a dense claim cluster) is not treated as a boundary crossing — no notification, no area-effect re-trigger.
+
+NONE toasts go only to the transiting player (informational — no party members notified, no area effects) and are always second-person. MEMBER/ALLY/ENEMY toasts go to the claim's party members (third-person) plus the transiting player themself (second-person, always — not just for ENEMY).
+
 ### Area Effects (every 20 ticks)
 
 - **Enemy debuff**: Weakness + optional Mining Fatigue. Removed on leaving.
 - **Defender buff**: Resistance + Strength. Active while enemies present.
-
-### Protection Status HUD
-
-`ProtectionStatusHud` — `RenderGameOverlayEvent.Post` listener, gated by `showProtectionStatusHud`. Shows claimed-chunk indicator above food bar for 5s, colored by relation.
 
 ## Mixins
 

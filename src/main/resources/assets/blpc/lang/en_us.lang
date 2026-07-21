@@ -57,6 +57,7 @@ blpc.map.help_unclaim=Right click: Unclaim
 blpc.map.help_force=Shift+Left: Claim+Force
 blpc.map.help_drag=Drag: Bulk operation
 blpc.map.party=Party
+blpc.map.wilderness=Wilderness
 
 # Party
 blpc.party.default_name=New Party
@@ -206,16 +207,21 @@ blpc.addons.journeymap.overlays_option=Show Claim Overlays
 blpc.addons.journeymap.waypoints_option=Team Waypoint Sharing
 blpc.addons.journeymap.sync_interval_option=Waypoint Sync Interval (ticks)
 
-# HUD
-blpc.hud.protected_area=Protected: %s
-
 # Transit Notifications
 blpc.transit.member.enter=%s returned home
 blpc.transit.member.leave=%s went exploring
+blpc.transit.member.enter.self=You're back on protected land
+blpc.transit.member.leave.self=You left your protected land
 blpc.transit.ally.enter=%s came to visit
 blpc.transit.ally.leave=%s went home
+blpc.transit.ally.enter.self=Entering %s's territory (Ally)
+blpc.transit.ally.leave.self=Leaving %s's territory (Ally)
 blpc.transit.enemy.enter=Invaded by %s
 blpc.transit.enemy.leave=%s fled
+blpc.transit.enemy.enter.self=You invaded %s's territory
+blpc.transit.enemy.leave.self=You left %s's territory
+blpc.transit.none.enter=Entering %s's territory
+blpc.transit.none.leave=Leaving %s's territory
 
 # Party Event Notifications
 blpc.toast.member_joined=%s joined the party

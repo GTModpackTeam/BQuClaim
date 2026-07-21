@@ -84,6 +84,7 @@ jobs:
           modrinth-dependencies: |
             Ecvd12QC(required)
             G1ckZuWK(required)
+            lfHFW1mp(recommended)
           curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}
           curseforge-token: "${{ secrets.CURSEFORGE_API_KEY }}"
           curseforge-dependencies: |

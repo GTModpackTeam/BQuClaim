@@ -17,6 +17,8 @@ Party management is abstracted via `IPartyProvider`, allowing transparent switch
 - **`DefaultPartyProvider`** — Self-managed, backed by `PartyManagerData`. Registered at `PRIORITY_DEFAULT`.
 - **`BQuPartyProvider`** — BQu implementation, registered at `PRIORITY_HIGH` when BQu present. See `blpc-integration-bqu` for details.
 
+**Offline-member resolution:** `Party.findMemberByName(String)` resolves a member's UUID from their cached display name (`playerNames`, populated from `UsernameCache` — survives logout, unlike the live player list). `Party.findMemberByUsername(MinecraftServer, String)` layers a live-player-list fallback on top for a member not yet name-resolved. `DefaultPartyProvider.kickOrLeave`/`changeRole` and `PartyAction.transferOwnership` all resolve their target through this — so kick, re-rank, and ownership transfer work against offline members, not just online ones.
+
 ## Trust Level System
 
 **TrustLevel enum** (ascending): `NONE` < `ALLY` < `MEMBER` < `MODERATOR` < `OWNER`.

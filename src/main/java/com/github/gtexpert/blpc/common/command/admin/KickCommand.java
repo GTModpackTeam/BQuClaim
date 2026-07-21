@@ -90,15 +90,20 @@ public class KickCommand extends AdminSubCommand {
         return Collections.emptyList();
     }
 
+    /**
+     * Cached-name-first, online-fallback — same precedence as
+     * {@link com.github.gtexpert.blpc.common.party.DefaultPartyProvider#kickOrLeave} so a typed
+     * name resolves to the same member here as it would from the party GUI's kick button.
+     */
     @Nullable
     private static UUID resolveMemberUUID(MinecraftServer server, Party party, String name) {
-        EntityPlayerMP online = server.getPlayerList().getPlayerByUsername(name);
-        if (online != null && party.isMember(online.getUniqueID())) {
-            return online.getUniqueID();
-        }
         for (UUID uuid : party.getMembers().keySet()) {
             String resolved = BLPCCommandHelper.resolveName(server, party, uuid);
             if (resolved.equalsIgnoreCase(name)) return uuid;
+        }
+        EntityPlayerMP online = server.getPlayerList().getPlayerByUsername(name);
+        if (online != null && party.isMember(online.getUniqueID())) {
+            return online.getUniqueID();
         }
         return null;
     }

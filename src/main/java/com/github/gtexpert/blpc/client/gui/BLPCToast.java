@@ -1,9 +1,13 @@
 package com.github.gtexpert.blpc.client.gui;
 
+import java.util.UUID;
+
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.toasts.GuiToast;
 import net.minecraft.client.gui.toasts.IToast;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -19,7 +23,7 @@ import com.github.gtexpert.blpc.common.ModConfig;
  * <pre>
  * {@code
  * BLPCToast.builder()
- *     .fromTransit(RelationType.ENEMY, true, "PlayerName")
+ *     .fromTransit(RelationType.ENEMY, true, "PlayerName", playerUUID, "", false)
  *     .build();
  * }
  * </pre>
@@ -27,13 +31,18 @@ import com.github.gtexpert.blpc.common.ModConfig;
 @SideOnly(Side.CLIENT)
 public class BLPCToast implements IToast {
 
+    private static final int FACE_SIZE = 16;
+    private static final int FACE_MARGIN = 6;
+
     private final String title;
     private final int color;
+    private final UUID headUUID;
     private long firstDrawTime = -1L;
 
-    private BLPCToast(String title, int color) {
+    private BLPCToast(String title, int color, UUID headUUID) {
         this.title = title;
         this.color = color;
+        this.headUUID = headUUID;
     }
 
     @Override
@@ -47,11 +56,31 @@ public class BLPCToast implements IToast {
         GlStateManager.color(1.0f, 1.0f, 1.0f);
         toastGui.drawTexturedModalRect(0, 0, 0, 0, 160, 32);
 
+        int textX = 7;
+        if (headUUID != null) {
+            drawHead(toastGui, headUUID);
+            textX = FACE_MARGIN + FACE_SIZE + 4;
+        }
         toastGui.getMinecraft().fontRenderer.drawString(
-                title, 7, 12, color);
+                title, textX, 12, color);
 
         long elapsed = delta - firstDrawTime;
         return elapsed >= ModConfig.Defaults.transitToastDuration ? Visibility.HIDE : Visibility.SHOW;
+    }
+
+    /**
+     * Same approach vanilla uses for tab-list player heads
+     * ({@code GuiPlayerTabOverlay.drawPlayerListEntry}): {@link Gui#drawScaledCustomSizeModalRect}
+     * against the 64x64 skin texture, base face layer then the hat overlay on top.
+     */
+    private static void drawHead(GuiToast toastGui, UUID playerUUID) {
+        ResourceLocation skin = PlayerFaceDrawable.resolveSkin(playerUUID);
+        toastGui.getMinecraft().getTextureManager().bindTexture(skin);
+        GlStateManager.color(1.0f, 1.0f, 1.0f);
+        GlStateManager.enableBlend();
+        Gui.drawScaledCustomSizeModalRect(FACE_MARGIN, FACE_MARGIN, 8f, 8f, 8, 8, FACE_SIZE, FACE_SIZE, 64f, 64f);
+        Gui.drawScaledCustomSizeModalRect(FACE_MARGIN, FACE_MARGIN, 40f, 8f, 8, 8, FACE_SIZE, FACE_SIZE, 64f, 64f);
+        GlStateManager.disableBlend();
     }
 
     public static Builder builder() {
@@ -63,6 +92,7 @@ public class BLPCToast implements IToast {
         private String titleKey = "";
         private Object[] titleArgs = {};
         private int color = GuiColors.WHITE;
+        private UUID headUUID;
 
         /** Sets the title lang key and arguments directly. */
         public Builder title(String langKey, Object... args) {
@@ -77,31 +107,59 @@ public class BLPCToast implements IToast {
             return this;
         }
 
+        /** Shows the given player's head to the left of the title text. */
+        public Builder head(UUID playerUUID) {
+            this.headUUID = playerUUID;
+            return this;
+        }
+
         /**
-         * Auto-configures title and color based on relation type and direction.
+         * Auto-configures title and color based on relation type and direction. When {@code self}
+         * is true (this toast is for the transiting player themself, not a third-party party
+         * member watching them come and go), second-person wording is used instead — otherwise
+         * "YourName returned home" reads like a report about someone else.
          *
          * @param relation   relationship between the transiting player and the chunk owner
          * @param entered    true if the player entered the chunk, false if they left
-         * @param playerName display name of the transiting player
+         * @param playerName display name of the transiting player (member/ally/enemy toasts)
+         * @param playerUUID UUID of the transiting player, for the head icon (member/ally/enemy
+         *                   toasts only); may be {@code null}
+         * @param ownerName  owner/party display name of the claim (NONE toasts only)
+         * @param self       true if the recipient is the transiting player themself
          */
-        public Builder fromTransit(RelationType relation, boolean entered, String playerName) {
+        public Builder fromTransit(RelationType relation, boolean entered, String playerName, UUID playerUUID,
+                                   String ownerName, boolean self) {
             String direction = entered ? "enter" : "leave";
+            String selfSuffix = self ? ".self" : "";
             switch (relation) {
                 case MEMBER -> {
-                    this.titleKey = "blpc.transit.member." + direction;
+                    this.titleKey = "blpc.transit.member." + direction + selfSuffix;
                     this.color = GuiColors.GREEN;
+                    this.titleArgs = self ? new Object[] {} : new Object[] { playerName };
+                    this.headUUID = self ? null : playerUUID;
                 }
                 case ALLY -> {
-                    this.titleKey = "blpc.transit.ally." + direction;
+                    this.titleKey = "blpc.transit.ally." + direction + selfSuffix;
                     this.color = GuiColors.GOLD;
+                    this.titleArgs = self ? new Object[] { ownerName } : new Object[] { playerName };
+                    this.headUUID = self ? null : playerUUID;
                 }
                 case ENEMY -> {
-                    this.titleKey = "blpc.transit.enemy." + direction;
+                    this.titleKey = "blpc.transit.enemy." + direction + selfSuffix;
                     this.color = GuiColors.RED;
+                    this.titleArgs = self ? new Object[] { ownerName } : new Object[] { playerName };
+                    this.headUUID = self ? null : playerUUID;
                 }
-                case NONE -> this.titleKey = "";
+                case NONE -> {
+                    if (ownerName == null || ownerName.isEmpty()) {
+                        this.titleKey = "";
+                    } else {
+                        this.titleKey = entered ? "blpc.transit.none.enter" : "blpc.transit.none.leave";
+                        this.titleArgs = new Object[] { ownerName };
+                    }
+                    this.color = GuiColors.GRAY;
+                }
             }
-            this.titleArgs = new Object[] { playerName };
             return this;
         }
 
@@ -210,7 +268,7 @@ public class BLPCToast implements IToast {
 
         public BLPCToast build() {
             String resolved = titleKey.isEmpty() ? "" : I18n.format(titleKey, titleArgs);
-            return new BLPCToast(resolved, color);
+            return new BLPCToast(resolved, color, headUUID);
         }
     }
 }

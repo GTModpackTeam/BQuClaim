@@ -203,14 +203,7 @@ public class WaypointAction implements IMessage {
          */
         private void broadcast(IPartyProvider activeProvider, UUID actorId, WaypointSync sync) {
             MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-            if (server == null) return;
-            for (UUID memberId : activeProvider.getPartyMembers(actorId)) {
-                if (memberId.equals(actorId)) continue;
-                EntityPlayerMP member = server.getPlayerList().getPlayerByUUID(memberId);
-                if (member != null) {
-                    ModNetwork.INSTANCE.sendTo(sync, member);
-                }
-            }
+            ModNetwork.broadcastToOtherMembers(activeProvider, actorId, server, sync);
         }
     }
 }

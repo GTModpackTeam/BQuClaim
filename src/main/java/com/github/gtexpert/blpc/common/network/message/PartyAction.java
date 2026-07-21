@@ -291,15 +291,10 @@ public class PartyAction implements IMessage {
             }
             MinecraftForge.EVENT_BUS.post(new PartyEvent.Post.Disbanded(partyId, partyName, members));
             MinecraftServer srv = c.player.getServer();
-            c.pendingNotifications.add(() -> {
-                for (UUID memberId : members) {
-                    if (memberId.equals(playerId)) continue;
-                    EntityPlayerMP member = srv != null ? srv.getPlayerList().getPlayerByUUID(memberId) : null;
-                    if (member != null) {
-                        notifyPlayer(member, ClientNotify.EVENT_DISBANDED, "", "");
-                    }
-                }
-            });
+            // The party record is already gone — broadcast against the pre-disband member
+            // snapshot, not a fresh provider lookup.
+            c.pendingNotifications.add(() -> ModNetwork.broadcastToMembers(members, playerId, srv,
+                    ClientNotify.partyEvent(ClientNotify.EVENT_DISBANDED, "", "")));
             return true;
         }
 
@@ -364,8 +359,9 @@ public class PartyAction implements IMessage {
                         new PartyEvent.Post.MemberJoined(joinedParty.getPartyId(), joinedParty.getName(), joinerId));
                 String joinerName = c.player.getName();
                 MinecraftServer srv = c.player.getServer();
-                c.pendingNotifications.add(() -> notifyPartyMembers(joinedParty, ClientNotify.EVENT_MEMBER_JOINED,
-                        joinerName, "", srv, joinerId));
+                IPartyProvider provider = c.activeProvider;
+                c.pendingNotifications.add(() -> notifyPartyMembers(provider, joinerId,
+                        ClientNotify.EVENT_MEMBER_JOINED, joinerName, "", srv, joinerId));
             }
             return true;
         }
@@ -472,7 +468,8 @@ public class PartyAction implements IMessage {
             if (party != null) {
                 String event = linked ? ClientNotify.EVENT_BQU_LINKED : ClientNotify.EVENT_BQU_UNLINKED;
                 MinecraftServer srv = c.player.getServer();
-                c.pendingNotifications.add(() -> notifyPartyMembers(party, event, "", "", srv));
+                IPartyProvider provider = c.provider;
+                c.pendingNotifications.add(() -> notifyPartyMembers(provider, playerId, event, "", "", srv, null));
             }
             return true;
         }
@@ -525,16 +522,20 @@ public class PartyAction implements IMessage {
             if (role != PartyRole.OWNER && !c.player.canUseCommand(2, "")) return false;
             MinecraftServer srv = c.player.getServer();
             if (srv == null) return false;
-            EntityPlayerMP target = srv.getPlayerList().getPlayerByUsername(c.stringArg);
-            if (target == null) return false;
-            if (!party.isMember(target.getUniqueID())) return false;
 
-            party.setRole(target.getUniqueID(), PartyRole.OWNER);
-            String newOwnerName = target.getName();
+            UUID targetId = party.findMemberByUsername(srv, c.stringArg);
+            if (targetId == null) return false;
+
+            party.setRole(targetId, PartyRole.OWNER);
+            String newOwnerName = c.stringArg;
             String senderName = c.player.getName();
             EntityPlayerMP sender = c.player;
+            UUID finalTargetId = targetId;
             c.pendingNotifications.add(() -> {
-                notifyPlayer(target, ClientNotify.EVENT_OWNER_TRANSFERRED, newOwnerName, "");
+                EntityPlayerMP target = srv.getPlayerList().getPlayerByUUID(finalTargetId);
+                if (target != null) {
+                    notifyPlayer(target, ClientNotify.EVENT_OWNER_TRANSFERRED, newOwnerName, "");
+                }
                 notifyPlayer(sender, ClientNotify.EVENT_ROLE_CHANGED, senderName, "ADMIN");
             });
             return true;
@@ -629,8 +630,9 @@ public class PartyAction implements IMessage {
                     .post(new PartyEvent.Post.MemberJoined(party.getPartyId(), party.getName(), joinerId));
             String joinerName = c.player.getName();
             MinecraftServer srv = c.player.getServer();
-            c.pendingNotifications.add(() -> notifyPartyMembers(party, ClientNotify.EVENT_MEMBER_JOINED,
-                    joinerName, "", srv, joinerId));
+            IPartyProvider provider = c.selfProvider;
+            c.pendingNotifications.add(() -> notifyPartyMembers(provider, joinerId,
+                    ClientNotify.EVENT_MEMBER_JOINED, joinerName, "", srv, joinerId));
             return true;
         }
 
@@ -662,25 +664,17 @@ public class PartyAction implements IMessage {
             return party != null && action.test(party);
         }
 
-        private static void notifyPartyMembers(Party party, String eventType, String playerName, String extra,
-                                               MinecraftServer server) {
-            notifyPartyMembers(party, eventType, playerName, extra, server, null);
-        }
-
         /**
-         * Like {@link #notifyPartyMembers(Party, String, String, String, MinecraftServer)}
-         * but skips a single member UUID. Used to exclude the actor from their own
-         * "you joined" / similar toasts.
+         * Notifies every online member of {@code anyMemberId}'s party, resolved through
+         * {@code provider} (not a possibly-stale BLPC {@code Party.getMembers()}) so a
+         * BQu-linked party's real current membership is used. Pass {@code excludeId} to skip
+         * the actor's own "you joined" / similar toast.
          */
-        private static void notifyPartyMembers(Party party, String eventType, String playerName, String extra,
-                                               MinecraftServer server, UUID excludeId) {
-            if (server == null) return;
+        private static void notifyPartyMembers(IPartyProvider provider, UUID anyMemberId, String eventType,
+                                               String playerName, String extra, MinecraftServer server,
+                                               UUID excludeId) {
             ClientNotify packet = ClientNotify.partyEvent(eventType, playerName, extra);
-            for (UUID memberId : party.getMembers().keySet()) {
-                if (excludeId != null && memberId.equals(excludeId)) continue;
-                EntityPlayerMP member = server.getPlayerList().getPlayerByUUID(memberId);
-                if (member != null) ModNetwork.INSTANCE.sendTo(packet, member);
-            }
+            ModNetwork.broadcastToMembers(provider, anyMemberId, excludeId, server, packet);
         }
 
         private static void notifyPlayer(EntityPlayerMP player, String eventType, String playerName, String extra) {
