@@ -1,0 +1,107 @@
+knowledge_base:
+  mcp:
+    # "auto" disables MCP for public repositories, so set it explicitly.
+    usage: enabled
+
+reviews:
+  path_instructions:
+    - path: "src/main/java/**/*.java"
+      instructions: |
+        Minecraft 1.12.2 Forge mod (BetterLinkPartyClaim / BLPC).
+        The rules below are build-breaking or merge-blocking. Always flag violations.
+
+        Java 25 syntax:
+        - Use arrow-form switch (`case X -> { ... }`). Colon + break form is forbidden.
+        - Use pattern matching instanceof (`if (obj instanceof MyClass mc)`). No separate cast.
+        - Use `var` for local variables where the type is obvious (not for primitives,
+          ambiguous types, or fields).
+        - Combine related cases with multi-label (`case A, B, C -> { ... }`).
+        - Always use import statements. Inline FQCN references are forbidden.
+
+        Network / wire protocol:
+        - Wire protocol IDs are stable. Never renumber or insert; append only.
+        - New party operations: append `ACTION_*` to `PartyAction` + factory method +
+          `case` in `PartyAction.Handler.dispatch()` + private method. Do not add a new
+          top-level wire ID for this.
+        - New client notifications: append `KIND_*`/`EVENT_*` to `ClientNotify` +
+          `toBytes`/`fromBytes` arm + `BLPCToast` case.
+        - New top-level packet (rare): IMessage in `common/network/`, handler in
+          `client/network/<Name>ClientHandler.java` with `@SideOnly(Side.CLIENT)`. Must be
+          appended to BOTH `ModNetwork.CLIENT_BOUND_MESSAGES` AND
+          `ClientPacketHandlers.installAll()` in identical order.
+        - NBT-payload S->C messages MUST extend `NbtMessage`.
+
+        Side boundary:
+        - Server-side handlers live in `common/network/`; client-side (S->C) handlers in
+          `client/network/` with `@SideOnly(Side.CLIENT)`.
+        - IMessage classes in `common/network/` must not reference any `@SideOnly` types
+          in their bytecode.
+
+        Party mutations:
+        - Always use the player UUID to identify the acting party — no partyId parameter,
+          except `acceptInvite`.
+        - Dispatcher actions must fail-soft: on `false`, `dispatch()` rolls back via
+          `syncToPlayer(actor)`.
+
+        Module discovery:
+        - Modules are annotated `@TModule` and discovered via Forge's `ASMDataTable` at
+          FML Construction (`modules/ModuleManager.java`) — not bytecode rewriting.
+
+        GUI:
+        - Open screens through `client/gui/Screens` (`openMap()`, `openPartyDirect()`,
+          `partyMain(...)`). Never call `ClientGUI.open(new …)` ad-hoc.
+        - Use `BLPCColors` (semantic) or `GuiColors` (vanilla context) for colors.
+          Inline `0x…` color literals are forbidden (only exception: dynamic per-party
+          `getColor()` ARGB composition).
+        - Use `PartyWidgets` utility methods and size constants for button heights, face
+          sizes and row indents — never hard-code them.
+        - Use the `PartyMenuBuilder` fluent API (`.navHandler`/`.visible` chain) for
+          `MainPanel` menu entries, not `if` blocks.
+        - Live-update panels must read a fresh `Party` via `livePartyRef` /
+          `getParty(partyId)` — never hold a captured `Party` across syncs.
+
+        Integration — BetterQuesting:
+        - All BQu API calls MUST go through the `integration/bqu/` package via
+          `BQuPartyProvider`. Never call the BQu API directly from outside it.
+
+        Integration — JourneyMap (v2 API, JourneyMap v6+):
+        - Use `journeymap.api.v2.*` packages ONLY — never `journeymap.client.api.*` (v1).
+        - Plugin annotation must be `@JourneyMapPlugin`, never `@ClientPlugin`.
+        - Event subscription via `ClientEventRegistry` / `FullscreenEventRegistry` /
+          `CommonEventRegistry` — never `api.subscribe()`.
+        - Per-client settings must be registered as `Option` instances via
+          `OptionsRegistry` — never ad-hoc static booleans.
+        - Shared waypoint groups: create via `WaypointFactory.createWaypointGroup(modId,
+          name)`, `setLocked(true)`, `setPersistent(false)`. Look up existing groups via
+          `api.getWaypointGroupByName(modId, name)` — never by guid (it's a random UUID).
+        - Disabling waypoint sharing: use `group.setEnabled(false)` — never delete the
+          group (deletion only happens on party leave/disband).
+        - JourneyMap API dependency scope must stay `compileOnlyApi` (never `api` or
+          `compileOnly` — causes runtime class conflicts with duplicate
+          `ClientEventRegistry`).
+        - There is NO `WaypointStoreMixin` (removed in v0.15.0). Flag any new Mixin into
+          JourneyMap internals as a regression — waypoint change detection uses the v2
+          `CommonEventRegistry.WAYPOINT_EVENT` API instead.
+
+        Optional mod integrations (general):
+        - Gate with `Loader.isModLoaded()` or `@TModule(modDependencies=...)`.
+        - Integration modules must extend `IntegrationSubmodule`.
+        - Addons Hub entries: panel-backed via
+          `IntegrationPanelRegistry.register(labelKey, tooltipKey, available, factory)`,
+          action-only via `registerAction(...)`. Do not bypass `AddonsPanel`'s
+          `entry.hasPanel()` branching.
+
+        MixinBooter:
+        - Pinned to v10.7. v11.5 causes mod-loading failures in dev environments — flag
+          any dependency bump there.
+        - `BLPCMixinLoader` loads configs for `betterquesting` and `modularui` only —
+          flag any new entry (e.g. a JourneyMap mixin config) as suspicious given the
+          JourneyMap rule above.
+
+        Logging:
+        - Use `ModLog.*` categories (`ROOT`, `IO`, `PARTY`, `MODULE`, `SYNC`, `BQU`,
+          `MIGRATION`, `UI`, `PROTECTION`) rather than ad-hoc loggers.
+
+        Build:
+        - `build.gradle` is auto-generated. Never edit it
+          (configure via `buildscript.properties` / `dependencies.gradle`).
