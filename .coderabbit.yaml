@@ -1,0 +1,47 @@
+knowledge_base:
+  mcp:
+    # "auto" disables MCP for public repositories, so set it explicitly.
+    usage: enabled
+
+reviews:
+  path_instructions:
+    - path: "src/main/java/**/*.java"
+      instructions: |
+        Minecraft 1.12.2 Forge mod (BetterLinkPartyClaim / BLPC).
+        The rules below are build-breaking or merge-blocking. Always flag violations.
+
+        Java 25 syntax:
+        - Use arrow-form switch (`case X -> { ... }`). Colon + break form is forbidden.
+        - Use pattern matching instanceof (`if (obj instanceof MyClass mc)`). No separate cast.
+        - Use `var` for local variables where the type is obvious (not for primitives,
+          ambiguous types, or fields).
+        - Always use import statements. Inline FQCN references are forbidden.
+
+        Network / wire protocol:
+        - Wire protocol IDs are stable. Never renumber or insert; append only.
+        - NBT-payload S->C messages MUST extend `NbtMessage`.
+        - `ModNetwork.CLIENT_BOUND_MESSAGES` and `ClientPacketHandlers.installAll()`
+          must be registered in identical order.
+
+        Side boundary:
+        - S->C handlers belong in `client/network/` and must be annotated `@SideOnly(Side.CLIENT)`.
+        - IMessage classes in `common/network/` must not reference client-only types in their bytecode.
+
+        GUI:
+        - Use `BLPCColors` (semantic) or `GuiColors` (vanilla context) for colors.
+          Inline `0x…` color literals are forbidden (only exception: dynamic per-party
+          `getColor()` ARGB composition).
+        - Open screens through `client/gui/Screens` (`openMap()` etc.).
+          Never call `ClientGUI.open(new …)` ad-hoc.
+        - Use `PartyWidgets` constants for button heights, icon sizes and row indents.
+          Do not hard-code them.
+
+        Integration:
+        - BetterQuesting API calls go through `integration/bqu/` via `BQuPartyProvider` only.
+        - JourneyMap: use the v2 API (`journeymap.api.v2.*`) only.
+          v1 (`journeymap.client.api.*`) is forbidden.
+        - Plugin annotation must be `@JourneyMapPlugin`, never `@ClientPlugin`.
+
+        Build:
+        - `build.gradle` is auto-generated. Never edit it
+          (configure via `buildscript.properties` / `dependencies.gradle`).
